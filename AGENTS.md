@@ -1,7 +1,9 @@
-# CoSec Workspace design exploration
+# CoSec Workspace
 
-For product UI, workflow, component or data-state changes, read [DESIGN_SPEC.md](DESIGN_SPEC.md). Its product boundaries, independent states and applicable screen contracts govern implementation. The owner's visual-direction decision is still pending; A is provisional.
+For UI, component, layout, typography or content-presentation changes, read [DESIGN.md](DESIGN.md) first. Option A Workbench is the owner's selected design. Its tokens and component rules are the visual authority.
 
-`prototype/index.html` is a disposable, dependency-free exploration with fictional in-memory data. Preserve the three layout alternatives while the owner evaluates them. Production implementation must use the specification's full contracts rather than copying the prototype's reduced state model.
+For workflow, permission, record-state or completion changes, also read the applicable sections of [DESIGN_SPEC.md](DESIGN_SPEC.md). Keep legal and regulatory rules tied to approved sources and versions.
 
-Keep legal and regulatory rules tied to approved sources and versions. A visual prototype cannot establish legal applicability or complete a statutory obligation.
+`prototype/index.html` is a disposable, dependency-free reference with fictional in-memory data. Normal use presents A. Retain B and C as archived explorations behind `?explore=1&variant=B|C`; they do not define new production themes. Follow the specification's full contracts rather than copying the prototype's reduced state model.
+
+A visual prototype cannot establish legal applicability or complete a statutory obligation. Preserve unrelated local changes and validate the user path affected by each change.

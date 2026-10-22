@@ -9,7 +9,8 @@ __pycache__/
 !.env.example
 
 # Impeccable runtime state
-.impeccable/
+.impeccable/*
+!.impeccable/design.json
 
 # Retained download bundle; editable sources are tracked instead
 /CoSec_Design_Exploration.zip

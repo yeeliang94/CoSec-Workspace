@@ -1,10 +1,10 @@
 # CoSec Workspace product design specification
 
-Status: proposed design baseline for direction selection. Version 0.2, 22 October 2026.
+Status: Option A Workbench selected by the product owner. Version 0.3, 22 October 2026.
 
 CoSec Workspace supports an internal Malaysian company secretarial services team managing an initial portfolio of 10 to 20 companies. The interface should help staff find the next action, inspect the evidence and understand what has become legally effective, what is signed and what remains to be filed. Use a restrained professional services visual language: aligned information, neutral surfaces, readable tables and deliberate use of colour.
 
-Recommended direction: **A Workbench** for the application shell and daily work. Use **B Review desk** as a candidate layout for review queues. Use **C Portfolio** as a candidate hierarchy for a manager overview. The owner has not selected a direction. These are alternatives to evaluate, not three visual themes to ship together.
+**Selected direction: A Workbench.** [DESIGN.md](DESIGN.md) is the visual authority for all future screens. B and C are archived layout explorations. Their interaction ideas can be adapted within A when needed, without introducing another theme or shell.
 
 ## How agents should use this specification
 
@@ -224,7 +224,7 @@ The manager view prioritises unowned work, overdue obligations, stalled requests
 
 Use separate sections for users/capabilities, approved document templates, obligation rules, activity checklists, secretary credentials and retention policies. Catalogues have version, status, approver, effective date and source. Rule/template changes preview affected work and are reviewed before activation. Archived records remain recoverable under policy; authorised disposal and legal holds are distinct operations.
 
-## Visual directions for evaluation
+## Selected visual direction and archived explorations
 
 | Direction | Structure | Strength | Tradeoff | Best use |
 | --- | --- | --- | --- | --- |
@@ -232,59 +232,11 @@ Use separate sections for users/capabilities, approved document templates, oblig
 | B Review desk | Light navigation, company-led queue and adjacent case detail | Keeps evidence and the next item in context | Narrow screens need stacked list and detail | Review, filing preparation and repeated case processing |
 | C Portfolio | Horizontal navigation, company files and an exceptions column | Open company work and urgent exceptions are easy to inspect | Lower record density than the daily work table | Manager overview and partner reporting |
 
-Use A as the provisional implementation reference until the owner selects otherwise. Do not mix the three typography and colour systems indiscriminately. A combined approach should reuse A’s tokens while borrowing a useful page structure from B or C.
+A is selected. B and C remain available only in explicit exploration mode. New screens, including review and manager views, use A’s visual rules from DESIGN.md.
 
-## Design tokens
+## Visual system authority
 
-The following proposed tokens define the production direction A. Prototype B and C deliberately vary these values for comparison.
-
-```json
-{
-  "colour": {
-    "text": "#252b32",
-    "muted": "#606972",
-    "canvas": "#ffffff",
-    "surface": "#ffffff",
-    "border": "#e0e3e6",
-    "accent": "#284b5c",
-    "accentTint": "#f0f4f6",
-    "navigation": "#1c2d39",
-    "focus": "#346f99",
-    "dangerText": "#a83230",
-    "warningText": "#76581c",
-    "successText": "#356047"
-  },
-  "space": [4, 8, 12, 16, 20, 24, 32, 40, 48],
-  "radius": {"control": 4, "panel": 4},
-  "type": {"metadata": 12, "body": 14, "section": 17, "page": 24},
-  "layout": {"sidebar": 208, "header": 58, "pageInset": 32, "maxContent": 1540},
-  "control": {"height": 40, "tableRow": 64, "compactRow": 44},
-  "motion": {"feedbackMs": 120, "panelMs": 180}
-}
-```
-
-Use a single system sans-serif stack across all three options. Use weight 400 for body, 500 for values and 600 for headings. Use tabular numerals for registration numbers, counts, dates and amounts. Keep display faces out of the operational interface.
-
-Use 14/20px body text, 12/18px table and secondary text, 17/24px section headings and 24/31px page headings. Keep controls and critical data at least 12px. Use sentence case throughout. Headings stand on their own without uppercase kicker labels. Use larger text where reading comfort requires it.
-
-Use hairline borders and minimal shadows. Reserve shadows for overlays. Panels group related material rather than framing each value. Keep one primary action per working region; use neutral buttons for secondary actions. Use plain text for routine states, with red for blockers and overdue dates and green for evidenced readiness. Keep the full state name available. Coloured capsules and dots are unnecessary for every field. Icons use one 18px outline family and consistent stroke weight; pair with labels unless the action is universally clear and accessibly named.
-
-Dark mode, alternative branding and custom themes are deferred until the main direction is selected. Validate every selected foreground/background pair before production; these values are a starting palette, not an accessibility certification.
-
-### Refinement decisions
-
-The October refinement applies the [Impeccable](https://github.com/pbakaus/impeccable) polish and distill guidance to this operational interface. Retain these decisions during later implementation:
-
-- Company names, next actions and deadlines lead; decorative counters and statistics do not.
-- Use a company file link and a separate job link. Avoid a redundant arrow at the end of every row.
-- Display responsible staff by name. Initials and coloured avatar discs are not sufficient identification.
-- Keep routine statuses as text. Reserve stronger emphasis for blockers, overdue dates and filing readiness.
-- Use table rules, spacing and alignment to group information. Avoid nested cards, cosmetic borders and coloured callout rails.
-- Use a single sans-serif type system across the alternatives. Layout, rather than an editorial font, distinguishes the portfolio view.
-- Keep the four workflow states independent in the case view. Visual simplification never merges their meanings.
-- Remove duplicate upcoming-work and recent-activity panels from the work list. Calendar and case history remain available through their existing destinations.
-- On phones, selecting a queue item moves to its detail and offers a clear return to the jobs. Closing a case drawer returns focus to its invoking job.
-- Prototype tools belong in the small comparison bar. Layout changes do not need a toast notification.
+[DESIGN.md](DESIGN.md) owns the approved palette, typography, spacing, shell, component appearance and visual guardrails. Use its normative token frontmatter and the current Option A implementation. This product specification owns business behaviour and screen requirements; it does not maintain a second copy of visual token values.
 
 ## Component contracts
 
@@ -333,7 +285,7 @@ Use red for errors, blockers or critical overdue work, amber for unresolved depe
 
 ## Responsive and accessibility requirements
 
-Target WCAG 2.2 AA for production. Use a 3px focus outline with sufficient contrast as a design convention; the stronger WCAG Focus Appearance criterion is AAA, while Focus Not Obscured Minimum is AA. Standard text needs at least 4.5:1 contrast, with applicable large-text exceptions. Pointer targets must satisfy the 24 by 24 CSS pixel minimum or its specified exceptions; use 40px controls and preferably 44px touch targets where practical.
+Target WCAG 2.2 AA for production. Use the shared 2px focus outline with 3px offset defined in DESIGN.md; the stronger WCAG Focus Appearance criterion is AAA, while Focus Not Obscured Minimum is AA. Standard text needs at least 4.5:1 contrast, with applicable large-text exceptions. Pointer targets must satisfy the 24 by 24 CSS pixel minimum or its specified exceptions; use 40px controls and preferably 44px touch targets where practical.
 
 - At 1280px and above, use the full sidebar and table; allow split review panes where adequate reading width remains.
 - At 900 to 1279px, reduce shell width and secondary columns. Preserve required data through detail views, not unexplained clipping.
@@ -463,7 +415,7 @@ For each slice, deliver the applicable screen, transitions, failure states, audi
 
 ## Prototype scope and evaluation
 
-The HTML provides three switchable layouts using the same six fictional companies and six seeded jobs. It includes My work, company file examples, review queue, calendar, document list, billing handoff and design guide. All changes live in memory and reset on refresh. `?variant=A`, `?variant=B` and `?variant=C` preserve the selected layout in the URL. The floating bottom switcher is prototype tooling only.
+The HTML opens in the selected Option A workbench, using six fictional companies and six seeded jobs. It includes My work, company file examples, review queue, calendar, document list, billing handoff and design guide. All changes live in memory and reset on refresh. Archived comparisons require `?explore=1&variant=A`, `?explore=1&variant=B` or `?explore=1&variant=C`. Their floating comparison bar and arrow-key shortcuts are absent in normal use.
 
 Demonstrated interactions include search, filters, sorting in A, opening case detail, role preview, version-specific review, returning a pack, revising a document, recording a case note, recording an external submission and creating a job. Filing submission leaves the outcome outstanding; approval does not automatically make a pack filing-ready. New annual return creation includes a simple company-year duplicate example.
 
@@ -478,7 +430,7 @@ Ask an executive, reviewer and manager to perform these tasks without coaching:
 3. Switch to Reviewer, review the exact pack version and explain what approval changed.
 4. Switch to Lodger, open the ready financial statements job and record an external submission; confirm that outcome is still outstanding.
 5. Find the current company file, its officer history and its open work.
-6. Compare A, B and C for the same task; identify which layout needs the fewest context switches.
+6. Verify that the same A shell and working vocabulary are retained across company, review, document and filing views.
 
 Record first action, completion, errors, missed warnings and confidence. Candidate targets for the next validated build: at least four of five representative users find the overdue item within 15 seconds and correctly distinguish submission from confirmed outcome. These are proposed usability targets, not measured results.
 
@@ -486,7 +438,7 @@ Record first action, completion, errors, missed warnings and confidence. Candida
 
 | Decision | Proposed default | Decision owner |
 | --- | --- | --- |
-| Main visual direction | A, with B’s structure for reviews | Product owner and staff |
+| Main visual direction | Decided 22 Oct 2026: A Workbench | Product owner |
 | Manager reporting surface | Portfolio mode within My work | Manager |
 | Default list density | Comfortable; optional compact later | Product owner |
 | Role combinations and self approval | Explicit policy and visible attribution | Practising secretary and manager |
@@ -499,7 +451,7 @@ Record first action, completion, errors, missed warnings and confidence. Candida
 | Retention, backups and legal holds | Approved category-specific policy | Firm and technical owners |
 | Integrations | Manual external evidence capture initially | Product owner |
 
-The next useful decision is which structure staff prefer. Colour refinement can follow after the workflow is understandable.
+The visual direction is settled. Next validate the complete annual return and linked officer-change workflow against a real, authorised example before production implementation.
 
 ## Research and application
 
@@ -512,4 +464,4 @@ These sources informed the interaction proposals. They are design references, no
 - [W3C WCAG 2.2 Contrast Minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) provides text contrast thresholds. Applied to muted text, badges and neutral surfaces.
 - [GOV UK Design System Error Message](https://design-system.service.gov.uk/components/error-message/) covers actionable inline errors and preserving answers. Applied to forms and recoverable validation.
 
-The recommendation to use A as the main shell and B for review is a design judgment based on this product’s repeated casework and small internal team. It is not a finding established by these sources.
+The product owner selected A Workbench. The references inform interaction details; they do not independently validate the product’s legal rules or prescribe the chosen visual identity.
