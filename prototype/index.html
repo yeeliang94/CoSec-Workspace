@@ -1,0 +1,321 @@
+<!doctype html>
+<!-- Throwaway UI prototype. Three directions for CoSec internal casework, selected by ?variant=A|B|C. All data is fictional and lives in memory. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>CoSec Workspace · Design exploration</title>
+<style>
+:root {
+  --ink:#252b32; --muted:#606972; --line:#e0e3e6; --canvas:#fff; --paper:#fff;
+  --accent:#284b5c; --tint:#f0f4f6; --nav:#1c2d39; --red:#a83230;
+  --amber:#76581c; --green:#356047; --radius:4px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.45; color:var(--ink); background:var(--canvas); font-synthesis:none;
+}
+* {box-sizing:border-box}
+body {margin:0;background:var(--canvas)}
+::selection {background:#d4e4eb;color:#172d38}
+button,input,select,textarea {font:inherit;touch-action:manipulation}
+button {cursor:pointer;background:var(--paper);border:1px solid #cbd1d6;border-radius:4px;color:inherit;padding:8px 12px;min-height:36px}
+button:hover {background:var(--tint);border-color:#98a7b1}
+button:active {background:#e1e9ee}
+button:disabled {opacity:.5;cursor:default}
+button,a {-webkit-tap-highlight-color:transparent}
+a {color:var(--accent);text-underline-offset:3px}
+a:hover {text-decoration-thickness:2px}
+:focus-visible {outline:2px solid #346f99;outline-offset:3px}
+input,select,textarea {border:1px solid #b9c2c9;border-radius:4px;background:#fff;padding:8px 10px;color:var(--ink);min-height:38px;caret-color:var(--accent)}
+input::placeholder,textarea::placeholder {color:#666f77;opacity:1}
+input[type=checkbox] {min-height:18px;width:18px;height:18px;accent-color:var(--accent)}
+textarea {width:100%;min-height:100px;resize:vertical}
+h1,h2,h3,p {margin:0}
+h1 {font-size:24px;letter-spacing:-.45px;font-weight:600;line-height:1.3}
+h2 {font-size:17px;letter-spacing:-.15px;font-weight:600;line-height:1.4}
+h3 {font-size:14px;font-weight:600;line-height:1.45}
+.muted {color:var(--muted)}
+.small {font-size:12px}
+.primary {background:var(--accent);color:#fff;border-color:transparent}
+.primary:hover {background:#1e3b4b;color:#fff;border-color:transparent}
+.quiet {border-color:transparent;background:transparent}
+.danger {color:var(--red)}
+.flex {display:flex;align-items:center;gap:12px}
+.between {display:flex;align-items:center;justify-content:space-between;gap:18px}
+.stack {display:grid;gap:18px}
+.icon {width:17px;height:17px;flex-shrink:0;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.shell {display:grid;grid-template-columns:208px minmax(0,1fr);min-height:100vh}
+.sidebar {position:fixed;inset:0 auto 0 0;width:208px;padding:25px 14px 22px;background:var(--nav);color:#e2e9ee;display:flex;flex-direction:column;z-index:10}
+.brand {padding:2px 14px 0;margin-bottom:42px}
+.brand-name {font-size:19px;font-weight:600;letter-spacing:.4px}
+.firm {font-size:12px;color:#b7c4ce;margin-top:5px}
+.nav {display:grid;gap:3px}
+.nav button {color:#c3ced7;display:flex;gap:11px;align-items:center;border:0;background:transparent;text-align:left;padding:11px 13px;border-radius:3px;width:100%;min-height:42px;font-size:13px}
+.nav button:hover {background:#283c4b;color:#fff}
+.nav button.active {color:#fff;background:#314656}
+.nav .count {margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums}
+.nav-separator {height:1px;background:#40515e;margin:18px 12px}
+.sidebar-bottom {margin-top:auto;padding-top:35px}
+.user {border-top:1px solid #40515e;padding:18px 13px 0;margin-top:14px;font-size:13px}
+.user .firm {font-size:12px;margin-top:3px}
+.main-shell {grid-column:2;min-width:0}
+.topbar {height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid var(--line);gap:16px;font-size:12px}
+.practice-name {font-weight:500;color:#59646d}
+.top-actions {display:flex;gap:20px;align-items:center}
+.today {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.topbar select {font-size:12px;min-height:32px;padding:5px 8px}
+.mobile-nav {display:none}
+main {max-width:1540px;margin:auto;padding:30px 32px 95px}
+.heading {margin-bottom:26px;min-height:38px}
+.heading>div:first-child {min-width:0}
+.heading>.flex {flex-shrink:0}
+.heading .primary {display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.heading p {margin-top:6px;color:var(--muted);font-size:12px}
+.panel {background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;min-width:0}
+.panel-head {padding:18px 20px;border-bottom:1px solid var(--line)}
+.work-region {border-top:1px solid var(--line)}
+.tabs {display:flex;gap:23px;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;scrollbar-width:thin}
+.tabs button {border:0;border-radius:0;background:transparent;padding:13px 0;font-size:12px;white-space:nowrap;color:var(--muted);position:relative;min-height:43px}
+.tabs button.active {color:var(--ink);font-weight:600}
+.tabs button.active:after {content:"";position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent)}
+.tab-count {font-size:11px;color:var(--muted);margin-left:6px;font-variant-numeric:tabular-nums}
+.toolbar {padding:17px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.search-group {display:flex;align-items:center;gap:10px}
+.toolbar input {font-size:12px;width:250px;min-height:35px}
+.toolbar select {font-size:12px;min-height:35px;padding:7px 10px}
+.table-wrap {overflow:auto;position:relative;scrollbar-color:#b9c2c9 #f3f5f6;scrollbar-width:thin}
+table {width:100%;border-collapse:collapse;text-align:left}
+th {font-size:12px;font-weight:500;color:#65707a;background:#f5f7f8;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 15px;white-space:nowrap}
+td {padding:16px 15px;border-bottom:1px solid #e7eaed;font-size:12px;vertical-align:top}
+tbody tr:last-child td {border-bottom:0}
+tbody tr:hover {background:#f8fafb}
+.mobile-work-list,.back-to-queue {display:none}
+.work-table {min-width:840px}
+.work-table .company-col {width:27%}
+.work-table .job-col {width:24%}
+.work-table .action-col {width:25%}
+.work-table .date-col {width:11%}
+.work-table .owner-col {width:13%}
+.table-title,.company-link {font-size:13px;font-weight:500;color:var(--ink);background:transparent;border:0;padding:0;min-height:28px;text-align:left;line-height:1.5}
+.table-title {max-width:100%;white-space:normal}
+.table-title:hover,.company-link:hover {background:transparent;border:0;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.company-name,.record-number {display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.record-number {font-variant-numeric:tabular-nums;font-size:11px}
+.owner-name {white-space:nowrap;font-size:12px}
+.next-cell {color:#4f5c65;line-height:1.6}
+.due {color:var(--red);font-weight:500;white-space:nowrap}
+.date-value {white-space:nowrap;font-variant-numeric:tabular-nums}
+.overdue-label {display:block;font-size:11px;font-weight:400;margin-top:4px;color:var(--red);white-space:nowrap}
+.pill {display:inline;font-size:12px;line-height:1.5;font-weight:400;color:var(--muted)}
+.pill.blocked {color:var(--red);font-weight:500}
+.pill.ready,.pill.complete {color:var(--green)}
+.job-state {margin-top:4px;display:block}
+.table-foot,.section-note {font-size:12px;color:var(--muted);margin-top:18px;line-height:1.65;max-width:70ch}
+.list-line {display:flex;gap:14px;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line)}
+.list-line:last-child {border:0}
+.list-line>div {min-width:0}
+.list-line p {font-size:13px;line-height:1.6}
+.list-line small {display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.list-line time {margin-left:auto;white-space:nowrap;font-size:12px;color:var(--muted)}
+.empty {padding:50px 22px;text-align:center;color:var(--muted);font-size:13px}
+.empty h3 {color:var(--ink);margin-bottom:8px}
+.switcher {position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;background:#fff;color:var(--ink);border:1px solid #bac3ca;border-radius:5px;display:flex;align-items:center;gap:2px;padding:4px;max-width:calc(100vw - 24px)}
+.switcher button {background:transparent;border:0;min-width:32px;padding:7px 9px;min-height:32px;font-size:12px}
+.switcher button:hover {background:#edf1f4}
+.switcher button.chosen {background:#e3eaf0;color:#203d4d;font-weight:600}
+.switcher .proto-label {font-size:11px;color:var(--muted);margin:0 9px;white-space:nowrap}
+.switcher .variant-name {min-width:105px;font-size:11px;text-align:center;margin:0 8px}
+.switcher .divider {height:18px;width:1px;background:var(--line);margin:0 4px}
+.switcher a {color:var(--muted);font-size:11px;padding:7px 8px;white-space:nowrap;text-decoration:none}
+.overlay {position:fixed;inset:0;background:#142a3a4d;z-index:80;display:flex;justify-content:flex-end}
+.drawer {width:650px;max-width:100%;background:white;height:100%;overflow:hidden;box-shadow:-12px 0 38px rgba(0,0,0,.12);display:flex;flex-direction:column}
+.drawer-header {padding:22px 26px;flex-shrink:0}
+.drawer-header h2 {font-size:21px;letter-spacing:-.3px;margin:8px 0 5px}
+.case-ref {color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.drawer>.tabs {flex-shrink:0;padding:0 26px;border-top:1px solid var(--line)}
+.drawer-body {padding:24px 26px;flex:1;min-height:0;overflow:auto;scrollbar-color:#b9c2c9 #f3f5f6;scrollbar-width:thin}
+.drawer-footer {padding:16px 26px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;background:white;flex-shrink:0}
+.state-grid {display:grid;grid-template-columns:1fr 1fr;gap:18px 30px;padding:22px 0;margin:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.state-grid dt {font-size:12px;color:var(--muted);margin-bottom:5px}
+.state-grid dd {margin:0;font-size:13px}
+.next-action {margin:0 0 20px}
+.next-action h3 {font-size:12px;color:var(--muted);font-weight:400;margin-bottom:8px}
+.next-action strong {display:block;font-size:17px;line-height:1.45;font-weight:500}
+.next-action p {font-size:12px;color:var(--muted);margin-top:8px}
+.warning {background:#f8f5ed;padding:14px 16px;color:#5f4c24;font-size:12px;line-height:1.65;margin:20px 0;border:1px solid #e3d9c2;border-radius:3px;max-width:70ch}
+.warning strong {display:block;font-weight:600;margin-bottom:3px}
+.step {padding:15px 0;display:flex;gap:10px;align-items:start;border-bottom:1px solid var(--line);font-size:13px;line-height:1.6}
+.step strong {display:block;font-weight:500}
+.step small {font-size:12px;color:var(--muted)}
+.check {display:none}
+.pair {display:flex;justify-content:space-between;gap:24px;padding:13px 0;border-bottom:1px solid var(--line);font-size:12px;line-height:1.7}
+.pair span:first-child {color:var(--muted);flex-shrink:0}
+.pair strong {font-weight:500;text-align:right;overflow-wrap:anywhere}
+.doc-row {padding:18px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.doc-row .docname {font-size:13px}
+.doc-row small {display:block;color:var(--muted);font-size:12px;margin-top:5px}
+.doc-row .pill {margin-left:auto;white-space:nowrap}
+.modal-wrap {position:fixed;inset:0;background:#142a3a4d;z-index:90;display:grid;place-items:center;padding:22px}
+.modal {width:530px;max-width:100%;max-height:90vh;overflow:auto;background:#fff;border-radius:6px;padding:26px;box-shadow:0 16px 60px rgba(0,0,0,.15)}
+.modal h2 {font-size:21px}
+.form-grid {display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0}
+.field {display:grid;gap:7px;font-size:12px}
+.field.full {grid-column:1/-1}
+.field input,.field select {width:100%;min-width:0}
+.form-error {color:var(--red);font-size:12px;margin:12px 0}
+.toast {position:fixed;bottom:75px;right:25px;max-width:360px;background:#253b48;color:#fff;padding:13px 18px;border-radius:4px;z-index:100;font-size:12px;line-height:1.6}
+.company-head {display:grid;grid-template-columns:1fr auto;gap:24px}
+.company-head .flex {align-items:start;gap:18px}
+.company-facts {display:flex;gap:36px;margin:25px 0 0}
+.company-facts small {display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.company-facts strong {font-size:13px;font-weight:500}
+.company-grid {display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:36px;margin-top:24px}
+.padded {padding:22px}
+.month-grid {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#fff}
+.day {min-height:115px;border-top:1px solid var(--line);border-right:1px solid var(--line);padding:11px;font-size:12px;font-variant-numeric:tabular-nums}
+.day b {font-weight:500}
+.day button {font-size:12px;padding:5px 0;display:block;width:100%;margin-top:10px;border:0;border-radius:0;white-space:normal;text-align:left;color:var(--accent);line-height:1.5}
+.weekday {padding:13px 10px;text-align:left;color:var(--muted);font-size:12px}
+.day.today-day {background:#f3f6f8}
+.direction-list {border-top:1px solid var(--line)}
+.direction-row {display:grid;grid-template-columns:160px minmax(0,1fr) auto;gap:30px;padding:23px 0;border-bottom:1px solid var(--line);align-items:start}
+.direction-row p {max-width:65ch;color:var(--muted);font-size:13px;line-height:1.7}
+.direction-row strong {font-size:15px;font-weight:500}
+.guide-section {margin:34px 0}
+.guide-section h2 {margin-bottom:15px}
+.content-copy {line-height:1.8;font-size:13px;max-width:75ch}
+.content-copy p {margin:12px 0}
+.focus-layout {display:grid;grid-template-columns:330px minmax(0,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;min-height:570px}
+.queue {background:#f9faf9;border-right:1px solid var(--line);min-width:0}
+.queue-head {padding:18px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.queue-head input {width:100%;min-width:0;font-size:12px}
+.queue-filter {max-width:200px;font-size:12px;margin-bottom:18px}
+.queue-item {display:block;width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;border-radius:0;padding:20px 18px}
+.queue-item:hover {background:#f0f4f1}
+.queue-item.active {background:#eaf0ec}
+.queue-item strong {display:block;font-size:13px;font-weight:500;line-height:1.6;margin-bottom:5px}
+.queue-item p {font-size:12px;color:var(--muted);margin-bottom:9px}
+.queue-item .between {gap:10px;align-items:start;font-size:12px}
+.focus-detail {padding:23px 28px;min-width:0}
+.focus-detail h2 {font-size:20px;letter-spacing:-.3px;font-weight:600;margin:10px 0 5px}
+.focus-topline {display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px}
+.inline-tabs {margin:22px -28px 23px;padding:0 28px}
+body[data-variant=B] {--accent:#34594c;--tint:#edf3ef;--canvas:#fff}
+body[data-variant=B] .sidebar {background:#f5f7f5;color:#25392e;border-right:1px solid #dde3df}
+body[data-variant=B] .nav button {color:#58665c}
+body[data-variant=B] .nav button.active {background:#e2eae4;color:#244532}
+body[data-variant=B] .nav button:hover {background:#eaf0eb;color:#244532}
+body[data-variant=B] .firm {color:#627267}
+body[data-variant=B] .user,body[data-variant=B] .nav-separator {border-color:#d5ddd7}
+body[data-variant=B] .nav-separator {background:#d5ddd7}
+body[data-variant=C] {--accent:#4c5046;--tint:#f1f2ed;--canvas:#fcfcfa}
+body[data-variant=C] .shell,body[data-variant=C] .main-shell {display:block}
+body[data-variant=C] main {padding:30px 38px 95px;max-width:1540px}
+body[data-variant=C] .topbar {padding:0 38px}
+.horizontal-nav {display:flex;align-items:center;gap:27px;background:#263b3d;color:#e5ece9;padding:0 38px;height:60px}
+.horizontal-nav .brand {margin:0 24px 0 0;padding:0}
+.horizontal-nav .brand-name {font-size:17px;letter-spacing:.3px}
+.horizontal-nav button {color:#c6d3d0;border:0;background:transparent;font-size:13px;padding:20px 0;border-radius:0;white-space:nowrap}
+.horizontal-nav button.active {color:#fff;text-decoration:underline;text-underline-offset:8px;text-decoration-thickness:1px}
+.horizontal-nav button:hover {color:#fff;text-decoration:underline;text-underline-offset:8px}
+.horizontal-nav .nav-user {margin-left:auto;color:#d3ddd7;font-size:12px;white-space:nowrap}
+.portfolio-layout {display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:38px;border-top:1px solid var(--line)}
+.portfolio-head {padding:19px 0;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:12px;color:var(--muted)}
+.portfolio-head select {font-size:12px;min-height:34px}
+.portfolio-company {display:grid;grid-template-columns:minmax(0,1fr) 94px 90px;align-items:start;gap:18px;padding:21px 0;border-top:1px solid var(--line)}
+.portfolio-company .company-link {font-size:14px}
+.portfolio-company p {font-size:12px;color:var(--muted);margin-top:4px}
+.portfolio-company .job-link {display:block;margin-top:8px;font-size:12px;min-height:28px;color:var(--accent);font-weight:400}
+.portfolio-company .date-value {font-size:12px;padding-top:5px}
+.portfolio-company .owner-name {padding-top:5px}
+.briefing {padding-top:22px;min-width:0}
+.briefing h2 {font-size:15px;margin-bottom:21px}
+.briefing-item {padding:0 0 24px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+.briefing-item h3 {font-size:13px;font-weight:500;margin:9px 0}
+.briefing-item p {font-size:12px;line-height:1.7;color:var(--muted)}
+.briefing-item button {margin-top:11px;font-size:12px;min-height:32px}
+.briefing .review-link {font-size:12px;padding:0;min-height:32px;background:transparent;border:0;text-decoration:underline;text-underline-offset:4px;color:var(--accent)}
+.sr-only {position:absolute;left:0;top:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip {position:fixed;top:-100px;left:10px;z-index:110;background:#fff;padding:12px}
+.skip:focus {top:10px}
+summary {cursor:pointer;font-size:12px;min-height:32px;padding:5px 0;color:var(--muted)}
+@media(min-width:1500px){.focus-layout{grid-template-columns:370px minmax(0,1fr)}td{padding-top:19px;padding-bottom:19px}}
+@media(max-width:1100px){.shell{grid-template-columns:184px minmax(0,1fr)}.sidebar{width:184px;padding-left:10px;padding-right:10px}.topbar{padding:0 24px}main{padding:26px 24px 95px}.focus-layout{grid-template-columns:285px minmax(0,1fr)}.focus-detail{padding:22px}.inline-tabs{margin-left:-22px;margin-right:-22px;padding:0 22px}.portfolio-layout{grid-template-columns:minmax(0,1fr) 240px;gap:26px}.portfolio-company{grid-template-columns:minmax(0,1fr) 80px}.portfolio-company .owner-name{display:block;grid-column:1/-1;color:var(--muted);padding-top:0;margin-top:-8px}.horizontal-nav{gap:22px;padding:0 24px}.horizontal-nav .brand{margin-right:8px}.nav-user{display:none}}
+@media(max-width:900px){.shell{display:block}.sidebar{display:none}.main-shell{display:block}.topbar{height:56px}.mobile-nav{display:block;max-width:180px}.practice-name{display:none}.today{display:none}.company-grid{grid-template-columns:1fr}.horizontal-nav{overflow:auto;scrollbar-width:thin}.horizontal-nav .brand{display:none}.portfolio-layout{grid-template-columns:minmax(0,1fr) 230px}.direction-row{grid-template-columns:130px minmax(0,1fr);gap:16px}.direction-row button{grid-column:2;width:fit-content}}
+@media(max-width:650px){.back-to-queue{display:block;padding:0;min-height:36px;margin-bottom:12px;font-size:12px;color:var(--accent)}.horizontal-nav{display:none}.desktop-work-table{display:none}.mobile-work-list{display:block;list-style:none;padding:0;margin:0;border-top:1px solid var(--line)}.mobile-work-list li{padding:18px 0;border-bottom:1px solid var(--line)}.mobile-job-heading{display:flex;justify-content:space-between;align-items:start;gap:16px;margin-bottom:9px}.mobile-job-heading .company-link{font-weight:600;min-height:26px}.mobile-job-heading .date-value{font-size:12px;padding-top:3px;flex-shrink:0;text-align:right}.mobile-work-list>.table-title{font-size:13px}.mobile-work-list p{font-size:12px;color:#4f5c65;line-height:1.65;margin-top:5px}.mobile-job-meta{display:flex;justify-content:space-between;gap:14px;color:var(--muted);font-size:12px;margin-top:11px}.mobile-job-meta .pill{font-size:12px}main,body[data-variant=C] main{padding:22px 16px 90px}.topbar,body[data-variant=C] .topbar{padding:0 16px}.top-actions{gap:8px}.heading{margin-bottom:21px;align-items:center}.heading h1{font-size:23px}.heading>.flex{gap:0}.heading button{padding:8px 10px}.heading .icon{display:none}.tabs{gap:22px;padding:0}.tabs button{font-size:12px;min-height:44px}.work-region{border-top:0}.toolbar{flex-wrap:wrap;padding:15px 0}.toolbar .search-group{width:100%}.toolbar input{width:100%;min-width:0}.toolbar select{max-width:126px}.work-table{min-width:760px}td{padding:15px 12px}.work-table .company-col{width:28%}.focus-layout{display:block}.queue{border:0;max-height:335px;overflow:auto}.queue-head{padding:13px 16px}.queue-item{padding:16px}.focus-detail{padding:22px 18px;border-top:1px solid var(--line)}.focus-detail h2{font-size:19px}.focus-topline{margin-bottom:15px}.inline-tabs{margin-left:-18px;margin-right:-18px;padding:0 18px}.portfolio-layout{display:block}.portfolio-head{padding:15px 0}.portfolio-company{grid-template-columns:minmax(0,1fr) 78px;gap:14px;padding:20px 0}.portfolio-company .company-link{font-size:13px}.briefing{border-top:1px solid var(--line);margin-top:18px;padding-top:23px}.briefing-item{display:inline-block;width:100%;vertical-align:top}.horizontal-nav{height:52px;padding:0 16px;gap:24px}.horizontal-nav button{font-size:12px;padding:17px 0}.switcher{bottom:10px;padding:4px;gap:1px}.switcher .proto-label,.switcher a,.switcher .divider{display:none}.switcher .variant-name{font-size:11px;min-width:90px;margin:0 4px}.switcher button{min-height:36px;min-width:33px}.drawer-header{padding:19px 18px}.drawer-header h2{font-size:20px}.drawer>.tabs{padding:0 18px}.drawer-body{padding:22px 18px}.drawer-footer{padding:15px 18px}.drawer-footer>.small{display:none}.state-grid{gap:18px 20px}.next-action strong{font-size:16px}.drawer-footer .flex{gap:8px}.modal-wrap{padding:16px}.modal{padding:22px;max-height:94vh}.form-grid{grid-template-columns:1fr}.field{grid-column:1/-1}.company-head{grid-template-columns:1fr}.company-facts{display:grid;grid-template-columns:1fr 1fr;gap:24px}.company-head h2{font-size:21px!important}.pair{gap:16px}.pair span:first-child{max-width:40%;flex-shrink:1}.company-grid{gap:28px}.day{padding:8px;min-height:95px}.month-grid{min-width:650px}.month-scroll{overflow:auto}.weekday{font-size:12px}.day button{font-size:11px}.direction-row{grid-template-columns:1fr;gap:12px}.direction-row button{grid-column:1}.toast{left:16px;right:16px;bottom:72px;max-width:none}.list-line{padding:16px;align-items:start}.doc-row{gap:9px;flex-wrap:wrap}.doc-row .pill{margin-left:28px}.content-copy{font-size:13px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+@media print{.sidebar,.topbar,.horizontal-nav,.switcher,.heading>.flex{display:none}.shell{display:block}.main-shell{display:block}main{padding:0}.panel{break-inside:avoid}}
+</style></head>
+<body data-variant="A"><a class="skip" href="#content">Skip to content</a><div id="app"></div><div id="switcher"></div><div id="layer"></div><div id="toast" role="status" aria-live="polite"></div>
+<script>
+const icons={work:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M8 5V3h8v2M3 11h18M10 11v3h4v-3"/>',companies:'<path d="M4 21V4h10v17M14 9h6v12M8 8h2M8 12h2M8 16h2M3 21h18M17 13h1M17 17h1"/>',review:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M8 12l3 3 5-6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2M8 18h2"/>',docs:'<path d="M14 2H5v20h14V7zM14 2v6h5M8 12h8M8 16h8"/>',billing:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h3M15 15h2"/>',settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',arrow:'<path d="M5 12h14M14 7l5 5-5 5"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',check:'<path d="m5 12 4 4L19 6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/>'};
+const icon=k=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${icons[k]||icons.work}</svg>`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nav=[['work','My work'],['companies','Companies'],['review','Reviews'],['calendar','Calendar'],['docs','Documents'],['billing','Billing']];
+const companies=[{name:'Meridian Ventures Sdn. Bhd.',no:'202201018742',owner:'Nur Aisyah',initials:'NA',due:'25 Oct 2026',industry:'Management consultancy'},{name:'Alam Bina Holdings Sdn. Bhd.',no:'201901032618',owner:'Daniel Lim',initials:'DL',due:'20 Oct 2026',industry:'Property services'},{name:'Rimba Digital Sdn. Bhd.',no:'202301006925',owner:'Nur Aisyah',initials:'NA',due:'28 Oct 2026',industry:'Software services'},{name:'Straits Advisory Sdn. Bhd.',no:'202001024851',owner:'Mei Tan',initials:'MT',due:'27 Oct 2026',industry:'Business advisory'},{name:'Nusa Collective Sdn. Bhd.',no:'202101012364',owner:'Daniel Lim',initials:'DL',due:'30 Oct 2026',industry:'Design services'},{name:'Bayu Industries Sdn. Bhd.',no:'201801043927',owner:'Mei Tan',initials:'MT',due:'26 Oct 2026',industry:'Manufacturing'}];
+let jobs=[{id:142,type:'W03',name:'Annual return · 2026',c:0,status:'Awaiting review',due:'25 Oct',iso:'2026-10-25',owner:'NA',person:'Nur Aisyah',next:'Review the anniversary snapshot',doc:'Reviewed',record:'Effective',filing:'Not ready',billing:'Not ready',effective:'25 Sep 2026',warning:'Appointment effective 20 Sep is awaiting filing. Review the filing sequence before approving this return.',version:3}, {id:137,type:'W04',name:'Director appointment',c:1,status:'Blocked',due:'20 Oct',iso:'2026-10-20',owner:'DL',person:'Daniel Lim',next:'Obtain the signed consent',doc:'Partly signed',record:'Proposed',filing:'Not ready',billing:'Not ready',effective:'18 Oct 2026',warning:'Consent is missing a signature. Daniel Lim owns the follow up; statutory deadline remains 20 Oct 2026.',version:2},{id:145,type:'W06',name:'Beneficial ownership review',c:2,status:'Waiting on external information',due:'28 Oct',iso:'2026-10-28',owner:'NA',person:'Nur Aisyah',next:'Record the outstanding declaration',doc:'Issued for signature',record:'Effective',filing:'Not ready',billing:'Not ready',effective:'12 Oct 2026',warning:'One declaration is outstanding. Current recorded ownership remains subject to verification.',version:1},{id:140,type:'W08',name:'Financial statements · FY2025',c:3,status:'Ready for filing',due:'27 Oct',iso:'2026-10-27',owner:'MT',person:'Mei Tan',next:'Record the external submission',doc:'Fully signed',record:'Effective',filing:'Ready',billing:'Not ready',effective:'30 Sep 2026',warning:'',version:4},{id:148,type:'W05',name:'Transfer of 10,000 ordinary shares',c:4,status:'Preparing',due:'30 Oct',iso:'2026-10-30',owner:'DL',person:'Daniel Lim',next:'Prepare the instrument of transfer',doc:'Draft',record:'Proposed',filing:'Not ready',billing:'Not ready',effective:'Proposed 29 Oct 2026',warning:'',version:1},{id:139,type:'W07',name:'Board resolution · Bank mandate',c:5,status:'Awaiting review',due:'26 Oct',iso:'2026-10-26',owner:'MT',person:'Mei Tan',next:'Review the resolution pack',doc:'Draft',record:'Proposed',filing:'Not required',billing:'Not ready',effective:'Proposed 26 Oct 2026',warning:'No statutory filing required for this decision. Reviewer basis: approved case checklist.',version:2}];
+let variant=['A','B','C'].includes(new URLSearchParams(location.search).get('variant'))?new URLSearchParams(location.search).get('variant'):'A';
+let page='work',filter='All work',search='',sort='due',role='Executive',selected=142,detailTab='Overview',companyIndex=0,companyTab='Overview',lastFocus=null,toastTimer;
+const names={A:'Workbench',B:'Review desk',C:'Portfolio'};
+const statusClass=s=>s==='Awaiting review'?'review':s.includes('Waiting')||s.includes('signature')||s==='Partly signed'?'waiting':s==='Blocked'?'blocked':s.includes('Ready')||s==='Ready'||s==='Fully signed'||s==='Effective'||s==='Complete'||s==='Acknowledged'?'ready':'preparing';
+const pill=s=>`<span class="pill ${statusClass(s)}">${esc(s)}</span>`;
+const overdue=j=>j.iso<'2026-10-22'&&j.status!=='Complete';
+const matches=j=>(page!=='review'||j.status==='Awaiting review')&&(filter==='All work'||filter==='Overdue'&&overdue(j)||filter==='Awaiting review'&&j.status==='Awaiting review'||filter==='Waiting'&&j.status==='Waiting on external information'||filter==='Ready for filing'&&j.filing==='Ready'||filter==='My work'&&j.owner==='NA')&&(`${j.name} ${companies[j.c].name} ${companies[j.c].no} ${j.id}`).toLowerCase().includes(search.toLowerCase());
+function visibleJobs(){return jobs.filter(matches).sort((a,b)=>sort==='company'?companies[a.c].name.localeCompare(companies[b.c].name):a.iso.localeCompare(b.iso));}
+function btn(text,action,cls=''){return `<button class="${cls}" ${action}>${text}</button>`;}
+function navigate(p){page=p;search='';filter='All work';render();window.scrollTo(0,0);document.querySelector('h1')?.focus();}
+function sidebar(){
+  const item=([k,t])=>`<button data-nav="${k}" class="${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}${t}${k==='review'?`<span class="count">${jobs.filter(j=>j.status==='Awaiting review').length}</span>`:''}</button>`;
+  return `<aside class="sidebar"><div class="brand"><div class="brand-name">Aster</div><div class="firm">Company secretarial</div></div><nav class="nav" aria-label="Main navigation">${nav.slice(0,4).map(item).join('')}<div class="nav-separator"></div>${nav.slice(4).map(item).join('')}</nav><div class="sidebar-bottom"><nav class="nav"><button data-nav="guide" class="${page==='guide'?'active':''}">${icon('settings')}Design directions</button></nav><div class="user">Nur Aisyah<div class="firm">${role}</div></div></div></aside>`;
+}
+function horizontalNav(){return `<nav class="horizontal-nav" aria-label="Main navigation"><div class="brand"><span class="brand-name">Aster</span></div>${nav.map(([k,t])=>`<button data-nav="${k}" class="${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${t}</button>`).join('')}<button data-nav="guide" class="${page==='guide'?'active':''}">Design</button><span class="nav-user">Nur Aisyah</span></nav>`;}
+function topbar(){return `<header class="topbar"><span class="practice-name">Aster Corporate Services</span><select class="mobile-nav" aria-label="Navigate" id="mobile-nav">${[...nav,['guide','Design directions']].map(([k,t])=>`<option value="${k}" ${page===k?'selected':''}>${t}</option>`).join('')}</select><div class="top-actions"><span class="today">22 October 2026</span><label class="sr-only" for="role">Preview role</label><select id="role" title="Preview role only, not access control">${['Executive','Reviewer','Lodger','Manager'].map(r=>`<option ${role===r?'selected':''}>${r}</option>`).join('')}</select></div></header>`;}
+function heading(title,context='',action=true){return `<div class="heading between"><div><h1 tabindex="-1">${esc(title)}</h1></div>${action?`<div class="flex">${btn(icon('plus')+' New job','data-action="new"','primary')}</div>`:''}</div>`;}
+function filterTabs(){
+  const filters=page==='review'?[['All work','All requests',jobs.filter(j=>j.status==='Awaiting review').length],['My work','Assigned to me',jobs.filter(j=>j.status==='Awaiting review'&&j.owner==='NA').length]]:[['All work','All work',jobs.length],['My work','Assigned to me',jobs.filter(j=>j.owner==='NA').length],['Overdue','Overdue',jobs.filter(overdue).length],['Awaiting review','For review',jobs.filter(j=>j.status==='Awaiting review').length],['Ready for filing','For filing',jobs.filter(j=>j.filing==='Ready').length],['Waiting','Waiting',jobs.filter(j=>j.status==='Waiting on external information').length]];
+  return `<div class="tabs" aria-label="Work filters">${filters.map(([f,label,n])=>`<button class="${filter===f?'active':''}" data-filter="${f}" aria-pressed="${filter===f}" aria-label="${label}, ${n} ${n===1?'job':'jobs'}">${label}<span class="tab-count">${n}</span></button>`).join('')}</div>`;
+}
+function toolbar(){return `<div class="toolbar"><div class="search-group"><label class="sr-only" for="work-search">Search jobs or companies</label><input id="work-search" type="search" placeholder="Search company or job" value="${esc(search)}"><label class="sr-only" for="sort">Sort work</label><select id="sort"><option value="due" ${sort==='due'?'selected':''}>Due date</option><option value="company" ${sort==='company'?'selected':''}>Company A–Z</option></select></div><span class="small muted">${visibleJobs().length} ${visibleJobs().length===1?'job':'jobs'}</span></div>`;}
+function jobTable(list){
+  const mobile=`<ul class="mobile-work-list" aria-label="Company secretarial jobs">${list.map(j=>`<li><div class="mobile-job-heading"><button class="company-link" data-company="${j.c}">${esc(companies[j.c].name)}</button><span class="date-value ${overdue(j)?'due':''}">${j.due}${overdue(j)?'<span class="overdue-label">Overdue</span>':''}</span></div><button class="table-title" data-job="${j.id}" aria-label="Open ${esc(j.name)}">${esc(j.name)}</button><p>${esc(j.next)}</p><div class="mobile-job-meta">${pill(j.status)}<span>${j.person}</span></div></li>`).join('')}</ul>`;
+  return list.length?mobile+`<div class="table-wrap desktop-work-table"><table class="work-table"><caption class="sr-only">Company secretarial jobs</caption><thead><tr><th scope="col" class="company-col">Company</th><th scope="col" class="job-col">Job</th><th scope="col" class="action-col">Next action</th><th scope="col" class="date-col">Due</th><th scope="col" class="owner-col">Owner</th></tr></thead><tbody>${list.map(j=>`<tr><td><button class="company-link" data-company="${j.c}">${esc(companies[j.c].name)}</button><span class="record-number">${companies[j.c].no}</span></td><td><button class="table-title" data-job="${j.id}" aria-label="Open ${esc(j.name)}">${esc(j.name)}</button><span class="job-state">${pill(j.status)}</span></td><td class="next-cell">${esc(j.next)}</td><td class="date-value ${overdue(j)?'due':''}">${j.due}${overdue(j)?`<span class="overdue-label">${Math.round((Date.parse('2026-10-22')-Date.parse(j.iso))/86400000)}d overdue</span>`:''}</td><td><span class="owner-name">${esc(j.person)}</span></td></tr>`).join('')}</tbody></table></div>`:`<div class="empty"><h3>No matching jobs</h3><p>Try another search or clear the filters.</p><button data-action="clear" style="margin-top:16px">Clear filters</button></div>`;
+}
+function workA(){return heading(page==='review'?'Review queue':'My work')+`<section class="work-region">${filterTabs()}${toolbar()}<div id="results">${jobTable(visibleJobs())}</div></section>`;}
+function workB(){
+  const list=visibleJobs(); const j=list.find(j=>j.id===selected)||list[0];
+  return heading(page==='review'?'Review queue':'My work')+`<label class="sr-only" for="queue-filter">Filter queue</label><select class="queue-filter" id="queue-filter">${['All work','Overdue','Awaiting review','Waiting','Ready for filing'].map(f=>`<option ${f===filter?'selected':''}>${f}</option>`).join('')}</select><div class="focus-layout"><section class="queue" aria-label="Job queue"><div class="queue-head"><label class="sr-only" for="work-search">Search jobs or companies</label><input id="work-search" type="search" placeholder="Search company or job" value="${esc(search)}"></div><div id="queue-results">${list.map(a=>`<button class="queue-item ${a.id===j?.id?'active':''}" data-select-job="${a.id}" aria-pressed="${a.id===j?.id}"><strong>${esc(companies[a.c].name)}</strong><p>${esc(a.name)}</p><div class="between">${pill(a.status)}<span class="date-value ${overdue(a)?'due':'muted'}">${a.due}</span></div></button>`).join('')||'<div class="empty">No matching jobs</div>'}</div></section><section class="focus-detail" aria-label="Selected job"><button class="back-to-queue quiet" data-action="queue">Back to jobs</button>${j?`<div class="focus-topline"><span class="case-ref">CS-${j.id} · ${j.type}</span><button class="quiet small" data-job="${j.id}">Open case ${icon('arrow')}</button></div><h2>${esc(companies[j.c].name)}</h2><p class="muted small">${esc(j.name)}</p>${detailTabs(true)}${detailContent(j)}${detailActions(j,true)}`:'<div class="empty"><h3>No matching jobs</h3><button data-action="clear">Clear filters</button></div>'}</section></div>`;
+}
+function workC(){
+  const list=visibleJobs();
+  const groups=companies.map((c,i)=>({c,i,work:list.filter(j=>j.c===i)})).filter(g=>g.work.length).sort((a,b)=>a.work[0].iso.localeCompare(b.work[0].iso));
+  return heading(page==='review'?'Review queue':'Company portfolio')+`<div class="portfolio-layout"><section aria-label="Company portfolio"><div class="portfolio-head"><span>${groups.length} companies · ${list.length} open jobs</span><label class="sr-only" for="queue-filter">Filter matters</label><select id="queue-filter">${['All work','Overdue','Awaiting review','Waiting','Ready for filing'].map(f=>`<option ${f===filter?'selected':''}>${f}</option>`).join('')}</select></div>${groups.map(({c,i,work})=>{const j=work[0];return `<div class="portfolio-company"><div><button class="company-link" data-company="${i}">${esc(c.name)}</button><p>${c.no}</p>${work.map(a=>`<button class="table-title job-link" data-job="${a.id}">${esc(a.name)}</button>`).join('')}</div><div class="date-value ${overdue(j)?'due':''}">${j.due}${overdue(j)?'<span class="overdue-label">Overdue</span>':''}</div><span class="owner-name">${esc(c.owner)}</span></div>`;}).join('')||'<div class="empty"><h3>No matching companies</h3><button data-action="clear">Clear filters</button></div>'}</section><aside class="briefing"><h2>Needs attention</h2>${[...jobs.filter(overdue),...jobs.filter(j=>j.filing==='Ready')].map(j=>`<div class="briefing-item">${pill(overdue(j)?'Blocked':'Ready for filing')}<h3>${esc(companies[j.c].name)}</h3><p>${esc(j.next)}.</p><p>${j.person} · Due ${j.due}</p><button data-job="${j.id}">Open ${j.type==='W04'?'appointment':'filing pack'} ${icon('arrow')}</button></div>`).join('')}<button class="review-link" data-nav="review">${jobs.filter(j=>j.status==='Awaiting review').length} packs awaiting review</button></aside></div>`;
+}
+function companyPage(){let c=companies[companyIndex];return heading('Companies','PORTFOLIO',false)+`<div class="panel"><div class="toolbar"><label class="sr-only" for="company-picker">Select company</label><select id="company-picker">${companies.map((c,i)=>`<option value="${i}" ${i===companyIndex?'selected':''}>${c.name}</option>`).join('')}</select><span class="small muted">${companies.length} companies</span></div><div class="padded"><div class="company-head"><div><span class="case-ref">${c.no} · Malaysia</span><h2 style="font-size:23px;margin-top:12px">${c.name}</h2></div><div class="flex">${pill('Active company')}${pill('Active engagement')}</div></div><div class="company-facts"><div><small>Incorporated</small><strong>25 Sep 2022</strong></div><div><small>Financial year end</small><strong>31 Dec</strong></div><div><small>File owner</small><strong>${c.owner}</strong></div><div><small>Record view</small><strong>Current · 22 Oct 2026</strong></div></div></div><div class="tabs">${['Overview','Officers','Members','Jobs','Documents','History'].map(t=>`<button class="${companyTab===t?'active':''}" data-company-tab="${t}">${t}</button>`).join('')}</div><div class="padded">${companyContent(c)}</div></div>`;}
+function companyContent(c){if(companyTab==='Jobs')return jobTable(jobs.filter(j=>j.c===companyIndex));if(companyTab==='Documents')return documentRows(jobs.find(j=>j.c===companyIndex));if(companyTab==='Officers')return `<h3>Current appointments</h3><div class="pair"><span>Director</span><strong>Adrian Lee · Effective 20 Sep 2026</strong></div><div class="pair"><span>Secretary</span><strong>Mei Tan · Effective 25 Sep 2022</strong></div><p class="section-note">Appointment history is retained separately from filing outcomes.</p>`;if(companyTab==='Members')return `<h3>Ordinary shares</h3><div class="pair"><span>Adrian Lee</span><strong>60,000 units · 60%</strong></div><div class="pair"><span>Sara Wong</span><strong>40,000 units · 40%</strong></div><div class="pair"><span>Total issued</span><strong>100,000 units</strong></div><p class="section-note">Sample register · Member holdings do not establish beneficial ownership.</p>`;if(companyTab==='History')return `<h3>Record history</h3><div class="step"><div><strong>20 Sep 2026 · Director appointed</strong><small>Approved by Mei Tan · Source notice retained · Filing outstanding</small></div></div><div class="step"><div><strong>25 Sep 2022 · Opening records established</strong><small>Verified opening file</small></div></div>`;return `<div class="company-grid" style="margin-top:0"><section><h3>Company particulars</h3><div class="pair"><span>Legal form</span><strong>Private company limited by shares</strong></div><div class="pair"><span>Business activity</span><strong>${c.industry}</strong></div><div class="pair"><span>Registered office</span><strong>Kuala Lumpur, Malaysia</strong></div><div class="pair"><span>Next due date</span><strong>${c.due}</strong></div></section><section><h3>Open work</h3>${jobs.filter(j=>j.c===companyIndex).map(j=>`<div class="step"><div><button class="table-title" data-job="${j.id}">${esc(j.name)}</button><small style="display:block">${j.next}</small></div></div>`).join('')}<div class="warning">Beneficial ownership evidence has separate access controls.</div></section></div>`;}
+function calendarPage(){return heading('Calendar','OBLIGATIONS',false)+`<section class="panel"><div class="panel-head between"><h2>October 2026</h2><span class="small muted">Statutory due dates · Sample data</span></div><div class="month-scroll"><div class="month-grid">${['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d=>`<div class="weekday">${d}</div>`).join('')}${Array.from({length:35},(_,i)=>{let d=i-2;return `<div class="day ${d===22?'today-day':''}">${d>0&&d<=31?`<b>${d}</b>${jobs.filter(j=>Number(j.iso.slice(-2))===d).map(j=>`<button data-job="${j.id}">${esc(j.name)}<br>${companies[j.c].name.split(' ')[0]}</button>`).join('')}`:''}</div>`;}).join('')}</div></div></section>`;}
+function docsPage(){return heading('Documents','RECORDS AND EVIDENCE',false)+`<section class="panel"><div class="panel-head between"><h2>Current job packs</h2><span class="small muted">Versions retained</span></div>${jobs.map(j=>`<div class="list-line">${icon('docs')}<div style="flex:1"><button class="table-title" data-job="${j.id}" data-open-tab="Documents">${esc(j.name)} · v${j.version}</button><small>${companies[j.c].name}</small></div>${pill(j.doc)}</div>`).join('')}</section>`;}
+function billingPage(){return heading('Billing handoff','SERVICE OPERATIONS',false)+`<section class="panel"><div class="panel-head"><h2>Chargeable work</h2></div><div class="table-wrap"><table><thead><tr><th>Service</th><th>Operational status</th><th>Fee</th><th>Billing status</th></tr></thead><tbody>${jobs.map((j,i)=>`<tr><td><button class="table-title" data-job="${j.id}">${esc(j.name)}</button><span class="company-name">${companies[j.c].name}</span></td><td>${pill(j.status)}</td><td>RM ${(350+i*75).toLocaleString('en-MY')}.00</td><td>${pill(j.billing)}</td></tr>`).join('')}</tbody></table></div></section><p class="section-note">Illustrative fees. Billing handoff is independent of operational and filing status.</p>`;}
+function guidePage(){return heading('Design directions','',false)+`<div class="direction-list">${[['A','Workbench','Company, next action, deadline and owner in one table. Best for daily work.'],['B','Review desk','A persistent queue beside the selected case. Best for repeated review and preparation.'],['C','Portfolio','Company files with open work and a short exceptions list. Best for managers.']].map(([v,t,p])=>`<section class="direction-row"><strong>${v} · ${t}</strong><p>${p}</p><button data-explore="${v}">Open direction ${icon('arrow')}</button></section>`).join('')}</div><section class="guide-section content-copy"><h2>Recommended combination</h2><p>Use A’s work table for daily work, B’s split view for reviews and C’s company list for the manager overview. Keep a single visual system across the application.</p><p><a href="../design-spec.html" target="_blank">Read the design specification</a> · <a href="../DESIGN_SPEC.md" target="_blank">Agent Markdown</a></p></section><section class="guide-section content-copy"><h2>What changed</h2><p>Removed headline counters, decorative initials, editorial headings, status capsules and duplicated deadline panels. Companies and next actions now carry the hierarchy. Warnings, filing outcomes and review scope remain explicit.</p><p>Refined with <a href="https://github.com/pbakaus/impeccable" target="_blank" rel="noreferrer">Impeccable</a> polish and distill guidance. All records are fictional; actions reset on refresh.</p></section>`;}
+function detailTabs(inline=false){return `<div class="tabs ${inline?'inline-tabs':''}" aria-label="Job sections">${['Overview','Documents','Record changes','Filing','History'].map(t=>`<button class="${detailTab===t?'active':''}" data-detail-tab="${t}" aria-pressed="${detailTab===t}">${t}</button>`).join('')}</div>`;}
+function documentRows(j){return `<div class="doc-row">${icon('docs')}<div><div class="docname">${j.type==='W03'?'Anniversary confirmation pack':j.type==='W08'?'Financial statements and reports':'Decision and evidence pack'}</div><small>Version ${j.version} · ${j.doc} · ${j.person}</small></div>${pill(j.doc)}</div><div class="doc-row">${icon('docs')}<div><div class="docname">Source instruction</div><small>Received 15 Oct 2026 · Email record</small></div>${pill('Retained')}</div><details style="margin-top:20px"><summary class="small muted" style="cursor:pointer;min-height:32px">Version history</summary><p class="small muted" style="margin-top:12px">Earlier drafts remain retained. Review applies to version ${j.version} only.</p></details>`;}
+function detailContent(j){
+  if(detailTab==='Documents')return documentRows(j)+`<div style="margin-top:24px"><button data-edit-pack="${j.id}">Create revised draft</button><p class="section-note">A material revision requires a new review.</p></div>`;
+  if(detailTab==='Record changes')return `<h3>${j.type==='W03'?'Anniversary snapshot':'Record consequences'}</h3><div class="pair"><span>Effective position</span><strong>${j.effective}</strong></div><div class="pair"><span>Record state</span><strong>${j.record}</strong></div><div class="pair"><span>Recorded on</span><strong>21 Oct 2026</strong></div>${j.type==='W03'?'<div class="pair"><span>Snapshot</span><strong>25 Sep 2026</strong></div><div class="pair"><span>Future events</span><strong>Excluded from anniversary position</strong></div>':'<div class="pair"><span>Source event</span><strong>Linked case evidence</strong></div>'}<p class="section-note">${j.record==='Proposed'?'Current records remain unchanged until the event is evidenced and approved.':'Effective records remain visible while filing is outstanding.'}</p>`;
+  if(detailTab==='Filing')return `<h3>External filing record</h3><div class="pair"><span>Filing status</span><strong>${j.filing}</strong></div><div class="pair"><span>Statutory due date</span><strong>${j.due} 2026</strong></div><div class="pair"><span>Submission reference</span><strong>${j.ref?esc(j.ref):'Not recorded'}</strong></div><div class="pair"><span>Channel</span><strong>External SSM process</strong></div>${j.filing==='Submitted'?'<div class="warning">Submission recorded. The regulatory outcome is still outstanding.</div>':j.filing==='Not required'?'<p class="section-note">Reviewer basis: approved case checklist for this decision.</p>':'<p class="section-note">The lodger records evidence after completing the external submission.</p>'}`;
+  if(detailTab==='History')return `<h3>Case history</h3>${(j.events||[]).map(e=>`<div class="step"><div><strong>${esc(e)}</strong><small>22 Oct 2026 · ${role}</small></div></div>`).join('')}<div class="step"><div><strong>Pack version ${j.version} prepared</strong><small>21 Oct 2026 · ${j.person}</small></div></div><div class="step"><div><strong>Job opened</strong><small>15 Oct 2026 · ${j.person}</small></div></div>`;
+  return `<section class="next-action"><h3>Next action</h3><strong>${esc(j.next)}</strong><p>${j.status==='Awaiting review'?'Mei Tan · Reviewer':j.person} · <span class="${overdue(j)?'danger':''}">Due ${j.due} 2026</span></p></section>${j.warning?`<div class="warning">${j.warning}</div>`:''}<dl class="state-grid"><div><dt>Job</dt><dd>${pill(j.status)}</dd></div><div><dt>Document v${j.version}</dt><dd>${pill(j.doc)}</dd></div><div><dt>Corporate record</dt><dd>${pill(j.record)}</dd></div><div><dt>Filing task</dt><dd>${pill(j.filing)}</dd></div></dl><div style="margin-top:25px"><h3>Preparation</h3><div class="step"><div><strong>Instruction and scope</strong><small>Recorded 15 Oct 2026 · Source retained</small></div></div><div class="step"><div><strong>Document pack v${j.version}</strong><small>${j.doc} · ${j.person}</small></div></div></div><details style="margin-top:20px"><summary>Dates and dependencies</summary><div class="pair"><span>Instruction</span><strong>15 Oct 2026</strong></div><div class="pair"><span>Internal target</span><strong>${new Date(Date.parse(j.iso)-172800000).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})}</strong></div><div class="pair"><span>Statutory deadline</span><strong>${j.due} 2026</strong></div><div class="pair"><span>Effective date</span><strong>${j.effective}</strong></div><p class="section-note">Illustrative dates. Production deadlines require an approved source and calculation.</p></details>`;
+}
+function detailActions(j,inline=false){let action='';if(j.status==='Awaiting review'){if(role!=='Reviewer')action='<span class="small muted">Reviewer decision required</span>';else action=`<button data-return="${j.id}">Return pack</button><button class="primary" data-approve="${j.id}">Review v${j.version} ${icon('arrow')}</button>`;}else if(j.filing==='Ready'&&role!=='Lodger')action='<span class="small muted">Authorised lodger action required</span>';else if(j.filing==='Ready')action=`<button class="primary" data-file="${j.id}">Record submission ${icon('arrow')}</button>`;else action=`<button class="primary" data-next="${j.id}">Record case note ${icon('arrow')}</button>`;return `<div class="${inline?'flex':'drawer-footer'}" style="${inline?'margin-top:28px;justify-content:flex-end;flex-wrap:wrap':''}">${inline?'':`<span class="small muted">CS-${j.id} · ${j.type}</span>`}<div class="flex" style="flex-wrap:wrap">${action}</div></div>`;}
+function render(){document.body.dataset.variant=variant;let body=page==='work'||page==='review'?(variant==='A'?workA():variant==='B'?workB():workC()):page==='companies'?companyPage():page==='calendar'?calendarPage():page==='docs'?docsPage():page==='billing'?billingPage():guidePage();document.querySelector('#app').innerHTML=`${variant==='C'?horizontalNav():''}<div class="shell">${variant==='C'?'':sidebar()}<div class="main-shell">${topbar()}<main id="content">${body}</main></div></div>`;document.querySelector('#switcher').innerHTML=`<div class="switcher" aria-label="Prototype directions"><span class="proto-label">Demo data</span><button data-cycle="-1" aria-label="Previous direction">←</button>${['A','B','C'].map(v=>`<button data-variant="${v}" class="${variant===v?'chosen':''}" aria-label="Direction ${v}: ${names[v]}" aria-pressed="${variant===v}">${v}</button>`).join('')}<span class="variant-name">${names[variant]}</span><button data-cycle="1" aria-label="Next direction">→</button><span class="divider"></span><a href="#guide" data-nav="guide">Design guide</a></div>`;}
+function setVariant(v){variant=v;const url=new URL(location.href);url.searchParams.set('variant',v);history.replaceState({},'',url);render();window.scrollTo(0,0);document.querySelector('#toast').textContent='';document.querySelector('#switcher').setAttribute('aria-label',`Direction ${v}: ${names[v]}. Fictional data; changes reset on refresh.`);}
+function toast(t){clearTimeout(toastTimer);document.querySelector('#toast').innerHTML=`<div class="toast">${esc(t)}</div>`;toastTimer=setTimeout(()=>document.querySelector('#toast').innerHTML='',3800);}
+function openJob(id,tab){selected=id;detailTab=tab||'Overview';if(!document.querySelector('.drawer'))lastFocus=document.activeElement;let j=jobs.find(j=>j.id===id);document.querySelector('#layer').innerHTML=`<div class="overlay" data-dismiss="drawer"><section class="drawer" role="dialog" aria-modal="true" aria-labelledby="job-title"><header class="drawer-header"><div class="between"><span class="case-ref">CS-${j.id} · ${j.type}</span><button class="quiet" data-action="close" aria-label="Close case">${icon('close')}</button></div><h2 id="job-title">${esc(j.name)}</h2><p class="muted small">${companies[j.c].name}</p></header>${detailTabs()}<div class="drawer-body">${detailContent(j)}</div>${detailActions(j)}</section></div>`;lockBackground(true);document.querySelector(tab?`[data-detail-tab="${detailTab}"]`:'[data-action=close]').focus();}
+function lockBackground(on){document.querySelector('#app').inert=on;document.querySelector('#switcher').inert=on;document.body.style.overflow=on?'hidden':'';}
+function closeLayer(){document.querySelector('#layer').innerHTML='';lockBackground(false);if(lastFocus?.isConnected)lastFocus.focus();else document.querySelector('h1')?.focus();}
+function modal(title,content,submitLabel,kind,id){lastFocus=document.activeElement;document.querySelector('#layer').innerHTML=`<div class="modal-wrap" data-dismiss="modal"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="between"><h2 id="modal-title">${title}</h2><button class="quiet" data-action="close" aria-label="Close dialog">${icon('close')}</button></div><form id="case-form" data-kind="${kind}" data-id="${id||''}">${content}<div class="between" style="margin-top:24px"><span class="small muted">Prototype · In memory</span><button class="primary" type="submit">${submitLabel}</button></div></form></section></div>`;lockBackground(true);document.querySelector('#case-form input,#case-form select,#case-form textarea')?.focus();}
+function newJob(){modal('New job',`<div class="form-grid"><label class="field full">Company<select name="company">${companies.map((c,i)=>`<option value="${i}">${c.name}</option>`).join('')}</select></label><label class="field full">Activity<select name="activity">${[['W01','Client acceptance and takeover'],['W02','Incorporation and setup'],['W03','Annual return'],['W04','Officer or particulars change'],['W05','Members and share capital'],['W06','Beneficial ownership'],['W07','Meetings and resolutions'],['W08','Financial statements'],['W09','Other corporate event'],['W10','Service exit or cessation'],['W11','Registers and custody'],['W12','Compliance and operations']].map(([id,t])=>`<option value="${id}">${id} · ${t}</option>`).join('')}</select></label><label class="field full">Job title<input name="title" required maxlength="100"></label><label class="field">Owner<select name="owner"><option value="NA">Nur Aisyah</option><option value="DL">Daniel Lim</option><option value="MT">Mei Tan</option></select></label><label class="field">Due date<input type="date" name="due" value="2026-10-30" required></label></div>`,'Create job','new');}
+function approveJob(id){let j=jobs.find(j=>j.id===id);modal(`Review pack v${j.version}`,`<p class="muted small" style="margin-top:14px;line-height:1.7">${esc(j.name)} · ${companies[j.c].name}</p>${j.warning?`<div class="warning">${j.warning}</div>`:''}<label class="field" style="margin-top:24px">Review decision and dependency resolution<textarea name="note" required placeholder="Record the basis for this approval"></textarea></label><label class="flex small" style="align-items:start;margin-top:18px"><input type="checkbox" required><span>Evidence, record consequences and dependencies reviewed for version ${j.version}.</span></label>`,'Approve this version','approve',id);}
+function fileJob(id){let j=jobs.find(j=>j.id===id);modal('Record external submission',`<div class="form-grid"><label class="field full">Submission reference<input name="ref" required></label><label class="field">Submitted on<input type="date" name="date" required value="2026-10-22"></label><label class="field">Evidence filename<input name="evidence" required placeholder="submission-receipt.pdf"></label></div><p class="small muted">Records an external submission. Regulatory outcome remains outstanding.</p>`,'Record submission','file',id);}
+function recordNote(id,returned=false){modal(returned?'Return pack for correction':'Record case note',`<label class="field" style="margin-top:22px">${returned?'Required changes':'Note'}<textarea name="note" required></textarea></label>`,returned?'Return pack':'Save note',returned?'return':'note',id);}
+document.addEventListener('click',e=>{let el=e.target.closest('button,a,[data-dismiss]');if(!el)return;let d=el.dataset;if(d.company!==undefined){companyIndex=Number(d.company);companyTab='Overview';navigate('companies');}else if(d.explore){page='work';filter='All work';search='';setVariant(d.explore);}else if(d.nav){e.preventDefault();navigate(d.nav);}else if(d.variant)setVariant(d.variant);else if(d.cycle)setVariant(['A','B','C'][(['A','B','C'].indexOf(variant)+Number(d.cycle)+3)%3]);else if(d.filter){filter=d.filter;render();}else if(d.job)openJob(Number(d.job),d.openTab);else if(d.selectJob){selected=Number(d.selectJob);detailTab='Overview';render();if(matchMedia('(max-width:650px)').matches){const title=document.querySelector('.focus-detail h2');title?.setAttribute('tabindex','-1');title?.focus();document.querySelector('.focus-detail')?.scrollIntoView({block:'start'});}else document.querySelector(`[data-select-job="${selected}"]`)?.focus();}else if(d.detailTab){detailTab=d.detailTab;if(document.querySelector('.drawer'))openJob(selected,detailTab);else{render();document.querySelector(`[data-detail-tab="${detailTab}"]`)?.focus();}}else if(d.companyTab){companyTab=d.companyTab;render();}else if(d.approve)approveJob(Number(d.approve));else if(d.file)fileJob(Number(d.file));else if(d.next)recordNote(Number(d.next));else if(d.return)recordNote(Number(d.return),true);else if(d.editPack){let j=jobs.find(j=>j.id===Number(d.editPack));j.version++;j.doc='Draft';j.status='Preparing';if(j.filing==='Ready')j.filing='Not ready';j.next='Prepare and submit the revised pack for review';(j.events??=[]).unshift(`Revised draft v${j.version} created; prior approval superseded`);if(document.querySelector('.drawer'))openJob(j.id,'Documents');else render();toast('Revised draft created. A new review is required.');}else if(d.action==='queue'){const queue=document.querySelector('.queue');queue?.setAttribute('tabindex','-1');queue?.focus();queue?.scrollIntoView({block:'start'});}else if(d.action==='new')newJob();else if(d.action==='close')closeLayer();else if(d.action==='clear'){filter='All work';search='';render();}else if(d.dismiss&&e.target===el)closeLayer();});
+document.addEventListener('change',e=>{if(e.target.id==='role'){role=e.target.value;render();toast(`${role} preview · Role-specific actions updated`);}else if(e.target.id==='mobile-nav')navigate(e.target.value);else if(e.target.id==='sort'){sort=e.target.value;render();}else if(e.target.id==='queue-filter'){filter=e.target.value;render();}else if(e.target.id==='company-picker'){companyIndex=Number(e.target.value);render();}});
+document.addEventListener('input',e=>{if(e.target.id==='work-search'){let pos=e.target.selectionStart;search=e.target.value;render();let input=document.querySelector('#work-search');input.focus();input.setSelectionRange(pos,pos);}});
+document.addEventListener('submit',e=>{if(e.target.id!=='case-form')return;e.preventDefault();let f=new FormData(e.target),kind=e.target.dataset.kind,id=Number(e.target.dataset.id),j=jobs.find(x=>x.id===id);if(kind==='new'){let owner=f.get('owner'),title=f.get('title').trim();if(!title){toast('Enter a job title.');e.target.querySelector('[name=title]').focus();return;}let c=Number(f.get('company')),type=f.get('activity');if(type==='W03'&&jobs.some(x=>x.c===c&&x.type==='W03'&&x.iso.slice(0,4)===String(f.get('due')).slice(0,4))){toast('An annual return job already exists for this sample company and year.');return;}let iso=f.get('due');jobs.push({id:Math.max(...jobs.map(j=>j.id))+1,type,name:title,c,status:'Preparing',due:new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}),iso,owner,person:owner==='NA'?'Nur Aisyah':owner==='MT'?'Mei Tan':'Daniel Lim',next:'Confirm scope, evidence and reviewer',doc:'Draft',record:'Proposed',filing:'Not ready',billing:'Not ready',effective:'Not confirmed',warning:'',version:1});closeLayer();page='work';filter='All work';search='';render();toast('Job created and added to the work queue.');return;}if(kind==='approve'){j.status='Action in progress';j.doc='Reviewed';j.next='Resolve execution and filing readiness requirements';(j.events??=[]).unshift(`Version ${j.version} approved. Basis: ${f.get('note')}`);toast(`Version ${j.version} approved. Filing remains ${j.filing.toLowerCase()}.`);}else if(kind==='file'){j.filing='Submitted';j.status='Action in progress';j.ref=f.get('ref');j.next='Record the regulatory outcome';(j.events??=[]).unshift(`Submission ${j.ref} recorded on ${f.get('date')}; evidence: ${f.get('evidence')}`);toast('Submission recorded. Outcome confirmation is still required.');}else if(kind==='return'){j.status='Preparing';j.doc='Draft';j.next='Correct the pack and request another review';(j.events??=[]).unshift(`Pack returned: ${f.get('note')}`);toast('Pack returned for correction.');}else{(j.events??=[]).unshift(`Case note: ${f.get('note')}`);toast('Case note recorded.');}closeLayer();render();openJob(j.id,kind==='file'?'Filing':'History');});
+document.addEventListener('keydown',e=>{let layer=document.querySelector('#layer');if(e.key==='Escape'&&layer.childElementCount){closeLayer();return;}if(e.key==='Tab'&&layer.childElementCount){let focusables=[...layer.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(x=>!x.disabled);let first=focusables[0],last=focusables.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}return;}if(!layer.childElementCount&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&!document.activeElement.isContentEditable&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setVariant(['A','B','C'][(['A','B','C'].indexOf(variant)+(e.key==='ArrowRight'?1:2))%3]);}});
+render();
+</script></body></html>

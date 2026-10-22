@@ -1,0 +1,15 @@
+# Local OS and Python files
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Impeccable runtime state
+.impeccable/
+
+# Retained download bundle; editable sources are tracked instead
+/CoSec_Design_Exploration.zip
