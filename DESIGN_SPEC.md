@@ -18,6 +18,37 @@ Completion means a staff member can perform the intended task, see its resulting
 
 ## Product authority and scope
 
+### Owner clarification on the initial operating model
+
+Recorded 22 October 2026 during requirements discussion. The owner describes a predominantly manual team process: staff inspect records, take notes and track work. An Excel-based database or tracker is believed to exist but has not been inspected or confirmed with the team.
+
+The initial useful path centres on maintaining opening company information, identifying annual return preparation work, prompting staff to obtain updated information from the client and retaining the evidence needed to prepare and track the return. The application must support this work internally without requiring runtime internet access or external APIs. Client chasers, signatures and statutory submissions continue through existing external channels; the application records their status and evidence. External integrations are a possible later extension, not a first-release dependency.
+
+This clarification prioritises the initial path; it does not remove W01 to W12 from the product scope. The detailed annual-return and linked-change safeguards below remain applicable. Opening data sources, import formats and verification rules must be confirmed before treating an existing tracker as authoritative. Reminder lead times and recurrence remain to be agreed; they must not be invented as statutory rules.
+
+Local-first operation is confirmed: the owner will initially test as an administrator on one computer. The intended later deployment is a shared server with individual staff accounts, a shared database and an estimated fewer than ten concurrent users. The first milestone must therefore retain user identity, permissions, attribution and concurrency controls, even when only one person is testing. Runtime assets must be available locally. Offline-capable application use does not imply that external filing channels work without internet access, or that reminders run while the application host is switched off.
+
+### Provisional manual-to-software workflow
+
+The owner has authorised reasonable operating assumptions before the team walkthrough. The following is a proposed process for evaluating the first build, not an observed account of this firm's practice or an approved legal procedure. Validate it with an executive and practising secretary before using real client records. Preserve the full workflow catalogue and safeguards below. [Official workflow references and research limits](references/research-workflow-basis.md) support the distinction between internal preparation and external submission; they do not approve legal rules.
+
+| Stage | Assumed manual practice | Proposed application support |
+| --- | --- | --- |
+| Establish the file | Gather company particulars from records and a possible tracker; identify missing facts | Enter opening company data and attach source evidence, effective dates, verification status and owned gaps; start with manual entry until actual import files are inspected |
+| Identify upcoming work | Check dates in a diary or tracker and decide what to prepare | Show upcoming work and create one annual return job per company/year using approved rules; preparation reminders use configurable internal lead times |
+| Request confirmation | Contact the client through existing channels and note responses | Record request date, contact, requested information, owner, next chase date and received evidence; display reminders internally without sending messages |
+| Reconcile information | Compare client responses with registers and previous documents | Compare against the anniversary snapshot, preserve discrepancies and create linked officer or particulars change jobs where needed |
+| Prepare the pack | Copy checked details into the relevant documents and external preparation tools | Assemble versioned confirmation material from an approved template when available; attach externally prepared filing outputs and validation evidence |
+| Review | A reviewer checks the records, documents and exceptions | Review an exact version, return it with reasons or approve its stated scope; keep effective changes and filing readiness separate |
+| Execute and submit | Obtain signatures and lodge externally; save receipts | Capture execution evidence and each submitted package, reference, payment and actual authority response; keep unresolved outcomes visible |
+| Close and retain | Update the tracker and retain the final file | Evaluate all required evidence and tasks, preserve the historical snapshot and filing package, expose billing separately and queue future work without duplicate jobs |
+
+Initial reminders are an in-application work queue, not email, SMS, desktop push or automated client contact. Where no approved deadline rule exists, show the missing rule or a separately labelled, evidenced manual date requiring the applicable review; do not invent a statutory deadline. The first local build uses fictional companies and documents.
+
+An administrator's ability to manage accounts does not itself grant restricted compliance access or authorise every professional decision. Local test fixtures should include separate executive, reviewer and lodger identities so the owner can test role boundaries; fixture switching must not become a production authentication bypass. A permitted self-approval policy remains a team decision.
+
+Before implementation, confirm the first milestone's boundary and acceptance examples. Before live use, validate actual opening data, document templates, reminder cadence, role combinations, legal rules and evidence requirements. Record changed assumptions explicitly rather than treating the team's later corrections as exceptions to a finished design.
+
 The functional baseline is the supplied [Malaysian Company Secretarial Software Internal product requirements and user workflows](references/product-brief.docx), revision 2, dated 21 October 2026. Its W01 to W12 catalogue and cross-workflow safeguards take precedence over illustrative prototype behaviour. Preserve the supplied file with the project when moving these materials elsewhere.
 
 The prototype is `prototype/index.html`. Its dates, names, company numbers, fees, documents and references are fictional examples. Its reduced data model demonstrates interactions and does not establish a compliance rule or final schema.
@@ -156,6 +187,12 @@ Bespoke jobs require a named reviewer, defined scope, milestones, evidence, reco
 
 ## Screen contracts
 
+### First-build scope confirmed by the owner
+
+The owner requires annual return creation and filing tracking (W03), director-change preparation and filing tracking (W04), and reminders/follow-ups in the first build. These are delivered with company records, documents, review and evidence, rather than as disconnected visual screens. Filing means preparing and tracking externally performed submissions; direct regulator integration is not included. The owner also requires usable settings and fluid interaction behaviour in this first build. W01 to W12 remain the overall product catalogue; the first build is not a claim that the entire catalogue has been implemented.
+
+Acceptance must include creation of a company-year annual return without duplication, a reviewed director-change event with independent effective and filing states, an owned client follow-up with next chase date, and reminders that reappear correctly after the local host restarts. Verify a material pack revision, missing evidence and a queried filing as well as the successful path. Document generation uses approved templates; until supplied and validated, fictional template output must be labelled illustrative and must not be presented as a regulator-compatible return.
+
 ### My work
 
 The screen answers “What should I do next?” Display a page title and one primary “New job” action. Use one filter row for all work, assigned work, overdue, review, filing and waiting. Put small counts beside the filter labels. Avoid separate headline counters that repeat those same values. Counts must use the same access scope and query semantics as the list.
@@ -223,6 +260,24 @@ The manager view prioritises unowned work, overdue obligations, stalled requests
 ### Administration
 
 Use separate sections for users/capabilities, approved document templates, obligation rules, activity checklists, secretary credentials and retention policies. Catalogues have version, status, approver, effective date and source. Rule/template changes preview affected work and are reviewed before activation. Archived records remain recoverable under policy; authorised disposal and legal holds are distinct operations.
+
+### Settings and editing requirements
+
+The owner wants operational settings and templates to be amendable through the application, rather than requiring code changes for routine administration. Implement a coherent Settings area in the first build with these scopes:
+
+| Scope | Editable content | Behaviour |
+| --- | --- | --- |
+| Personal preferences | Text size, comfortable/compact list density and reduced motion | Persist per user, preview immediately, provide reset; default to Option A and respect operating-system reduced motion |
+| Work defaults | Preparation lead times, client chase intervals and default assignments | Apply to new work by default; changes to open work require an explicit impact preview and confirmation |
+| Templates and checklists | Internal confirmation packs, document templates, correspondence drafts and activity checklist versions | Edit drafts, preview using fictional/sample data, validate placeholders and publish through the required review; retain predecessors and exact versions used by jobs |
+| Controlled catalogues | Obligation rules, evidence requirements and approved applicability settings | Authorised, sourced and versioned review before activation; never rewrite completed work |
+| Firm administration | Firm particulars, users, company access and capabilities | Server-enforced permissions and attributed changes; restrict sensitive administration |
+
+Keep personal display settings separate from document typography and statutory rules. Configuration does not permit renaming away canonical states, bypassing mandatory evidence or changing protected history. Prefer structured template placeholders and approved formatting over arbitrary executable template code. Template publication must fail clearly for unresolved or invalid required fields, leaving the draft intact.
+
+Proposed initial editor scope: plain text for short notes and focused rich text for longer case notes and template text, with paragraphs, basic emphasis, lists, undo/redo and safe paste. Do not introduce a full word processor solely for notes. Retain meaningful edits on validation or connection failure, show save state concisely and warn before discarding unsaved work. Sanitize rich content on the server; editing a document already reviewed creates a new version. Exact document-template import/export fidelity and editor tooling remain implementation decisions to validate against real templates.
+
+The interface follows the owner's preference for minimal routine microcopy: avoid persistent explanations beneath ordinary fields and repeated onboarding paragraphs. Keep visible labels, actionable errors, important dependencies and concise pending/result feedback. Apply the motion and text-scaling contracts in DESIGN.md. Verify keyboard use, reduced motion, enlarged text, interrupted transitions and preservation of list/filter/editor context.
 
 ## Selected visual direction and archived explorations
 

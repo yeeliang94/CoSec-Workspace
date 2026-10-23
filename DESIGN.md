@@ -195,7 +195,11 @@ Working surfaces are flat. Borders separate table rows, navigation regions and m
 
 The current drawer shadow is `-12px 0 38px rgba(0,0,0,.12)`. The focused dialog shadow is `0 16px 60px rgba(0,0,0,.15)`. Keep elevation neutral. The dimmed background makes the active layer clear; it is not a glass or blur treatment.
 
-Keep state changes immediate unless a short transition improves orientation. The current prototype has no authored entrance animation. Any future motion must respect reduced-motion preferences and communicate a change rather than delay work.
+The owner requires smooth, fluid interactions for the implementation. Use consistent, brief transitions to preserve orientation when drawers open, sections change and controls respond. Proposed implementation timings are 100–150ms for control feedback and 180–250ms for drawers and disclosures, with natural deceleration and faster exits. Keep controls responsive during transitions; repeated actions must interrupt or reverse motion cleanly. Do not delay work, replay page entrances, animate every table row or move a record while it is being edited. The disposable prototype does not yet implement this motion contract.
+
+Respect reduced-motion preferences and offer a personal reduced-motion setting that can further reduce movement. Preserve meaningful focus, pending and result feedback. Reserve space for loading and validation to avoid layout jumps; restore list position and focus after detail views close. Validate fluidity on the target office hardware rather than assuming an animation is smooth.
+
+Allow a personal text-size preference using a shared scale over these typography roles; keep Option A's font family, hierarchy and palette. The default remains the token baseline. Larger text must reflow labels, forms and tables without clipping or hiding essential actions. Reading preferences must not change generated document typography, which belongs to the document template.
 
 ## Shapes
 
@@ -228,6 +232,8 @@ Lead with the next action, responsible staff and due date. Keep job, document, c
 Use plain-text state labels. Reserve red for blockers and overdue work and green for evidenced readiness. Preserve the complete state name in the visible text or accessible name. A partly signed document, effective event and outstanding filing must remain distinguishable.
 
 ### Inputs and validation
+
+The owner prefers a concise interface without routine explanatory microcopy or persistent helper text. Use clear labels, familiar controls and direct action names. Reveal optional guidance on request or at the point it becomes relevant. Retain field labels, actionable validation, save state, material blockers and consequential-action information needed to complete work correctly.
 
 Inputs use a white surface, input-border token, control radius and shared padding. Search may use a smaller 35px control within the desktop toolbar. Labels remain visible; placeholders provide examples only. Use the shared focus colour with a 2px outline and 3px offset, as observed in A.
 

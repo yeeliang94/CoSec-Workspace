@@ -1,0 +1,55 @@
+{
+  "name": "cosec-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "worker": "tsx scripts/worker.ts",
+    "db:start": "sh scripts/local-mysql.sh start",
+    "db:stop": "sh scripts/local-mysql.sh stop",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/*.ts\" \"tests/**/*.ts\" \"*.config.{ts,mjs}\""
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
+    "better-auth": "^1.7.12",
+    "dotenv": "^18.0.8",
+    "drizzle-orm": "^0.45.4",
+    "mysql2": "^3.24.6",
+    "next": "^16.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sanitize-html": "^2.18.1",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sanitize-html": "^2.16.2",
+    "drizzle-kit": "^0.31.11",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "type": "module",
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
+    }
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

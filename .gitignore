@@ -14,3 +14,13 @@ __pycache__/
 
 # Retained download bundle; editable sources are tracked instead
 /CoSec_Design_Exploration.zip
+
+# Application dependencies, local data and generated verification artifacts
+node_modules/
+.next/
+.local/
+private-storage/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo

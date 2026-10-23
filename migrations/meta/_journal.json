@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1792676486545,
+      "tag": "0000_deep_lady_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1792681021066,
+      "tag": "0001_flawless_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1792721070338,
+      "tag": "0002_reminder_state_and_request_retention",
+      "breakpoints": true
+    }
+  ]
+}
