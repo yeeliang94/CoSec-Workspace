@@ -99,8 +99,10 @@ export async function changePerson(actor: Actor, input: PersonInput): Promise<Pe
     return db.transaction(async (tx) => {
       const old = await prior(tx, key);
       if (old) {
+        // A replay returns current data, so it needs the same access as a normal read.
         const [row] = await tx.select().from(s.people).where(eq(s.people.id, old.id));
-        if (!row) throw personUnavailable();
+        if (!row || !(await visiblePersonIds(actor, { ids: [old.id] }, tx)).length)
+          throw personUnavailable();
         return row.data;
       }
       const now = new Date().toISOString();

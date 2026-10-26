@@ -240,13 +240,20 @@ const klTime = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'medium',
   timeStyle: 'medium',
 });
-/** CSV of the visible, filtered entries (newest first, capped), itself recorded in the audit. */
+/**
+ * CSV of the visible, filtered entries (newest first), itself recorded in the audit. More than
+ * AUDIT_EXPORT_MAX matches is refused rather than silently cut, so a file is always complete.
+ */
 export async function exportAudit(actor: Actor, filters: AuditFilters) {
   assertCapability(actor, 'view_audit');
   assertCapability(actor, 'export_audit');
   const rows = await select(actor, filters, AUDIT_EXPORT_MAX + 1);
-  const truncated = rows.length > AUDIT_EXPORT_MAX;
-  const entries = rows.slice(0, AUDIT_EXPORT_MAX).map((r) => toView(actor, r));
+  if (rows.length > AUDIT_EXPORT_MAX)
+    throw new DomainError(
+      `More than ${AUDIT_EXPORT_MAX.toLocaleString('en-MY')} entries match. Narrow the filters, for example by date or company, and export again.`,
+      'TOO_LARGE',
+    );
+  const entries = rows.map((r) => toView(actor, r));
   const header = [
     'Time (UTC)',
     'Time (Kuala Lumpur)',
@@ -283,8 +290,8 @@ export async function exportAudit(actor: Actor, filters: AuditFilters) {
       entityType: 'audit',
       entityId: 'export',
       action: 'audit.exported',
-      detail: { filters, rowCount: entries.length, truncated },
+      detail: { filters, rowCount: entries.length },
     }),
   );
-  return { csv: lines.join('\r\n') + '\r\n', rowCount: entries.length, truncated };
+  return { csv: lines.join('\r\n') + '\r\n', rowCount: entries.length };
 }

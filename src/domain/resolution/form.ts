@@ -1,3 +1,4 @@
+import { DomainError } from '../access';
 import { bindingInfo, bindingSourceLabel } from './bindings';
 import type {
   AnswerValue,
@@ -85,6 +86,20 @@ export function unitsOf(t: CaseTemplate): Unit[] {
 export function resolverFor(input: CaseInput) {
   return new ValueResolver(input.ctx, unitsOf(input), input.answers);
 }
+
+/**
+ * Blocks one document may visit. Nested repeats multiply template size, so every walk over
+ * the content spends from this budget before it can block the server.
+ */
+export const MAX_BLOCKS = LIMITS.nodes * LIMITS.clauses;
+export const tooLarge = () =>
+  new DomainError(
+    'The document is too large to produce. Reduce repeated items or clause content.',
+    'TOO_LARGE',
+  );
+/** Content deeper than the checked limit; unreachable for templates that passed validation. */
+export const tooDeep = () =>
+  new DomainError('The content is nested too deeply to produce.', 'TOO_DEEP');
 
 /** Items of enclosing repeats, by list field id. */
 export type ItemScope = Map<string, PersonSnapshot>;
@@ -174,9 +189,11 @@ export function activeUsage(input: CaseInput, resolver: ValueResolver) {
   };
   const inline = (content: InlineNode[], unitKey: string, scope: ItemScope) =>
     content.forEach((n) => n.type === 'field' && mark(unitKey, n.fieldId, scope));
+  let visited = 0;
   const walk = (blocks: BlockNode[], unitKey: string, scope: ItemScope, depth = 0): void => {
-    if (depth > LIMITS.depth + 2) return;
-    for (const block of blocks)
+    if (depth > LIMITS.depth + 2) throw tooDeep();
+    for (const block of blocks) {
+      if (++visited > MAX_BLOCKS) throw tooLarge();
       switch (block.type) {
         case 'paragraph':
         case 'heading':
@@ -199,12 +216,12 @@ export function activeUsage(input: CaseInput, resolver: ValueResolver) {
             walk(block.content, unitKey, new Map(scope).set(block.fieldId, item), depth + 1);
           break;
         case 'clauseSlot':
+          // Clause wording is depth-checked on its own, so it starts again at the top level.
           for (const clause of input.clauses)
             walk(
               wordingFor(clause.version.wordings, input.outputType.id) ?? [],
               clause.key,
               new Map(),
-              depth + 1,
             );
           break;
         case 'signatureBlock':
@@ -213,6 +230,7 @@ export function activeUsage(input: CaseInput, resolver: ValueResolver) {
         case 'pageBreak':
           break;
       }
+    }
   };
   const a = input.assembly.version;
   walk(a.header, ASSEMBLY_KEY, new Map());
