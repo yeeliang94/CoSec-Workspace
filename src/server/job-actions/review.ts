@@ -121,9 +121,9 @@ export const reviewActions = {
             : 'Draft';
         job.state = data.decision === 'Approved' ? 'Action in progress' : 'Preparing';
       }
-      if (data.scope === 'readiness')
-        job.filingState = data.decision === 'Approved' ? 'Ready' : 'Not ready';
+      if (data.scope === 'readiness' && data.decision === 'Approved') job.filingState = 'Ready';
       if (data.decision === 'Returned') {
+        if (data.scope === 'manual_date') job.deadlineReviewRequired = true;
         if (job.filingState === 'Ready' || job.filingState === 'Not required with reason') {
           job.filingState = 'Not ready';
           job.filingNotRequiredReason = null;

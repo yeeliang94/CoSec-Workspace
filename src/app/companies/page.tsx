@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useWorkspace, PageHeader, Icon, formatDate, Empty, request } from '@/components/workspace';
 import { FormFields } from '@/components/forms';
+import { canLeaveEditing } from '@/components/edit-guard';
 export default function Companies() {
   const { data, refresh } = useWorkspace();
   const [query, setQuery] = useState('');
@@ -16,8 +17,13 @@ export default function Companies() {
   return (
     <>
       <PageHeader title="Companies">
-        {data.actor.capabilities.includes('prepare_job') ? (
-          <button className="primary" onClick={() => setAdding(!adding)}>
+        {data.actor.capabilities.includes('manage_users') ? (
+          <button
+            className="primary"
+            onClick={() => {
+              if (!adding || canLeaveEditing()) setAdding(!adding);
+            }}
+          >
             <Icon kind="plus" />
             {adding ? 'Close form' : 'New company'}
           </button>
@@ -27,13 +33,20 @@ export default function Companies() {
         <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>
           <h2>Opening company record</h2>
           <form
+            inert={pending}
+            aria-busy={pending}
+            onChange={(event) => {
+              event.currentTarget.dataset.dirty = 'true';
+            }}
             onSubmit={async (e) => {
               e.preventDefault();
               setError('');
               setPending(true);
               const values = Object.fromEntries(new FormData(e.currentTarget));
+              const form = e.currentTarget;
               try {
                 await request('/api/companies', { ...values, requestId: crypto.randomUUID() });
+                form.dataset.dirty = 'false';
                 await refresh();
                 setAdding(false);
               } catch (e) {

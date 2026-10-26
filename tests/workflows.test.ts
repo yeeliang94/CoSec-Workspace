@@ -858,6 +858,108 @@ describe('operating defaults and versioned checklist use', () => {
 });
 
 describe('multiple authority messages', () => {
+  it.each(['Query', 'Rejection'] as const)(
+    'retains an unanswered %s when readiness is returned',
+    async (kind) => {
+      let job = await submitted(await prepared(await annual()));
+      job = await command(
+        job,
+        'filing_message',
+        {
+          kind,
+          wording: 'Clarify particulars',
+          date: '2026-10-02',
+          responseDue: '2026-10-20',
+          evidenceId: 'query',
+        },
+        lodger,
+      );
+      const filingState = job.filingState;
+      job = await command(
+        job,
+        'review',
+        {
+          scope: 'readiness',
+          decision: 'Returned',
+          reason: 'Answer authority first',
+          version: currentPack(job).version,
+        },
+        reviewer,
+      );
+      expect(job.filingState).toBe(filingState);
+      await expect(command(job, 'authorise_readiness', {}, reviewer)).rejects.toThrow(
+        'evidenced response',
+      );
+      // An inconsistent legacy state must not hide the unanswered message either.
+      expect(blockers({ ...job, filingState: 'Not ready' })).toContain(
+        'Record the evidenced response to the authority query or rejection.',
+      );
+      job = await command(
+        job,
+        'filing_response',
+        {
+          summary: 'Clarification supplied',
+          date: '2026-10-03',
+          evidenceId: 'response',
+        },
+        lodger,
+      );
+      job = await command(job, 'authorise_readiness', {}, reviewer);
+      job = await command(
+        job,
+        'submit',
+        {
+          version: currentPack(job).version,
+          documentIds: currentPack(job).documentIds,
+          submittedDate: '2026-10-03',
+          reference: 'REF-2',
+          channel: 'External channel',
+          evidenceId: 'receipt2',
+        },
+        lodger,
+      );
+      expect(job.filingState).toBe('Resubmitted');
+      expect(job.filingAttempts).toHaveLength(2);
+      expect(job.filingAttempts[0].messages[0].response?.evidenceId).toBe('response');
+    },
+  );
+
+  it('requires fresh manual-date approval after the reviewer returns an approved date', async () => {
+    let job = await prepared(await annual());
+    job = await command(job, 'authorise_readiness', {}, reviewer);
+    job = await command(
+      job,
+      'review',
+      {
+        scope: 'manual_date',
+        decision: 'Returned',
+        reason: 'Source needs checking again',
+        version: currentPack(job).version,
+      },
+      reviewer,
+    );
+    expect(job.statutoryDue).toBe('2026-10-01');
+    expect(job.deadlineReviewRequired).toBe(true);
+    expect(approved(job, 'manual_date')).toBe(false);
+    await expect(command(job, 'authorise_readiness', {}, reviewer)).rejects.toThrow(
+      'Manual statutory date',
+    );
+    job = await command(
+      job,
+      'review',
+      {
+        scope: 'manual_date',
+        decision: 'Approved',
+        reason: 'Source independently rechecked',
+        version: currentPack(job).version,
+      },
+      reviewer,
+    );
+    job = await command(job, 'authorise_readiness', {}, reviewer);
+    expect(job.filingState).toBe('Ready');
+    expect(job.deadlineHistory).toHaveLength(2);
+  });
+
   it('requires separate evidenced responses to every unresolved message before readiness', async () => {
     let job = await submitted(await prepared(await annual()));
     job = await command(

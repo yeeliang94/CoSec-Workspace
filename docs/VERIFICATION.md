@@ -1,5 +1,13 @@
 # Local milestone verification — 22 October 2026
 
+## Review corrections — 23 October 2026
+
+Returned readiness decisions now retain authority query/rejection state, and unanswered authority messages block readiness independently of the filing label. Returning a manual-date approval restores the independent date-review requirement while retaining the operative date and its history. Service regressions cover blocked readiness, recording the response, resubmission and renewed manual-date approval.
+
+Company creation visibility now matches the server's `manage_users` permission. Opening-company edits participate in discard protection, including Close form. Changing an upload's company requires confirmation for unsaved evidence and resets the title/file after discard. Browser Back/Forward preserves drafts when navigation is cancelled; native skip-link history entries retain the router state needed for the same protection.
+
+Verification: all 75 service/integration tests and 14 production-browser tests passed, alongside strict TypeScript, production build, formatting and diff-whitespace checks. The five added browser cases exercise cancellation and confirmed discard, repeated Back/Forward, native fragment history, upload context reset, and administrator/preparer visibility. Independent workflow and UI reviews approved the fixes. The live-use limits recorded below still apply.
+
 Fictional-data evaluation on the owner's Apple silicon Mac, Node 24.11.1 and isolated MySQL Community 8.4.11 at localhost:3307. The official archive checksum matches the published MD5. The app runs at localhost:3000; document bytes and generated staff credentials are private ignored local files. Original source brief and prototype remain unchanged. Existing owner design/specification changes were preserved.
 
 ## Checks run

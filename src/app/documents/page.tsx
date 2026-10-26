@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useWorkspace, PageHeader, Icon, formatDate, Empty } from '@/components/workspace';
 import { UploadForm } from '@/components/forms';
+import { canLeaveEditing } from '@/components/edit-guard';
 export default function Documents() {
   const { data } = useWorkspace();
   const [query, setQuery] = useState('');
@@ -32,7 +33,12 @@ export default function Documents() {
         </label>
         <label>
           <span className="sr-only">Company</span>
-          <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+          <select
+            value={companyId}
+            onChange={(e) => {
+              if (canLeaveEditing()) setCompanyId(e.target.value);
+            }}
+          >
             <option value="">All companies</option>
             {data.companies.map((c) => (
               <option value={c.id} key={c.id}>
@@ -46,7 +52,7 @@ export default function Documents() {
         <details className="disclosure" style={{ marginBottom: 24 }}>
           <summary>Upload company evidence</summary>
           <div>
-            <UploadForm companyId={companyId} />
+            <UploadForm key={companyId} companyId={companyId} />
           </div>
         </details>
       ) : null}

@@ -1,5 +1,7 @@
 # CoSec Workspace
 
+The proposed next milestone is documented in the [resolution builder implementation handoff](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md): in-app template authoring, linked company/person/event records, custom input forms, Word document generation, version history and audit. This is a plan, not a claim that these capabilities are already delivered.
+
 The local first build now supports annual returns (W03), director appointments/cessations (W04), members/share capital/transfers (W05), restricted beneficial ownership records (W06), integrated follow-ups, company history, private evidence, exact-version review, external filing tracking and editable settings.
 
 ```sh

@@ -55,10 +55,7 @@ export function readinessBlockers(job: Job): string[] {
     result.push('Manual statutory date needs evidence and independent review.');
   if (job.filingState !== 'Not required with reason' && !job.statutoryDue && !job.ruleVersionId)
     result.push('No approved deadline rule or reviewed manual date.');
-  if (
-    ['Queried', 'Rejected'].includes(job.filingState) &&
-    job.filingAttempts.at(-1)?.messages.some((message) => !message.response)
-  )
+  if (job.filingAttempts.at(-1)?.messages.some((message) => !message.response))
     result.push('Record the evidenced response to the authority query or rejection.');
   if (['W04', 'W05', 'W06'].includes(job.activity) && !approved(job, 'record'))
     result.push('Review the dated record basis for the current pack version.');

@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { canLeaveEditing, hasUnsavedEdits } from './edit-guard';
+import { canLeaveEditing, installEditGuards } from './edit-guard';
 import type { Workspace } from '@/domain/model';
 
 type Context = {
@@ -131,30 +131,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const login = pathname === '/login';
-  useEffect(() => {
-    const unload = (event: BeforeUnloadEvent) => {
-      if (hasUnsavedEdits()) event.preventDefault();
-    };
-    const click = (event: MouseEvent) => {
-      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
-      if (!link) return;
-      const url = new URL(link.getAttribute('href') || '', window.location.href);
-      if (
-        url.origin === window.location.origin &&
-        url.pathname !== window.location.pathname &&
-        !canLeaveEditing()
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener('beforeunload', unload);
-    document.addEventListener('click', click, true);
-    return () => {
-      window.removeEventListener('beforeunload', unload);
-      document.removeEventListener('click', click, true);
-    };
-  }, []);
+  useEffect(installEditGuards, []);
 
   const workMemory = useRef({ href: '/work', scrollY: 0, focusId: '' });
   const restorePending = useRef(false);
