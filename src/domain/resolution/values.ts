@@ -176,7 +176,13 @@ export class ValueResolver {
     if (cached) return cached;
     if (this.active.has(id)) return { value: null, sample: false }; // cycles are rejected earlier
     this.active.add(id);
-    const resolved = this.compute(unitKey, found.def, found.ns);
+    // A shared field has one value per case, so its inputs come from the shared scope rather
+    // than from whichever clause asked first.
+    const resolved = this.compute(
+      found.ns === 'case' ? ASSEMBLY_KEY : unitKey,
+      found.def,
+      found.ns,
+    );
     this.active.delete(id);
     this.memo.set(id, resolved);
     return resolved;

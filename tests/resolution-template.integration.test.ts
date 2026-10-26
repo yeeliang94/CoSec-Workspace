@@ -19,7 +19,7 @@ import type {
   DocumentGeneration,
   ResolutionCase,
 } from '../src/domain/resolution/model';
-import { createCase } from '../src/server/records/cases';
+import { changeCase, createCase } from '../src/server/records/cases';
 import { mutateCase, readCase } from '../src/server/resolution/shared';
 import {
   applyOutputTypeAction,
@@ -1502,6 +1502,68 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       select(rc, [{ clauseId: lineage.templateId, clauseVersionId: v.id }]),
     );
     expect(early.message).toMatch(/not effective yet/);
+  });
+
+  it('previews starters and generates only with wording in force on the case date', async () => {
+    const lineage = await publish(
+      'clause',
+      clauseMeta('general', { name: `In force ${tag}` }),
+      starter('general').content,
+    );
+    const futureContent = structuredClone(starter('general').content);
+    futureContent.wordings.directors_written = [
+      { type: 'paragraph', content: [{ type: 'text', text: `Future wording ${tag}` }] },
+      ...futureContent.wordings.directors_written!,
+    ];
+    const draft = (
+      await applyVersionAction(author, 'clause', lineage.templateId, lineage.versionId, {
+        action: 'new_version',
+        requestId: rid(),
+      })
+    ).version;
+    let v = (
+      await applyVersionAction(author, 'clause', lineage.templateId, draft.id, {
+        action: 'save_draft',
+        requestId: rid(),
+        expectedRevision: draft.revision,
+        ...futureContent,
+        source: 'Fictional future wording',
+        effectiveDate: '2099-01-01',
+      })
+    ).version;
+    v = (
+      await applyVersionAction(author, 'clause', lineage.templateId, v.id, {
+        action: 'submit',
+        requestId: rid(),
+        expectedRevision: v.revision,
+      })
+    ).version;
+    await applyVersionAction(reviewer, 'clause', lineage.templateId, v.id, {
+      action: 'publish',
+      requestId: rid(),
+      expectedRevision: v.revision,
+      confirm: true,
+    });
+    // The predecessor is now Superseded but still in force, so the preview keeps its wording.
+    const preview = await previewTemplate(author, {
+      kind: 'assembly',
+      versionId: directorsAssembly.versionId,
+      draft: assemblyContent('directors', [lineage.templateId]),
+    });
+    const previewText = JSON.stringify(preview.resolved);
+    expect(previewText).not.toContain('The clauses chosen for the case appear here.');
+    expect(previewText).not.toContain(`Future wording ${tag}`);
+
+    // A case dated after the version took effect is moved back before it.
+    let rc = await select(await newCase(), [pin('general')]);
+    rc = await changeCase(author, rc.id, {
+      action: 'update_details',
+      requestId: rid(),
+      expectedRevision: rc.revision,
+      resolutionDate: '2026-09-01',
+    });
+    const blocked = await errorOf(generate(rc));
+    expect(blocked.message).toMatch(/takes effect after the resolution date \(2026-09-01\)/);
   });
 
   it('copies a template into a new lineage keeping field ids, and uploads still reject Word files', async () => {
