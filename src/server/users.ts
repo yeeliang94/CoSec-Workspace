@@ -17,9 +17,14 @@ const capabilities = z
       'manage_catalogue',
       'manage_users',
       'view_bo',
+      'manage_people',
+      'manage_templates',
+      'generate_documents',
+      'view_audit',
+      'export_audit',
     ]),
   )
-  .max(7);
+  .max(12);
 const fields = z.object({
   name: z.string().trim().min(2).max(200),
   capabilities,
