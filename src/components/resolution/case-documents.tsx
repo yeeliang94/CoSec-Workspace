@@ -182,7 +182,10 @@ function Generation({
     generation.status === 'Ready' &&
     caps.includes('review_pack') &&
     data.actor.id !== generation.createdBy;
-  const canRecord = generation.status === 'Ready' && caps.includes('generate_documents');
+  // Matches the server: any of these may record a signed copy.
+  const canRecord =
+    generation.status === 'Ready' &&
+    caps.some((cap) => ['generate_documents', 'prepare_job', 'review_pack'].includes(cap));
   const people = [
     ...(generation.snapshot?.directors ?? []),
     ...(generation.snapshot?.members ?? []),

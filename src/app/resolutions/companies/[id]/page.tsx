@@ -184,7 +184,13 @@ function DatedEntry({
             aria-label={`Record ${label}`}
             onClick={() => {
               setOpen(true);
-              setValue(typeof now?.value === 'string' ? now.value : '');
+              setValue(
+                typeof now?.value === 'boolean'
+                  ? String(now.value)
+                  : typeof now?.value === 'string'
+                    ? now.value
+                    : '',
+              );
             }}
           >
             Record new value
