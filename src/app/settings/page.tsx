@@ -343,6 +343,11 @@ const capabilities: Capability[] = [
   'manage_catalogue',
   'manage_users',
   'view_bo',
+  'manage_people',
+  'manage_templates',
+  'generate_documents',
+  'view_audit',
+  'export_audit',
 ];
 function Users() {
   const { data } = useWorkspace();
@@ -549,7 +554,23 @@ export default function Settings() {
   ];
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings">
+        {data.actor.capabilities.includes('manage_templates') ||
+        data.actor.capabilities.includes('view_audit') ? (
+          <div className="header-actions">
+            {data.actor.capabilities.includes('manage_templates') ? (
+              <Link className="button" href="/templates">
+                Clause library
+              </Link>
+            ) : null}
+            {data.actor.capabilities.includes('view_audit') ? (
+              <Link className="button" href="/audit">
+                Audit log
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+      </PageHeader>
       <nav className="section-nav" aria-label="Settings sections">
         {tabs.map((item) => (
           <button
