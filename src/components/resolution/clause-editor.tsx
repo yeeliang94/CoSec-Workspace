@@ -72,6 +72,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
     caps.includes('manage_templates') &&
     (version.status === 'Draft' || version.status === 'Returned');
   const [section, setSection] = useState<Section>('wording');
+  const [meta, setMeta] = useState(() => clauseMeta(template));
   const [draft, setDraft] = useState<Draft>(() => ({
     wordings: structuredClone(version.wordings),
     fields: structuredClone(version.fields),
@@ -430,7 +431,14 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
             </div>
           </section>
         ) : section === 'details' ? (
-          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
+          <ClauseDetails
+            page={page}
+            draft={draft}
+            editable={editable}
+            onDraft={change}
+            meta={meta}
+            setMeta={setMeta}
+          />
         ) : section === 'preview' ? (
           <SamplePreview
             kind="clause"
@@ -455,28 +463,49 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
   );
 }
 
+type ClauseMeta = {
+  name: string;
+  category: ClauseCategory;
+  governingAct: string;
+  usageContexts: UsageContext[];
+  displayOrder: string;
+  description: string;
+};
+const clauseMeta = (template: {
+  name: string;
+  category: ClauseCategory;
+  governingAct: string;
+  usageContexts: UsageContext[];
+  displayOrder: number;
+  description: string;
+}): ClauseMeta => ({
+  name: template.name,
+  category: template.category,
+  governingAct: template.governingAct,
+  usageContexts: template.usageContexts,
+  displayOrder: String(template.displayOrder),
+  description: template.description,
+});
+
 function ClauseDetails({
   page,
   draft,
   editable,
   onDraft,
+  meta,
+  setMeta,
 }: {
   page: ReturnType<typeof useTemplateVersion<'clause'>>;
   draft: Draft;
   editable: boolean;
   onDraft: (patch: Partial<Draft>) => void;
+  /** Held by the workbench so unsaved edits survive switching sections. */
+  meta: ClauseMeta;
+  setMeta: (meta: ClauseMeta) => void;
 }) {
   const { data } = useWorkspace();
   const template = page.state!.template;
   const canManage = Boolean(data?.actor.capabilities.includes('manage_templates'));
-  const [meta, setMeta] = useState({
-    name: template.name,
-    category: template.category,
-    governingAct: template.governingAct,
-    usageContexts: template.usageContexts,
-    displayOrder: String(template.displayOrder),
-    description: template.description,
-  });
   const action = useAction();
   const metaDirty =
     meta.name !== template.name ||

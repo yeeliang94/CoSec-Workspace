@@ -98,6 +98,11 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
     Boolean(data?.actor.capabilities.includes('manage_templates')) &&
     (version.status === 'Draft' || version.status === 'Returned');
   const [section, setSection] = useState<Section>('content');
+  const [meta, setMeta] = useState<AssemblyMeta>(() => ({
+    name: template.name,
+    description: template.description,
+    usageContexts: template.usageContexts,
+  }));
   const [draft, setDraft] = useState<Draft>(() => ({
     header: structuredClone(version.header),
     closing: structuredClone(version.closing),
@@ -154,9 +159,20 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
       issue,
     })),
   );
+  // Running page header and footer count as uses too, so their fields cannot be deleted.
   const wordingRefs = [
     { key: 'header', name: 'Header', blocks: draft.header },
     { key: 'closing', name: 'Closing', blocks: draft.closing },
+    {
+      key: 'page_header',
+      name: 'Page header',
+      blocks: [{ type: 'paragraph' as const, content: draft.layout.header }],
+    },
+    {
+      key: 'page_footer',
+      name: 'Page footer',
+      blocks: [{ type: 'paragraph' as const, content: draft.layout.footer }],
+    },
   ];
   const editorFor = (part: Part) => (
     <TemplateEditor
@@ -661,7 +677,14 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
             ) : null}
           </section>
         ) : section === 'details' ? (
-          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
+          <AssemblyDetails
+            page={page}
+            draft={draft}
+            editable={editable}
+            onDraft={change}
+            meta={meta}
+            setMeta={setMeta}
+          />
         ) : section === 'preview' ? (
           <SamplePreview
             kind="assembly"
@@ -697,26 +720,28 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
   );
 }
 
+type AssemblyMeta = { name: string; description: string; usageContexts: UsageContext[] };
+
 function AssemblyDetails({
   page,
   draft,
   editable,
   onDraft,
+  meta,
+  setMeta,
 }: {
   page: ReturnType<typeof useTemplateVersion<'assembly'>>;
   draft: Draft;
   editable: boolean;
   onDraft: (patch: Partial<Draft>) => void;
+  /** Held by the workbench so unsaved edits survive switching sections. */
+  meta: AssemblyMeta;
+  setMeta: (meta: AssemblyMeta) => void;
 }) {
   const { data } = useWorkspace();
   const template = page.state!.template;
   const canManage = Boolean(data?.actor.capabilities.includes('manage_templates'));
   const action = useAction();
-  const [meta, setMeta] = useState({
-    name: template.name,
-    description: template.description,
-    usageContexts: template.usageContexts,
-  });
   const metaDirty =
     meta.name !== template.name ||
     meta.description !== template.description ||
