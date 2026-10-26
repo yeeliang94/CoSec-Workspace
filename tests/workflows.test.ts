@@ -10,6 +10,10 @@ const memory = vi.hoisted(() => ({
   requests: new Map<string, Job>(),
   settings: null as Settings | null,
 }));
+vi.mock('../src/server/records/relationships', () => ({
+  syncDirectorProjection: vi.fn(async () => undefined),
+  assertDirectorChangePerson: vi.fn(async () => undefined),
+}));
 vi.mock('../src/server/record-store', () => ({
   memberSnapshot: async () => ({
     verification: 'Not established',

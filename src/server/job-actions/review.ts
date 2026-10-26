@@ -12,6 +12,7 @@ import {
 import { applyRecordCommand } from '../record-actions';
 import { readRegisters } from '../record-store';
 import * as repo from '../repository';
+import { syncDirectorProjection } from '../records/relationships';
 import {
   action,
   evidence,
@@ -224,6 +225,8 @@ export const reviewActions = {
         tx,
       );
       job.recordEventId = eventId;
+      // Director relationships are projections of posted events; refresh them in the same lock.
+      await syncDirectorProjection(job.companyId, tx);
       await repo.markSnapshotConsequences(actor, job.companyId, job.effectiveDate, eventId, tx);
       return `Recorded ${job.route} effective ${job.effectiveDate}; filing remains ${job.filingState}.`;
     },

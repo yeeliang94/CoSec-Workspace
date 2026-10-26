@@ -135,6 +135,22 @@ beforeAll(async () => {
 afterAll(async () => {
   if (ready) {
     await db.delete(tables.reminders).where(eq(tables.reminders.companyId, companyId));
+    // Posting projects director relationships and people; remove only this fixture's rows.
+    const projected = await db
+      .select({ personId: tables.companyRelationships.personId })
+      .from(tables.companyRelationships)
+      .where(eq(tables.companyRelationships.companyId, companyId));
+    await db
+      .delete(tables.companyRelationships)
+      .where(eq(tables.companyRelationships.companyId, companyId));
+    if (projected.length)
+      await db.delete(tables.people).where(
+        inArray(
+          tables.people.id,
+          projected.map((p) => p.personId),
+        ),
+      );
+    await db.delete(tables.auditEvents).where(eq(tables.auditEvents.companyId, companyId));
     await db.delete(tables.officerEvents).where(eq(tables.officerEvents.companyId, companyId));
     await db.delete(tables.jobs).where(eq(tables.jobs.companyId, companyId));
     await db.delete(tables.documents).where(eq(tables.documents.companyId, companyId));
