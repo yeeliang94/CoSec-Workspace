@@ -80,6 +80,19 @@ Regression evidence: 142 unit/integration tests pass, including real MySQL lock-
 
 An existing native skip-link/history test fails under the development server's Strict Mode remounting but passes against the production build. The shared history guard was not changed in this follow-up; the new version-history guard passes in both modes.
 
+## Greptile review fixes (27 October 2026)
+
+All 19 Greptile findings on PRs 1–5 were checked against the code; all were valid and are fixed on the PR that introduced them:
+
+- **Bounds and depth:** the active-usage walk spends the compiler's block budget, so nested repeats fail with `TOO_LARGE` instead of blocking the server. Clause wording restarts depth at the clause slot, and over-deep content throws instead of silently disappearing.
+- **Shared fields:** definitions of one case-scope id must also agree on source, format and answer rules. Shared calculations may not depend on a clause's own field, and their inputs resolve in the shared scope.
+- **Dates and versions:** impossible calendar dates return false instead of throwing. Generation refuses pinned versions that take effect after the resolution date. Assembly previews use the same in-force rule as new cases.
+- **Access:** person-creation replays and W04 posting re-check current person access. A still-unlinked person chosen by the preparer can be posted by an independent reviewer.
+- **Audit export:** more than 5,000 matches is refused with a request to narrow the filters, rather than returning a silently cut file.
+- **Screens:** template details edits survive section changes, stale version loads are ignored, and page header/footer fields count as uses. The W04 appointment picker lists every visible person, and a late reply no longer erases a typed name. Yes/No custom values start unanswered. Per-person multiple-choice answers save as lists. Case details follow a linked job's date. Signed copies can be recorded by every capability the server accepts.
+
+Regression evidence: 149 unit/integration tests pass against MySQL (new tests cover nested repeats, clause depth, shared-field conflicts, invalid dates, backdated generation, in-force previews, replay access and posting access). Typecheck, Prettier check and production build pass. All 20 browser tests pass against the production build, and the W04 picker was checked in the browser.
+
 ## Known limitations
 
 - All clause wording is fictional evaluation content, not approved legal precedent.
