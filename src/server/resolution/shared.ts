@@ -4,7 +4,7 @@ import { db, type Transaction } from '../db';
 import * as s from '../schema';
 import { assertCompany, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
-import type { ResolutionCase } from '../../domain/resolution/model';
+import type { ClauseVersion, ResolutionCase } from '../../domain/resolution/model';
 import { prior, remember, requestKey } from '../repository';
 
 export type Change = { path: string; before: unknown; after: unknown };
@@ -154,4 +154,23 @@ export async function mutateCase(
     await remember(tx, key, { id, revision: next.revision });
     return next;
   });
+}
+
+export type Lifecycle = Pick<ClauseVersion, 'id' | 'status' | 'effectiveDate' | 'version'>;
+/**
+ * The version of a lineage in force on `asAt`: the highest-numbered Published or Superseded
+ * version whose effective date has arrived. Publishing a future-dated successor marks the
+ * predecessor Superseded at once, but the predecessor stays in force until the successor's date.
+ */
+export function inForce<V extends Lifecycle>(lineage: V[], asAt: string): V | null {
+  let best: V | null = null;
+  for (const v of lineage)
+    if (
+      (v.status === 'Published' || v.status === 'Superseded') &&
+      v.effectiveDate &&
+      v.effectiveDate <= asAt &&
+      (!best || v.version > best.version)
+    )
+      best = v;
+  return best;
 }

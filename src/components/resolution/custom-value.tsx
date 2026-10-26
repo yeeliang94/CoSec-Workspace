@@ -15,7 +15,8 @@ export function CustomValueInput({
     return (
       <label>
         Value
-        <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <select required value={value} onChange={(event) => onChange(event.target.value)}>
+          <option value="">Select…</option>
           <option value="true">Yes</option>
           <option value="false">No</option>
         </select>

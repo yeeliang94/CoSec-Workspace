@@ -835,6 +835,30 @@ function PerRowTable({
                         checked={cell === true}
                         onChange={(event) => set(event.target.checked)}
                       />
+                    ) : field.valueType === 'multiChoice' ? (
+                      <fieldset className="plain-fieldset" aria-label={aria}>
+                        {(field.options ?? []).map((option) => {
+                          const chosen = Array.isArray(cell) ? (cell as string[]) : [];
+                          return (
+                            <label className="inline" key={option.id}>
+                              <input
+                                type="checkbox"
+                                checked={chosen.includes(option.id)}
+                                onChange={(event) =>
+                                  set(
+                                    event.target.checked
+                                      ? (field.options ?? [])
+                                          .map((o) => o.id)
+                                          .filter((o) => o === option.id || chosen.includes(o))
+                                      : chosen.filter((v) => v !== option.id),
+                                  )
+                                }
+                              />
+                              {option.label}
+                            </label>
+                          );
+                        })}
+                      </fieldset>
                     ) : field.valueType === 'choice' ? (
                       <select
                         aria-label={aria}
