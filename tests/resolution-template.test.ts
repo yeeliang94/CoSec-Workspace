@@ -24,7 +24,7 @@ import {
 } from '../src/domain/resolution/schema';
 import { MAX_RUNS } from '../src/domain/resolution/compile';
 import { DomainError } from '../src/domain/access';
-import { bindingInfo } from '../src/domain/resolution/bindings';
+import { bindingInfo, resolveBinding } from '../src/domain/resolution/bindings';
 import {
   sharedFieldConflicts,
   validateAssembly,
@@ -95,6 +95,10 @@ const errors = <T extends { severity?: string }>(issues: T[]) =>
   issues.filter((i) => i.severity !== 'warning');
 
 describe('exact values', () => {
+  it('keeps preparation date separate from the records as-at date', () => {
+    const context = { ...sampleContext('2020-01-01'), preparedOn: '2026-10-27' };
+    expect(resolveBinding('today', context, () => null)).toBe('2026-10-27');
+  });
   it('adds and compares decimals without floating point', () => {
     expect(addDecimals(['1000.10', '2000.25'])).toBe('3000.35');
     expect(addDecimals(['0.1', '0.2'])).toBe('0.3');
