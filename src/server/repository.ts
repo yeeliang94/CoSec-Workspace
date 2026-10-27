@@ -179,13 +179,15 @@ export async function mutateJob(
   operation: (job: Job, tx: Transaction) => Promise<Job> | Job,
 ) {
   const key = requestKey(actor, id, requestId);
+  // Resolve immutable scope before starting the transaction; the company lock must precede
+  // its first snapshot read, including execution evidence committed while waiting for it.
+  const [identity] = await db
+    .select({ companyId: s.jobs.companyId })
+    .from(s.jobs)
+    .where(eq(s.jobs.id, id));
+  if (!identity) throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
+  assertCompany(actor, identity.companyId);
   return db.transaction(async (tx) => {
-    const [identity] = await tx
-      .select({ companyId: s.jobs.companyId })
-      .from(s.jobs)
-      .where(eq(s.jobs.id, id));
-    if (!identity) throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
-    assertCompany(actor, identity.companyId);
     await tx.select().from(s.companies).where(eq(s.companies.id, identity.companyId)).for('update');
     const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, id)).for('update');
     if (!row) throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
