@@ -74,22 +74,27 @@ export async function listCases(actor: Actor, companyId?: string) {
 /** One call for the case screen: the case, its generations (without resolved content) and records. */
 export async function getCaseDetail(actor: Actor, id: string) {
   const resolutionCase = await readCase(actor, id);
-  const generations = await Promise.all((
-    await db
-      .select({ data: s.documentGenerations.data })
-      .from(s.documentGenerations)
-      .where(
-        and(
-          eq(s.documentGenerations.caseId, id),
-          eq(s.documentGenerations.companyId, resolutionCase.companyId),
-        ),
-      )
-      .orderBy(desc(s.documentGenerations.createdAt))
-  ).map(async ({ data }) => {
-    // Older rows stored the full selector pools; the view keeps only referenced people.
-    const rest = omit({ ...generationView(data), executionRequirements: await generationRequirements(data) }, 'resolved');
-    return rest as Omit<DocumentGeneration, 'resolved'>;
-  }));
+  const generations = await Promise.all(
+    (
+      await db
+        .select({ data: s.documentGenerations.data })
+        .from(s.documentGenerations)
+        .where(
+          and(
+            eq(s.documentGenerations.caseId, id),
+            eq(s.documentGenerations.companyId, resolutionCase.companyId),
+          ),
+        )
+        .orderBy(desc(s.documentGenerations.createdAt))
+    ).map(async ({ data }) => {
+      // Older rows stored the full selector pools; the view keeps only referenced people.
+      const rest = omit(
+        { ...generationView(data), executionRequirements: await generationRequirements(data, db) },
+        'resolved',
+      );
+      return rest as Omit<DocumentGeneration, 'resolved'>;
+    }),
+  );
   const records = generations.length
     ? (
         await db

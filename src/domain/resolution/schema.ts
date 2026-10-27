@@ -21,6 +21,7 @@ export const LIMITS = {
   renderMs: 15_000,
   options: 100,
   labelLength: 200,
+  indent: 4,
 } as const;
 
 export const FIELD_ID = /^[a-z][a-z0-9_]{1,63}$/;
@@ -90,7 +91,7 @@ function blockSchema(assembly: boolean): z.ZodType<BlockNode> {
       z.strictObject({
         type: z.literal('paragraph'),
         align,
-        indent: z.number().int().min(0).max(4).optional(),
+        indent: z.number().int().min(0).max(LIMITS.indent).optional(),
         content: z.array(inlineSchema).max(LIMITS.nodes),
       }),
       z.strictObject({

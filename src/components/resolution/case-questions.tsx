@@ -1,5 +1,6 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { buildForm, validateAnswers, type CaseInput } from '@/domain/resolution/form';
 import type { AnswerValue, Answers, SignerSelection } from '@/domain/resolution/model';
 import {
   ApiError,
@@ -30,7 +31,7 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
         label="questions"
       />
     );
-  if (!load.data.selection || !load.data.form)
+  if (!load.data.selection || !load.data.form || !load.data.formInput)
     return (
       <section>
         <h2>Questions</h2>
@@ -42,9 +43,9 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
     // QuestionForm re-initialises its draft itself when the revision changes.
     <QuestionForm
       api={api}
-      form={load.data.form}
+      initialForm={load.data.form}
+      formInput={load.data.formInput}
       selectionRevision={load.data.selection.revision}
-      issues={load.data.issues ?? []}
       reload={load.reload}
     />
   );
@@ -68,19 +69,19 @@ function initial(form: FormModel, signers: SignerSelection): Draft {
 
 function QuestionForm({
   api,
-  form,
+  initialForm,
+  formInput,
   selectionRevision,
-  issues,
   reload,
 }: {
   api: CaseApi;
-  form: FormModel;
+  initialForm: FormModel;
+  formInput: CaseInput;
   selectionRevision: number;
-  issues: Issue[];
   reload: () => Promise<void>;
 }) {
   const item = api.detail.case;
-  const [draft, setDraft] = useState<Draft>(() => initial(form, item.signers));
+  const [draft, setDraft] = useState<Draft>(() => initial(initialForm, item.signers));
   const [dirty, setDirty] = useState(false);
   const action = useAction();
   const [saveIssues, setSaveIssues] = useState<Issue[]>([]);
@@ -89,12 +90,13 @@ function QuestionForm({
   const markDirty = () => {
     edits.current += 1;
     setDirty(true);
+    setSaveIssues([]);
   };
   // The questions follow the clause selection; start a fresh draft when it changes.
   const [seenRevision, setSeenRevision] = useState(selectionRevision);
   if (seenRevision !== selectionRevision) {
     setSeenRevision(selectionRevision);
-    setDraft(initial(form, item.signers));
+    setDraft(initial(initialForm, item.signers));
     setDirty(false);
     setSaveIssues([]);
   }
@@ -114,6 +116,10 @@ function QuestionForm({
           },
     );
   };
+  const { form, issues } = useMemo(() => {
+    const input: CaseInput = { ...formInput, answers: draft, signers: draft.signers };
+    return { form: buildForm(input), issues: validateAnswers(input, true) };
+  }, [formInput, draft]);
   // Form issues carry the unit (clause entry key, or 'case') and the field id.
   const allIssues = [...issues, ...saveIssues];
   const issuesFor = (field: FormField, unit: string) =>

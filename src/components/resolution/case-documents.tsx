@@ -1,6 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { DocumentGeneration, GenerationRecord } from '@/domain/resolution/model';
+import {
+  SIGNER_ROLE_LABELS,
+  type DocumentGeneration,
+  type GenerationRecord,
+} from '@/domain/resolution/model';
 import { Empty, formatDate, useWorkspace } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from './api';
 import type { CaseApi } from './case-workspace';
@@ -189,13 +193,8 @@ function Generation({
     ...(generation.snapshot?.members ?? []),
     ...(generation.snapshot?.companyPeople ?? []),
   ];
-  const signerIds = [
-    ...new Set([
-      ...(generation.signers?.directors ?? []),
-      ...(generation.signers?.members ?? []),
-      ...(generation.signers?.certifiers ?? []),
-    ]),
-  ];
+  const requirements = generation.executionRequirements ?? [];
+  const selectedSigner = requirements.find((r) => `${r.role}:${r.personId}` === signer);
   const personName = (id: string) => people.find((p) => p.id === id)?.name || 'Signer';
   const evidence = data.documents.filter((d) => d.companyId === companyId);
   const post = (body: Record<string, unknown>, done: string) =>
@@ -330,7 +329,8 @@ function Generation({
             void post(
               {
                 action: 'record_execution',
-                signerPersonId: signer,
+                signerPersonId: selectedSigner?.personId,
+                signerRole: selectedSigner?.role,
                 capacity: capacity.trim(),
                 signedDate,
                 evidenceId,
@@ -345,11 +345,21 @@ function Generation({
           </p>
           <label>
             Signer
-            <select required value={signer} onChange={(event) => setSigner(event.target.value)}>
+            <select
+              required
+              value={signer}
+              onChange={(event) => {
+                setSigner(event.target.value);
+                const selected = requirements.find(
+                  (r) => `${r.role}:${r.personId}` === event.target.value,
+                );
+                setCapacity(selected ? SIGNER_ROLE_LABELS[selected.role] : '');
+              }}
+            >
               <option value="">Select…</option>
-              {signerIds.map((id) => (
-                <option key={id} value={id}>
-                  {personName(id)}
+              {requirements.map(({ personId, role }) => (
+                <option key={`${role}:${personId}`} value={`${role}:${personId}`}>
+                  {personName(personId)} · {SIGNER_ROLE_LABELS[role]}
                 </option>
               ))}
             </select>
@@ -402,7 +412,7 @@ function Generation({
             <li key={record.id} className="metadata">
               {record.kind === 'review'
                 ? `${record.decision} by ${name(record.actorId)} ${formatDate(record.at)}${record.reason ? ` — ${record.reason}` : ''}`
-                : `Signed by ${personName(record.signerPersonId)} (${record.capacity}) on ${formatDate(record.signedDate)}, recorded by ${name(record.actorId)}`}
+                : `Signed by ${personName(record.signerPersonId)} (${record.signerRole ? `${SIGNER_ROLE_LABELS[record.signerRole]}: ` : ''}${record.capacity}) on ${formatDate(record.signedDate)}, recorded by ${name(record.actorId)}`}
             </li>
           ))}
         </ul>

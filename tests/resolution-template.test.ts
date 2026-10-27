@@ -913,9 +913,13 @@ describe('compiler', () => {
   });
 
   it('freezes only rendered signer roles and preserves a person signing in two roles', () => {
-    const input = caseInput('directors', [clause('general')],
-      { resolution_date: '2026-10-26' }, { general: { business_title: 'Bank', business_text: 'Open account' } },
-      { directors: ['sample-d1'], members: ['sample-m1'], certifiers: ['sample-d1'] });
+    const input = caseInput(
+      'directors',
+      [clause('general')],
+      { resolution_date: '2026-10-26' },
+      { general: { business_title: 'Bank', business_text: 'Open account' } },
+      { directors: ['sample-d1'], members: ['sample-m1'], certifiers: ['sample-d1'] },
+    );
     expect(compileDocument(input, 'final').executionRequirements).toEqual([
       { personId: 'sample-d1', role: 'directors' },
     ]);
@@ -924,6 +928,25 @@ describe('compiler', () => {
       { personId: 'sample-d1', role: 'directors' },
       { personId: 'sample-d1', role: 'certifiers' },
     ]);
+    input.assembly.version.closing.pop();
+    input.assembly.version.fields.push({
+      id: 'certify_copy',
+      label: 'Certify a copy',
+      valueType: 'boolean',
+      scope: 'case',
+      source: { kind: 'question' },
+    });
+    input.assembly.version.closing.push({
+      type: 'condition',
+      when: { op: 'isTrue', fieldId: 'certify_copy' },
+      content: [{ type: 'signatureBlock', role: 'certifiers' }],
+    });
+    input.answers.shared.certify_copy = false;
+    expect(compileDocument(input, 'final').executionRequirements).toEqual([
+      { personId: 'sample-d1', role: 'directors' },
+    ]);
+    input.answers.shared.certify_copy = true;
+    expect(compileDocument(input, 'final').executionRequirements).toHaveLength(2);
   });
 
   it('A27 numbers clauses from two categories in case order; reordering renumbers', () => {

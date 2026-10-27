@@ -454,9 +454,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
               </div>
             </div>
           </section>
-        ) : section === 'details' ? (
-          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
-        ) : section === 'preview' ? (
+        ) : section === 'details' ? null : section === 'preview' ? (
           <SamplePreview
             kind="clause"
             versionId={version.id}
@@ -477,6 +475,10 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
             />
           </section>
         )}
+        {/* Kept mounted so unsaved template details survive a section switch. */}
+        <div hidden={section !== 'details'}>
+          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
+        </div>
       </div>
     </>
   );

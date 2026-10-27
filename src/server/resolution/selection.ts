@@ -276,7 +276,13 @@ export async function getCaseClauses(actor: Actor, caseId: string) {
   const lib = await library(db);
   const outputTypes = (await listOutputTypes()).filter((t) => t.active);
   if (!rc.selection)
-    return { selection: null, outputTypes, available: available(lib, rc, null), form: null };
+    return {
+      selection: null,
+      outputTypes,
+      available: available(lib, rc, null),
+      form: null,
+      formInput: null,
+    };
   const template = await loadCaseTemplate(db, rc.selection);
   const ctx = await loadResolutionContext(actor, caseId, caseAsAt(rc));
   const input: CaseInput = { ...template, ctx, answers: rc.answers, signers: rc.signers };
@@ -287,6 +293,7 @@ export async function getCaseClauses(actor: Actor, caseId: string) {
     outputTypes,
     available: available(lib, rc, rc.selection.outputTypeId),
     form: buildForm(input),
+    formInput: input,
     issues: validateAnswers(input, true),
   };
 }

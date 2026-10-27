@@ -13,7 +13,7 @@ import type {
 } from '../../domain/resolution/model';
 import { dateString, plainText } from '../../domain/resolution/schema';
 import { db, type Transaction } from '../db';
-import { getDocument, mutateJob, prior, remember, requestKey } from '../repository';
+import { audit, getDocument, mutateJob, prior, remember, requestKey } from '../repository';
 import { appendVersion } from '../pack-versions';
 import { isFilingPreserved } from '../job-actions/shared';
 import { currentPack } from '../../domain/workflows';
@@ -23,6 +23,7 @@ import { directorQuestions, isDirectorClause } from './selection';
 import { auditChange, requestId } from './shared';
 import { generationView } from './generation';
 import { generationRequirements } from './generation-signers';
+import { reviewedExecutionState } from './execution';
 
 // ---------------------------------------------------------------- reads, download, records
 async function readGeneration(
@@ -46,7 +47,11 @@ async function recordsOf(id: string, tx: Transaction | typeof db = db) {
 }
 export async function getGeneration(actor: Actor, id: string) {
   const generation = await readGeneration(actor, id);
-  return { ...generationView(generation), executionRequirements: await generationRequirements(generation), records: await recordsOf(id) };
+  return {
+    ...generationView(generation),
+    executionRequirements: await generationRequirements(generation, db),
+    records: await recordsOf(id),
+  };
 }
 
 /** Stored bytes of a Ready generation; hash-checked against both the file and the generation. */
@@ -298,8 +303,14 @@ export async function applyGenerationAction(actor: Actor, id: string, input: unk
       };
     } else {
       const requirements = await generationRequirements(generation, tx);
-      if (!requirements.some(r => r.personId === action.signerPersonId && r.role === action.signerRole))
-        throw new DomainError('Choose a signer named in this document in the selected signing role.');
+      if (
+        !requirements.some(
+          (r) => r.personId === action.signerPersonId && r.role === action.signerRole,
+        )
+      )
+        throw new DomainError(
+          'Choose a signer named in this document in the selected signing role.',
+        );
       if (action.signedDate > today())
         throw new DomainError('The signed date cannot be in the future.');
       const evidence = await getDocument(actor, action.evidenceId, tx);
@@ -341,7 +352,40 @@ export async function applyGenerationAction(actor: Actor, id: string, input: unk
       reason: record.kind === 'review' ? record.reason || null : null,
       requestId: action.requestId,
     });
+    if (record.kind === 'execution') await refreshPackState(actor, generation, tx);
     await remember(tx, key, { id: record.id });
     return { ...generationView(generation), records: await recordsOf(id, tx) };
   });
+}
+
+const SIGNING_STATES = new Set([
+  'Reviewed',
+  'Issued for signature',
+  'Partly signed',
+  'Fully signed',
+]);
+
+/** A reviewed pack holding this generation re-derives its signing state from the new evidence. */
+async function refreshPackState(actor: Actor, generation: DocumentGeneration, tx: Transaction) {
+  if (!generation.jobId || !generation.documentId) return;
+  const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, generation.jobId)).for('update');
+  if (!row) return;
+  const job = structuredClone(row.data);
+  const pack = currentPack(job);
+  if (!pack.documentIds.includes(generation.documentId) || !SIGNING_STATES.has(pack.state)) return;
+  const state = await reviewedExecutionState(actor, job, tx);
+  if (state === pack.state) return;
+  const from = pack.state;
+  pack.state = state;
+  job.revision = row.revision + 1;
+  job.updatedAt = new Date().toISOString();
+  await tx.update(s.jobs).set({ data: job, revision: job.revision }).where(eq(s.jobs.id, job.id));
+  await audit(
+    actor,
+    job.companyId,
+    'job.updated',
+    job.id,
+    { fromRevision: row.revision, toRevision: job.revision, packState: { from, to: state } },
+    tx,
+  );
 }

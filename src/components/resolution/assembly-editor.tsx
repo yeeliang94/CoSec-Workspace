@@ -691,9 +691,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
               </div>
             ) : null}
           </section>
-        ) : section === 'details' ? (
-          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
-        ) : section === 'preview' ? (
+        ) : section === 'details' ? null : section === 'preview' ? (
           <SamplePreview
             kind="assembly"
             versionId={version.id}
@@ -725,6 +723,10 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
             />
           </section>
         )}
+        {/* Kept mounted so unsaved template details survive a section switch. */}
+        <div hidden={section !== 'details'}>
+          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
+        </div>
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Actor, DocumentState, Job } from '../../domain/model';
+import { SIGNER_ROLE_LABELS } from '../../domain/resolution/model';
 import { currentPack, executionBlockers } from '../../domain/workflows';
 import type { Transaction } from '../db';
 import * as s from '../schema';
@@ -64,7 +65,7 @@ export async function generatedExecutionStatus(actor: Actor, job: Job, tx: Trans
       if (executed) signed++;
       else
         blockers.push(
-          `${document.title}: ${people.find((p) => p.id === personId)?.name ?? personId} (${role}) signature evidence is missing for generation ${generation.id}.`,
+          `${document.title}: ${people.find((p) => p.id === personId)?.name ?? personId} (${SIGNER_ROLE_LABELS[role]}) signature evidence is missing for generation ${generation.id}.`,
         );
     }
   }

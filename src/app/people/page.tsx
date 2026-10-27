@@ -277,7 +277,12 @@ function NewPerson({ onDone }: { onDone: (id?: string) => Promise<void> }) {
             <button className="primary" disabled={action.pending}>
               Create person
             </button>
-            <button type="button" onClick={() => void onDone()}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) await onDone();
+              }}
+            >
               Cancel
             </button>
           </div>

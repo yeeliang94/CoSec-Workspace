@@ -171,6 +171,11 @@ export type ClauseVersion = Reviewed & {
   fields: FieldDefinition[];
 };
 export type SignerRole = 'directors' | 'members' | 'certifiers';
+export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
+  directors: 'Director',
+  members: 'Member',
+  certifiers: 'Certified true copy signer',
+};
 export type PageLayout = {
   pageSize: 'A4' | 'Letter';
   marginsMm: { top: number; right: number; bottom: number; left: number };
