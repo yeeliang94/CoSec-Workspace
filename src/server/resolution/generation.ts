@@ -810,8 +810,8 @@ export async function applyGenerationAction(actor: Actor, id: string, input: unk
   )
     throw new DomainError('You do not have permission for this action.', 'FORBIDDEN', 403);
   const key = requestKey(actor, `generation:${id}`, action.requestId);
+  const identity = await readGeneration(actor, id);
   return db.transaction(async (tx) => {
-    const identity = await readGeneration(actor, id, tx);
     await tx.select().from(s.companies).where(eq(s.companies.id, identity.companyId)).for('update');
     const generation = await readGeneration(actor, id, tx, true);
     const old = await prior(tx, key);

@@ -55,7 +55,8 @@ export async function appendCustomValue(
     actorId: actor.id,
     reason: input.reason.trim(),
   };
-  return { ...values, [definition.id]: [...(values[definition.id] ?? []), entry] };
+  const history = Object.hasOwn(values, definition.id) ? values[definition.id] : [];
+  return { ...values, [definition.id]: [...history, entry] };
 }
 
 type Option = { id: string; label: string };

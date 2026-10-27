@@ -7,7 +7,7 @@ import { readCase } from '../resolution/shared';
 import { readProfile } from './profile';
 import { companyRelationships, directorsAsAt } from './relationships';
 import { lockCompany, visiblePersonIds } from './scope';
-import { assertCompany, DomainError } from '../../domain/access';
+import { assertCompany, DomainError, today } from '../../domain/access';
 import type { Actor } from '../../domain/model';
 import type {
   CitationKey,
@@ -137,6 +137,7 @@ async function readContext(
   }
   return {
     asAt,
+    preparedOn: today(),
     firm: { name: settings.firmName },
     company: {
       id: company.id,
