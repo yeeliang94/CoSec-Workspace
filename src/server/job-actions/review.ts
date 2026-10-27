@@ -12,6 +12,7 @@ import {
 import { applyRecordCommand } from '../record-actions';
 import { readRegisters } from '../record-store';
 import * as repo from '../repository';
+import { assertDirectorChangePerson, syncDirectorProjection } from '../records/relationships';
 import {
   action,
   evidence,
@@ -174,6 +175,18 @@ export const reviewActions = {
         fail('Review the exact pack and dated record separately before posting.');
       requireChecks([...preparationBlockers(job), ...executionBlockers(job)]);
       await evidence(tx, actor, job.companyId, job.sourceEvidenceIds);
+      // Access may have changed since the job was created; re-check before linking the person.
+      await assertDirectorChangePerson(
+        actor,
+        {
+          companyId: job.companyId,
+          route: job.route,
+          personId: job.personId,
+          personName: job.personName,
+        },
+        tx,
+        true,
+      );
       const affectedFiled = (await repo.listJobs(actor, tx)).filter(
         (other) =>
           other.companyId === job.companyId &&
@@ -224,6 +237,8 @@ export const reviewActions = {
         tx,
       );
       job.recordEventId = eventId;
+      // Director relationships are projections of posted events; refresh them in the same lock.
+      await syncDirectorProjection(job.companyId, tx);
       await repo.markSnapshotConsequences(actor, job.companyId, job.effectiveDate, eventId, tx);
       return `Recorded ${job.route} effective ${job.effectiveDate}; filing remains ${job.filingState}.`;
     },

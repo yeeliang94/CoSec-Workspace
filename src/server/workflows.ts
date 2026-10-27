@@ -8,6 +8,7 @@ import { assertCompany, assertCapability, DomainError, today } from '../domain/a
 import { officersAt } from '../domain/workflows';
 import * as repo from './repository';
 import { jobActions } from './job-actions';
+import { assertDirectorChangePerson } from './records/relationships';
 import {
   assignee,
   evidence,
@@ -29,7 +30,8 @@ export const createJobInput = z
     year: z.number().int().min(1900).max(2200).optional(),
     anniversaryDate: optionalDate,
     route: z.enum(['appointment', 'resignation', 'removal', 'other_cessation']).optional(),
-    personId: id.optional(),
+    // People ids are stored in 64-character columns; new appointees get a fresh UUID.
+    personId: z.string().min(1).max(64).optional(),
     personName: z.string().trim().min(1).max(200).optional(),
     effectiveDate: optionalDate,
     routeBasis: z.string().max(4000).optional(),
@@ -134,6 +136,14 @@ export async function createJob(actor: Actor, input: unknown, requestId: string)
   }
   const company = await repo.getCompany(data.companyId);
   if (!company) throw new DomainError('Company access is unavailable.', 'NOT_FOUND', 404);
+  // A W04 person must be one the preparer may act on; posting re-checks before linking records.
+  if (data.activity === 'W04')
+    await assertDirectorChangePerson(actor, {
+      companyId: data.companyId,
+      route: data.route!,
+      personId: data.personId!,
+      personName: data.personName!,
+    });
   await evidence(undefined, actor, data.companyId, [
     ...data.sourceEvidenceIds,
     ...(data.manualDateEvidenceId ? [data.manualDateEvidenceId] : []),
