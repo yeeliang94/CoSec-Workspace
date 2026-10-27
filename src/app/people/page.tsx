@@ -18,6 +18,7 @@ import { CompanyRelationships, roleName } from '@/components/resolution/relation
 import { LoadState, useLoad } from '@/components/resolution/use-load';
 import { ActionFeedback, useAction } from '@/components/resolution/use-action';
 import { CustomValueInput } from '@/components/resolution/custom-value';
+import { canLeaveEditing } from '@/components/edit-guard';
 
 type PersonRow = Person & { relationships: CompanyRelationship[] };
 
@@ -69,7 +70,9 @@ function PeopleDirectory() {
             type="button"
             className="primary"
             aria-expanded={creating}
-            onClick={() => setCreating(!creating)}
+            onClick={() => {
+              if (!creating || canLeaveEditing()) setCreating(!creating);
+            }}
           >
             New person
           </button>
@@ -80,7 +83,9 @@ function PeopleDirectory() {
           type="button"
           className={'filter' + (view === 'people' ? ' active' : '')}
           aria-pressed={view === 'people'}
-          onClick={() => setView('people')}
+          onClick={() => {
+            if (view === 'people' || canLeaveEditing()) setView('people');
+          }}
         >
           Directory
         </button>
@@ -88,7 +93,9 @@ function PeopleDirectory() {
           type="button"
           className={'filter' + (view === 'relationships' ? ' active' : '')}
           aria-pressed={view === 'relationships'}
-          onClick={() => setView('relationships')}
+          onClick={() => {
+            if (view === 'relationships' || canLeaveEditing()) setView('relationships');
+          }}
         >
           Company relationships
         </button>
@@ -117,7 +124,12 @@ function PeopleDirectory() {
         ) : null}
         <label className={view === 'relationships' ? 'wide-select' : undefined}>
           <span className={view === 'relationships' ? undefined : 'sr-only'}>Company</span>
-          <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
+          <select
+            value={companyId}
+            onChange={(event) => {
+              if (canLeaveEditing()) setCompanyId(event.target.value);
+            }}
+          >
             {view === 'people' ? <option value="">All companies</option> : null}
             {data.companies.map((company) => (
               <option key={company.id} value={company.id}>
