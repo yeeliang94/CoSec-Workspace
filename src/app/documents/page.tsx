@@ -19,7 +19,18 @@ export default function Documents() {
   );
   return (
     <>
-      <PageHeader title="Documents" />
+      <PageHeader title="Documents">
+        <div className="header-actions">
+          <Link className="button" href="/resolutions">
+            Resolutions
+          </Link>
+          {data.actor.capabilities.includes('manage_templates') ? (
+            <Link className="button" href="/templates">
+              Clause library
+            </Link>
+          ) : null}
+        </div>
+      </PageHeader>
       <div className="toolbar">
         <label className="search">
           <span className="sr-only">Search documents</span>

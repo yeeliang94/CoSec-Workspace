@@ -3,7 +3,7 @@ import { expect, test, type APIRequestContext, type Cookie, type Page } from '@p
 // Reuse real issued sessions when changing roles; do not burst repeated password
 // attempts through the application's unchanged production rate limiter.
 const sessions = new Map<string, Cookie[]>();
-const origin = 'http://127.0.0.1:3000';
+const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
 export async function signIn(page: Page, account: { email: string; password: string }) {
   const cookies = sessions.get(account.email);
   if (cookies) {

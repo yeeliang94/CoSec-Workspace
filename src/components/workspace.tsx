@@ -55,6 +55,7 @@ const navigation = [
   ['/reviews', 'Reviews', 'review'],
   ['/calendar', 'Calendar', 'calendar'],
   ['/documents', 'Documents', 'document'],
+  ['/resolutions', 'Resolutions', 'resolution'],
   ['/billing', 'Billing', 'billing'],
 ] as const;
 export function Icon({ kind }: { kind: string }) {
@@ -97,6 +98,11 @@ export function Icon({ kind }: { kind: string }) {
       <>
         <circle cx="12" cy="12" r="3" />
         <path d="m9 3 1-1h4l1 3 3 1 3 3-1 3 1 3-3 3-3 1-1 3h-4l-1-3-3-1-3-3 1-3-1-3 3-3 3-1z" />
+      </>
+    ),
+    resolution: (
+      <>
+        <path d="M6 2h12v20H6zM9 7h6M9 11h6M9 15h3M13 18l1.5 1.5L18 16" />
       </>
     ),
     plus: <path d="M12 5v14M5 12h14" />,

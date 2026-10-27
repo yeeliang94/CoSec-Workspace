@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace, PageHeader, request, currentDate, Icon } from '@/components/workspace';
 import { FormFields, Field } from '@/components/forms';
+import type { Person } from '@/domain/resolution/model';
 export default function NewJob() {
   const { data, refresh } = useWorkspace();
   const router = useRouter();
@@ -13,6 +14,39 @@ export default function NewJob() {
   const [pending, setPending] = useState(false);
   const [dirty, setDirty] = useState(false);
   const requestKey = useRef('');
+  const [people, setPeople] = useState<Person[]>([]);
+  const [personId, setPersonId] = useState('');
+  const [personName, setPersonName] = useState('');
+  // The director event route lives inside FormFields; mirror it so the person picker can
+  // offer a new appointee only for appointments.
+  const [route, setRoute] = useState('');
+  const resetPerson = () => {
+    setPersonId('');
+    setPersonName('');
+  };
+  const appointment = route === 'appointment';
+  useEffect(() => {
+    // A person chosen against an earlier list must never carry into a reloaded one. Clear it
+    // when the request starts, so a late reply never erases what the user typed meanwhile.
+    setPeople([]);
+    setPersonId('');
+    if (activity !== 'W04' || !companyId) return;
+    let current = true;
+    const loaded = (list: Person[]) => {
+      if (current) setPeople(list);
+    };
+    // An appointee may be anyone the preparer can see; a cessation needs this company's people.
+    request<{ people: Person[] }>(
+      appointment ? '/api/people' : '/api/people?companyId=' + encodeURIComponent(companyId),
+      undefined,
+      'GET',
+    )
+      .then((result) => loaded(result.people))
+      .catch(() => loaded([]));
+    return () => {
+      current = false;
+    };
+  }, [activity, companyId, appointment]);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setCompanyId(params.get('company') || '');
@@ -87,8 +121,6 @@ export default function NewJob() {
               type: 'date',
               required: true,
             },
-            { name: 'personName', label: 'Director full name', required: true },
-            { name: 'personId', label: 'Existing person reference (blank for a new appointment)' },
             {
               name: 'routeBasis',
               label: 'Route and authority basis',
@@ -132,15 +164,36 @@ export default function NewJob() {
         aria-busy={pending}
         className="form-stack"
         data-dirty={dirty ? 'true' : 'false'}
-        onChange={() => {
+        onChange={(e) => {
+          const target = e.target as HTMLElement & { name?: string; value?: string };
+          if (target.name === 'route') {
+            setRoute(target.value || '');
+            if (target.value !== 'appointment') setPersonName('');
+          }
           setDirty(true);
           requestKey.current = '';
         }}
         onSubmit={async (e) => {
           e.preventDefault();
           setError('');
-          setPending(true);
           const f = new FormData(e.currentTarget);
+          const selectedRoute = String(f.get('route') || '');
+          if (activity === 'W04') {
+            if (personId && !people.some((p) => p.id === personId)) {
+              resetPerson();
+              setError('The selected person is no longer available. Choose again.');
+              return;
+            }
+            if (!personId && selectedRoute !== 'appointment') {
+              setError('Choose an existing person for a resignation, removal or other cessation.');
+              return;
+            }
+            if (!personId && !personName.trim()) {
+              setError('Enter the new director’s full name.');
+              return;
+            }
+          }
+          setPending(true);
           const payload: Record<string, unknown> = {
             companyId,
             activity,
@@ -151,8 +204,13 @@ export default function NewJob() {
             if (field.type === 'multi') payload[field.name] = f.getAll(field.name).filter(Boolean);
             else if (value) payload[field.name] = field.type === 'number' ? Number(value) : value;
           }
-          if (activity === 'W04' && !payload.personId && payload.route === 'appointment')
-            payload.personId = crypto.randomUUID();
+          if (activity === 'W04') {
+            // A new appointee gets a fresh identity; names never merge people implicitly.
+            payload.personId = personId || crypto.randomUUID();
+            payload.personName = personId
+              ? people.find((p) => p.id === personId)?.fullName
+              : personName.trim();
+          }
           try {
             const job = await request<{ id: string }>('/api/jobs', payload);
             setDirty(false);
@@ -169,7 +227,14 @@ export default function NewJob() {
         <div className="form-grid">
           <label>
             Company
-            <select required value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+            <select
+              required
+              value={companyId}
+              onChange={(e) => {
+                setCompanyId(e.target.value);
+                resetPerson();
+              }}
+            >
               <option value="">Select company…</option>
               {data.companies.map((company) => (
                 <option key={company.id} value={company.id}>
@@ -180,7 +245,14 @@ export default function NewJob() {
           </label>
           <label>
             Activity
-            <select value={activity} onChange={(e) => setActivity(e.target.value)}>
+            <select
+              value={activity}
+              onChange={(e) => {
+                setActivity(e.target.value);
+                setRoute('');
+                resetPerson();
+              }}
+            >
               <option value="W03">Annual return · W03</option>
               <option value="W04">Director change · W04</option>
               <option value="W05">Members and capital · W05</option>
@@ -190,6 +262,43 @@ export default function NewJob() {
             </select>
           </label>
         </div>
+        {activity === 'W04' ? (
+          <div className="form-grid">
+            <label>
+              Person
+              <select
+                value={personId}
+                required={route !== 'appointment'}
+                onChange={(e) => setPersonId(e.target.value)}
+                aria-describedby="person-help"
+              >
+                <option value="">
+                  {route === 'appointment' ? 'New person (enter name)' : 'Select person…'}
+                </option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.fullName}
+                  </option>
+                ))}
+              </select>
+              <span className="metadata" id="person-help">
+                {route === 'appointment'
+                  ? 'Choose an existing person, or enter a new appointee.'
+                  : 'Choose a person already linked to this company.'}
+              </span>
+            </label>
+            {personId || route !== 'appointment' ? null : (
+              <label>
+                Director full name
+                <input
+                  required
+                  value={personName}
+                  onChange={(e) => setPersonName(e.target.value)}
+                />
+              </label>
+            )}
+          </div>
+        ) : null}
         <FormFields key={activity} fields={fields} />
         <div className="warning">
           No approved statutory deadline rule is configured. A reviewed manual date can be recorded

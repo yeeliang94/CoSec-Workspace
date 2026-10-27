@@ -95,6 +95,8 @@ test('changing upload company requires discard and clears the previous evidence'
   await login(page);
   await page.getByRole('link', { name: 'Documents', exact: true }).click();
   const company = page.getByRole('combobox', { name: 'Company', exact: true });
+  // evaluateAll does not wait, so wait for the Documents page before reading its options.
+  await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
   const ids = await company
     .locator('option')
     .evaluateAll((options) =>
