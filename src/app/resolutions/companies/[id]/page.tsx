@@ -105,7 +105,11 @@ export default function CompanyResolutionSettings({ params }: { params: Promise<
                       key={definition.id}
                       label={definition.label}
                       definition={definition}
-                      values={profile.data!.customValues[definition.id]}
+                      values={
+                        Object.hasOwn(profile.data!.customValues, definition.id)
+                          ? profile.data!.customValues[definition.id]
+                          : undefined
+                      }
                       canEdit={canEdit}
                       onSave={(value, effectiveDate, reason) =>
                         postJson<CompanyProfile>(`/api/companies/${id}/profile`, {

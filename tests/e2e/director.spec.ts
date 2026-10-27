@@ -16,7 +16,7 @@ test('director review, execution, dated record, external submission and outcome 
     email: string;
     password: string;
   }[];
-  const origin = 'http://127.0.0.1:3000';
+  const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
   async function signIn(key: string) {
     await authenticate(
       page,
@@ -31,7 +31,8 @@ test('director review, execution, dated record, external submission and outcome 
   await signIn('executive');
   const data: Workspace = await (await page.request.get('/api/workspace')).json();
   const company = data.companies[0],
-    evidence = data.documents.find((d) => d.companyId === company.id)!;
+    // A generated resolution needs its own named signers, so use an ordinary document.
+    evidence = data.documents.find((d) => d.companyId === company.id && !d.generationId)!;
   const date = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kuala_Lumpur',
     year: 'numeric',

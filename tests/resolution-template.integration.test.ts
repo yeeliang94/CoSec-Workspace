@@ -43,6 +43,11 @@ import { readZip } from '../src/server/resolution/render-docx';
 import { canonical, sha256 } from '../src/server/resolution/templates';
 import { loadResolutionContext } from '../src/server/records/context';
 import { insertDocument } from '../src/server/repository';
+import { reviewActions } from '../src/server/job-actions/review';
+import {
+  generatedExecutionStatus,
+  reviewedExecutionState,
+} from '../src/server/resolution/execution';
 import { DOCX_MIME, safeStoragePath, validateFile } from '../src/server/storage';
 import { STARTER_ASSEMBLIES, STARTER_CLAUSES } from '../src/server/resolution/samples';
 
@@ -1284,6 +1289,94 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
     expect(attached.history.at(-1)!.action).toBe('resolution_attached');
     // Approvals of pack v1 do not carry to v2: the new version starts unreviewed.
     expect(attached.reviews.filter((r) => r.version === 2)).toEqual([]);
+
+    // A generic pack signature cannot satisfy the three named signers of this exact document.
+    const signedCopy = {
+      ...(await downloadGeneration(author, generation.id)).document,
+      id: rid(),
+      generationId: undefined,
+      title: 'Signed resolution evidence (fictional)',
+    };
+    await insertDocument(author, signedCopy);
+    const reviewed = structuredClone(attached);
+    reviewed.sourceEvidenceIds = [signedCopy.id];
+    reviewed.routeBasis = 'Fictional authority';
+    // Posting re-checks the appointee; the fixture's placeholder id stands for a new person.
+    reviewed.personId = randomUUID();
+    const reviewedPack = reviewed.packs.at(-1)!;
+    reviewedPack.requiredSigners = ['Legacy signer'];
+    reviewedPack.signatures = [
+      { signer: 'Legacy signer', evidenceId: signedCopy.id, receivedDate: '2026-10-26' },
+    ];
+    reviewed.reviews = ['pack', 'record'].map((scope) => ({
+      id: rid(),
+      version: reviewedPack.version,
+      scope: scope as 'pack' | 'record',
+      decision: 'Approved',
+      actorId: reviewer.id,
+      at: new Date().toISOString(),
+      reason: 'Fictional independent review',
+    }));
+    const poster = {
+      ...reviewer,
+      capabilities: [...reviewer.capabilities, 'confirm_record' as const],
+    };
+    const post = () =>
+      db.transaction(async (tx) =>
+        reviewActions.post_record.run(
+          {
+            actor: poster,
+            job: reviewed,
+            tx,
+            now: new Date().toISOString(),
+            input: { confirmed: true },
+          },
+          { confirmed: true },
+        ),
+      );
+    expect((await errorOf(post())).message).toMatch(/signature evidence is missing for generation/);
+    for (const [i, director] of directors.entries()) {
+      await applyGenerationAction(author, generation.id, {
+        action: 'record_execution',
+        requestId: rid(),
+        signerPersonId: director.id,
+        capacity: 'Director',
+        signedDate: '2026-10-26',
+        evidenceId: signedCopy.id,
+      });
+      const status = await db.transaction((tx) => generatedExecutionStatus(poster, reviewed, tx));
+      expect(status).toMatchObject({ required: 3, signed: i + 1 });
+      expect(status.blockers).toHaveLength(2 - i);
+      if (i < 2) {
+        expect((await errorOf(post())).message).toMatch(
+          /signature evidence is missing for generation/,
+        );
+        expect(await db.transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
+          'Partly signed',
+        );
+      }
+    }
+    expect(await db.transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
+      'Fully signed',
+    );
+    // Exercise actual posting, then roll its event/projection/audit back to preserve this fixture.
+    const rollback = new Error('rollback verified posting');
+    await expect(
+      db.transaction(async (tx) => {
+        await reviewActions.post_record.run(
+          {
+            actor: poster,
+            job: reviewed,
+            tx,
+            now: new Date().toISOString(),
+            input: { confirmed: true },
+          },
+          { confirmed: true },
+        );
+        expect(reviewed.recordEventId).toBeTruthy();
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
     const again = await errorOf(
       attachGenerationToPack(author, generation.id, {
         action: 'attach_to_pack',

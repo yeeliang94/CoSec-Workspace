@@ -13,6 +13,7 @@ import { applyRecordCommand } from '../record-actions';
 import { readRegisters } from '../record-store';
 import * as repo from '../repository';
 import { assertDirectorChangePerson, syncDirectorProjection } from '../records/relationships';
+import { generatedExecutionStatus, reviewedExecutionState } from '../resolution/execution';
 import {
   action,
   evidence,
@@ -99,6 +100,7 @@ export const reviewActions = {
         if (data.scope === 'readiness') {
           if (isBeyondReadiness(job)) fail('This filing has progressed beyond readiness.');
           requireChecks(readinessBlockers(job));
+          requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
           await validateDependencies(tx, actor, job, true);
         }
       }
@@ -113,13 +115,7 @@ export const reviewActions = {
       });
       if (data.scope === 'pack') {
         currentPack(job).state =
-          data.decision === 'Approved'
-            ? executionBlockers(job).length
-              ? 'Reviewed'
-              : currentPack(job).requiredSigners.length
-                ? 'Fully signed'
-                : 'Reviewed'
-            : 'Draft';
+          data.decision === 'Approved' ? await reviewedExecutionState(actor, job, tx) : 'Draft';
         job.state = data.decision === 'Approved' ? 'Action in progress' : 'Preparing';
       }
       if (data.scope === 'readiness' && data.decision === 'Approved') job.filingState = 'Ready';
@@ -139,6 +135,7 @@ export const reviewActions = {
     async run({ actor, job, tx, now }) {
       independent(actor, job, 'readiness');
       requireChecks(readinessBlockers(job));
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await validateDependencies(tx, actor, job, true);
       if (isBeyondReadiness(job)) fail('This filing has already progressed beyond readiness.');
       job.reviews.push({
@@ -174,6 +171,7 @@ export const reviewActions = {
       if (!approved(job, 'record') || !approved(job, 'pack'))
         fail('Review the exact pack and dated record separately before posting.');
       requireChecks([...preparationBlockers(job), ...executionBlockers(job)]);
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await evidence(tx, actor, job.companyId, job.sourceEvidenceIds);
       // Access may have changed since the job was created; re-check before linking the person.
       await assertDirectorChangePerson(
