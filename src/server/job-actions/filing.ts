@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { assertCapability, DomainError, today } from '../../domain/access';
 import { approved, currentPack, readinessBlockers } from '../../domain/workflows';
 import { validateRecordEvidence } from '../record-actions';
+import { generatedExecutionStatus } from '../resolution/execution';
 import {
   action,
   calendarDate,
@@ -43,6 +44,7 @@ export const filingActions = {
       if (job.filingState !== 'Ready' || !approved(job, 'readiness'))
         fail('Independent filing readiness for the current version is required.');
       requireChecks(readinessBlockers(job));
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await validateDependencies(tx, actor, job, true);
       if (data.version !== currentPack(job).version)
         throw new DomainError('The submitted package version is stale.', 'CONFLICT', 409);

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { today } from '../../domain/access';
-import { approved, currentPack, executionBlockers, officersAt } from '../../domain/workflows';
+import { approved, currentPack, officersAt } from '../../domain/workflows';
+import { reviewedExecutionState } from '../resolution/execution';
 import { appendVersion } from '../pack-versions';
 import { memberSnapshot } from '../record-store';
 import * as repo from '../repository';
@@ -195,7 +196,7 @@ export const packActions = {
       if (pack.signatures.some((s) => s.signer === data.signer))
         fail('This signer already has evidence for this version.');
       pack.signatures.push(data);
-      pack.state = executionBlockers(job).length ? 'Partly signed' : 'Fully signed';
+      pack.state = await reviewedExecutionState(actor, job, tx);
       return `Recorded ${data.signer} signature for pack v${pack.version}.`;
     },
   }),
