@@ -93,6 +93,18 @@ All 19 Greptile findings on PRs 1–5 were checked against the code; all were va
 
 Regression evidence: 149 unit/integration tests pass against MySQL (new tests cover nested repeats, clause depth, shared-field conflicts, invalid dates, backdated generation, in-force previews, replay access and posting access). Typecheck, Prettier check and production build pass. All 20 browser tests pass against the production build, and the W04 picker was checked in the browser.
 
+## Second review fixes (27 October 2026)
+
+A further review raised eight findings. Shared-field conflicts, per-person multiple-choice answers and invalid dates were already fixed by the Greptile round. The other five are fixed on the PR that introduced them:
+
+- **Generated signers (PR 3):** pack review, readiness, filing and posting require execution evidence from every signer named in each attached generated document, recorded against that exact generation and hash. Ordinary pack signatures no longer satisfy them. Job and generation actions take the company lock before their first transactional read, so evidence committed while waiting is seen.
+- **Pack attachment (PR 5):** a ready generated document linked to a W04 job offers a confirmed, revision-checked "Attach to director change pack" action.
+- **Relationship drafts (PR 5):** changing company, view or closing the new-person form asks before discarding unsaved edits.
+- **Preparation date (PRs 1–2):** the `today` binding prints the current Malaysian date, captured separately from the record as-at date.
+- **Reserved custom-field ids (PRs 2 and 5):** ids such as `constructor` are stored and read only as the profile's own values.
+
+Regression evidence: 152 unit/integration tests pass against MySQL, and all 22 browser tests pass against the production build, including new tests for attaching a generated document and preserving relationship drafts. Typecheck, Prettier check and production build pass. The director browser test now picks an ordinary document as signature evidence, because a generated resolution correctly requires its own named signers.
+
 ## Known limitations
 
 - All clause wording is fictional evaluation content, not approved legal precedent.
