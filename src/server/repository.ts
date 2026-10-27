@@ -96,11 +96,11 @@ export async function audit(
 }
 /** A replayed request returns the subject's current state, so only a small receipt is stored. */
 type RequestReceipt = { id: string; revision?: number; activity?: Job['activity'] };
-async function prior(tx: Transaction, key: string) {
+export async function prior(tx: Transaction, key: string) {
   const [r] = await tx.select().from(s.requests).where(eq(s.requests.id, key)).for('update');
   return r?.result as RequestReceipt | undefined;
 }
-async function remember(tx: Transaction, key: string, receipt: RequestReceipt) {
+export async function remember(tx: Transaction, key: string, receipt: RequestReceipt) {
   await tx.insert(s.requests).values({ id: key, result: receipt, createdAt: new Date() });
 }
 export async function pruneRequests(olderThanDays: number) {
@@ -108,7 +108,7 @@ export async function pruneRequests(olderThanDays: number) {
   const [result] = await db.delete(s.requests).where(lt(s.requests.createdAt, cutoff));
   return result.affectedRows;
 }
-function requestKey(actor: Actor, subject: string, requestId: string) {
+export function requestKey(actor: Actor, subject: string, requestId: string) {
   if (!/^[a-zA-Z0-9_-]{8,80}$/.test(requestId))
     throw new DomainError('A valid request identifier is required.');
   return `${actor.id}:${subject}:${requestId}`;

@@ -6,7 +6,12 @@ export type Capability =
   | 'record_filing'
   | 'manage_catalogue'
   | 'manage_users'
-  | 'view_bo';
+  | 'view_bo'
+  | 'manage_people'
+  | 'manage_templates'
+  | 'generate_documents'
+  | 'view_audit'
+  | 'export_audit';
 export type Actor = {
   id: string;
   name: string;
@@ -228,6 +233,8 @@ export type Document = {
   createdBy: string;
   createdAt: string;
   classification: 'General' | 'BO';
+  /** Set for server-generated resolution documents; uploads leave it unset. */
+  generationId?: string;
 };
 export type CatalogueVersion = {
   id: string;
