@@ -157,11 +157,24 @@ export function BoWorkspace({ job, data }: JobSectionProps) {
             {record.notices.map((notice) => (
               <li key={notice.id}>
                 <strong>{notice.recipient}</strong>
-                <p className="metadata">
-                  Sent {formatDate(notice.sentDate)} · response due {formatDate(notice.responseDue)}{' '}
-                  · chase {formatDate(notice.nextChaseDate)} ·{' '}
-                  {data.users.find((u) => u.id === notice.ownerId)?.name}
-                </p>
+                <dl className="record-meta">
+                  <div>
+                    <dt>Sent</dt>
+                    <dd>{formatDate(notice.sentDate)}</dd>
+                  </div>
+                  <div>
+                    <dt>Response due</dt>
+                    <dd>{formatDate(notice.responseDue)}</dd>
+                  </div>
+                  <div>
+                    <dt>Next chase</dt>
+                    <dd>{formatDate(notice.nextChaseDate)}</dd>
+                  </div>
+                  <div>
+                    <dt>Owner</dt>
+                    <dd>{data.users.find((u) => u.id === notice.ownerId)?.name || '—'}</dd>
+                  </div>
+                </dl>
                 <p
                   className={
                     notice.reply
@@ -316,10 +329,14 @@ export function BoWorkspace({ job, data }: JobSectionProps) {
                 </dd>
               </div>
             </dl>
-            <h3>Criteria and source</h3>
-            <p className="prose">{assessment.criteria}</p>
-            <p className="metadata">{assessment.sourceVersion}</p>
-            <p className="prose">{assessment.ownershipChain}</p>
+            <dl className="source-versions">
+              <dt>Criteria</dt>
+              <dd className="prose">{assessment.criteria}</dd>
+              <dt>Source version</dt>
+              <dd>{assessment.sourceVersion}</dd>
+              <dt>Ownership chain</dt>
+              <dd className="prose">{assessment.ownershipChain}</dd>
+            </dl>
             <EvidenceLinks ids={assessment.evidenceIds} data={data} />
           </>
         ) : (

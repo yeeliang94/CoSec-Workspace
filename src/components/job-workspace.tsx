@@ -31,10 +31,6 @@ export function JobWorkspace({ id }: { id: string }) {
       <header className="record-heading">
         <Link href={'/companies/' + job.companyId}>{company?.name}</Link>
         <h1>{job.title}</h1>
-        <p className="metadata">
-          {job.activity} · {job.state} · {data.users.find((u) => u.id === job.ownerId)?.name} ·
-          revision {job.revision}
-        </p>
       </header>
       <dl className="facts track-facts">
         <div>
@@ -58,8 +54,8 @@ export function JobWorkspace({ id }: { id: string }) {
             className={tab === item ? 'active' : ''}
             aria-current={tab === item ? 'page' : undefined}
             key={item}
-            onClick={() => {
-              if (canLeaveEditing()) setTab(item);
+            onClick={async () => {
+              if (await canLeaveEditing()) setTab(item);
             }}
           >
             {item}
@@ -82,6 +78,16 @@ export function JobWorkspace({ id }: { id: string }) {
         ) : (
           <section>
             <h2>Audit history</h2>
+            <dl className="record-meta">
+              <div>
+                <dt>Activity</dt>
+                <dd>{job.activity}</dd>
+              </div>
+              <div>
+                <dt>Revision</dt>
+                <dd>{job.revision}</dd>
+              </div>
+            </dl>
             <ul className="list-plain">
               {[...job.history].reverse().map((event) => (
                 <li key={event.id}>

@@ -55,6 +55,7 @@ const navigation = [
   ['/reviews', 'Reviews', 'review'],
   ['/calendar', 'Calendar', 'calendar'],
   ['/documents', 'Documents', 'document'],
+  ['/resolutions', 'Resolutions', 'resolution'],
   ['/billing', 'Billing', 'billing'],
 ] as const;
 export function Icon({ kind }: { kind: string }) {
@@ -99,6 +100,11 @@ export function Icon({ kind }: { kind: string }) {
         <path d="m9 3 1-1h4l1 3 3 1 3 3-1 3 1 3-3 3-3 1-1 3h-4l-1-3-3-1-3-3 1-3-1-3 3-3 3-1z" />
       </>
     ),
+    resolution: (
+      <>
+        <path d="M6 2h12v20H6zM9 7h6M9 11h6M9 15h3M13 18l1.5 1.5L18 16" />
+      </>
+    ),
     plus: <path d="M12 5v14M5 12h14" />,
     back: <path d="m14 5-7 7 7 7M7 12h14" />,
     search: (
@@ -129,6 +135,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const pathname = usePathname();
+  const navigationPath = /^\/(templates|people)(\/|$)/.test(pathname)
+    ? '/resolutions'
+    : /^\/audit(\/|$)/.test(pathname)
+      ? '/settings'
+      : pathname;
   const router = useRouter();
   const login = pathname === '/login';
   useEffect(installEditGuards, []);
@@ -205,7 +216,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     key={href}
                     href={href}
                     aria-current={
-                      pathname === href || pathname.startsWith(href + '/') ? 'page' : undefined
+                      navigationPath === href || navigationPath.startsWith(href + '/')
+                        ? 'page'
+                        : undefined
                     }
                   >
                     <Icon kind={icon} />
@@ -214,7 +227,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                 ))}
               </nav>
               <div className="sidebar-bottom">
-                <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
+                <Link
+                  href="/settings"
+                  aria-current={navigationPath === '/settings' ? 'page' : undefined}
+                >
                   <Icon kind="settings" />
                   Settings
                 </Link>
@@ -229,7 +245,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     type="button"
                     className="quiet"
                     onClick={async () => {
-                      if (!canLeaveEditing()) return;
+                      if (!(await canLeaveEditing())) return;
                       await request('/api/auth/sign-out', {});
                       workMemory.current = { href: '/work', scrollY: 0, focusId: '' };
                       setWorkHref('/work');

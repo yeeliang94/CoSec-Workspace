@@ -17,17 +17,23 @@ export default function Companies() {
   return (
     <>
       <PageHeader title="Companies">
-        {data.actor.capabilities.includes('manage_users') ? (
-          <button
-            className="primary"
-            onClick={() => {
-              if (!adding || canLeaveEditing()) setAdding(!adding);
-            }}
-          >
-            <Icon kind="plus" />
-            {adding ? 'Close form' : 'New company'}
-          </button>
-        ) : null}
+        <div className="header-actions">
+          <Link className="button" href="/people">
+            People
+          </Link>
+          {data.actor.capabilities.includes('manage_users') ? (
+            <button
+              className="primary"
+              onClick={async () => {
+                if (adding && !(await canLeaveEditing())) return;
+                setAdding(!adding);
+              }}
+            >
+              <Icon kind="plus" />
+              {adding ? 'Close form' : 'New company'}
+            </button>
+          ) : null}
+        </div>
       </PageHeader>
       {adding ? (
         <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>

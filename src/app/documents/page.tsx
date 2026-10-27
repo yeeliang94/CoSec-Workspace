@@ -19,7 +19,18 @@ export default function Documents() {
   );
   return (
     <>
-      <PageHeader title="Documents" />
+      <PageHeader title="Documents">
+        <div className="header-actions">
+          <Link className="button" href="/resolutions">
+            Resolutions
+          </Link>
+          {data.actor.capabilities.includes('manage_templates') ? (
+            <Link className="button" href="/templates">
+              Clause library
+            </Link>
+          ) : null}
+        </div>
+      </PageHeader>
       <div className="toolbar">
         <label className="search">
           <span className="sr-only">Search documents</span>
@@ -35,8 +46,9 @@ export default function Documents() {
           <span className="sr-only">Company</span>
           <select
             value={companyId}
-            onChange={(e) => {
-              if (canLeaveEditing()) setCompanyId(e.target.value);
+            onChange={async (e) => {
+              const next = e.target.value;
+              if (await canLeaveEditing()) setCompanyId(next);
             }}
           >
             <option value="">All companies</option>
@@ -74,7 +86,12 @@ export default function Documents() {
                 <tr key={d.id}>
                   <td>
                     <a href={'/api/documents/' + d.id}>{d.title}</a>
-                    <div className="metadata">{d.originalName}</div>
+                    {d.originalName !== d.title ? (
+                      <details className="file-details">
+                        <summary>Filename</summary>
+                        <span>{d.originalName}</span>
+                      </details>
+                    ) : null}
                   </td>
                   <td>
                     <Link href={'/companies/' + d.companyId}>

@@ -5,6 +5,7 @@ import type { CapitalEvent, BoEvent, CapitalProposal, BoAssessment } from '../do
 import { capitalAt, beneficialOwnersAt, emptyBoCase } from '../domain/records';
 import { assertCapability, DomainError, today } from '../domain/access';
 import { approved, currentPack, preparationBlockers, executionBlockers } from '../domain/workflows';
+import { generatedExecutionStatus } from './resolution/execution';
 import { getActorById, getDocuments, markSnapshotConsequences, audit } from './repository';
 import { readRegisters, writeRegisters } from './record-store';
 import { appendVersion } from './pack-versions';
@@ -144,6 +145,7 @@ export async function applyRecordCommand(
     if (!approved(job, 'record') || !approved(job, 'pack'))
       fail('Review the exact pack and record proposal independently before posting.');
     const blockers = [...preparationBlockers(job), ...executionBlockers(job)];
+    blockers.push(...(await generatedExecutionStatus(actor, job, tx)).blockers);
     if (blockers.length) fail(blockers.join(' '));
     const records = await readRegisters(job.companyId, tx);
     if (job.recordBaseRevision !== records.revision)

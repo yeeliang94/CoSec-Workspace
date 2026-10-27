@@ -3,6 +3,7 @@ import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
 import { today } from '../../domain/access';
 import { currentPack, readinessBlockers } from '../../domain/workflows';
+import { generatedExecutionStatus } from '../resolution/execution';
 import { appendVersion } from '../pack-versions';
 import * as repo from '../repository';
 import {
@@ -170,6 +171,7 @@ export const caseworkActions = {
     preparer: true,
     async run({ actor, job, tx }) {
       requireChecks(readinessBlockers(job));
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await validateDependencies(tx, actor, job, true);
       if (!['Outcome confirmed', 'Not required with reason'].includes(job.filingState))
         fail('Confirm the filing outcome or record a reviewed not-required reason.');

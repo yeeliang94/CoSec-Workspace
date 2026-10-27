@@ -12,7 +12,10 @@ import {
   type Actor,
 } from '../src/domain/model';
 import { createJob, applyJobAction } from '../src/server/workflows';
+import { mappedResolutionCapabilities } from '../src/domain/resolution/records';
 import { storeUpload } from '../src/server/storage';
+import { syncDirectorProjection } from '../src/server/records/relationships';
+import { lockCompany } from '../src/server/records/scope';
 const existing = await db.select({ id: s.user.id }).from(s.user).limit(1);
 if (existing.length) {
   console.log('Existing data retained; seed skipped.');
@@ -52,6 +55,9 @@ const definitions: { key: string; name: string; capabilities: Capability[]; scop
   },
 ];
 const credentials: { key: string; email: string; password: string; id: string }[] = [];
+// Fresh installs get the same explicit mapping as scripts/grant-resolution-capabilities.ts.
+for (const def of definitions)
+  def.capabilities = [...def.capabilities, ...mappedResolutionCapabilities(def.capabilities)];
 for (const def of definitions) {
   const id = randomUUID(),
     email = `${def.key}@cosec.local`,
@@ -159,6 +165,11 @@ for (let i = 0; i < companies.length; i++) {
       predecessorId: null,
     },
   });
+  // Reads no longer project lazily; posting and seeding refresh director relationships.
+  await db.transaction(async (tx) => {
+    await lockCompany(company.id, tx);
+    await syncDirectorProjection(company.id, tx);
+  });
   const job = await createJob(
     actor,
     {
@@ -169,7 +180,7 @@ for (let i = 0; i < companies.length; i++) {
         ? { year: 2026, anniversaryDate: `2026-${company.incorporationDate.slice(5)}` }
         : {
             route: i === 3 ? 'resignation' : 'appointment',
-            personId: i === 3 ? `person-${i + 1}` : `new-person-${i + 1}`,
+            personId: i === 3 ? `person-${i + 1}` : randomUUID(),
             personName: i === 3 ? 'Nadia Aziz' : ['', 'Rina Wong', '', '', '', 'Arif Zain'][i],
             effectiveDate: '2026-10-20',
             routeBasis:

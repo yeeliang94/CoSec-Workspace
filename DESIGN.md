@@ -163,6 +163,8 @@ Use the same system sans-serif family throughout the product. The roles and weig
 
 Page titles identify the task without a subtitle by default. Section titles divide meaningful working regions. Record links distinguish companies and jobs from supporting values. Metadata remains readable; the existing 11px registration numbers and filter counts are limited, noncritical exceptions rather than a body-text default.
 
+Do not stack category, Act, author, date and revision as loose microtext around a title. Keep task-critical state beside its action; put editable classification in Details and authorship in version history. Use compact labelled facts for information users compare, and a named disclosure for secondary provenance or file references. Remove explanations that only restate a heading, field or scope. Empty history sections should not occupy a heading of their own.
+
 Case and company identity headings have their own smaller title roles, and phone action text may use action-title-mobile. These are specific roles, not permission to create an arbitrary size ladder. Use tabular numerals for registration numbers, dates, monetary values and counts. Keep prose and explanations around 65 to 75 characters per line. Tables may use a wider measure because users compare columns rather than read a paragraph.
 
 Preserve full legal names where practical. Allow wrapping in record links and long values before reducing the type size. Use a full accessible name when a constrained control must truncate. Avoid display fonts, ornamental tracking, heading kickers and oversized numerical summaries.

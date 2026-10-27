@@ -12,6 +12,8 @@ import {
 import { applyRecordCommand } from '../record-actions';
 import { readRegisters } from '../record-store';
 import * as repo from '../repository';
+import { syncDirectorProjection } from '../records/relationships';
+import { generatedExecutionStatus, reviewedExecutionState } from '../resolution/execution';
 import {
   action,
   evidence,
@@ -98,6 +100,7 @@ export const reviewActions = {
         if (data.scope === 'readiness') {
           if (isBeyondReadiness(job)) fail('This filing has progressed beyond readiness.');
           requireChecks(readinessBlockers(job));
+          requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
           await validateDependencies(tx, actor, job, true);
         }
       }
@@ -112,13 +115,7 @@ export const reviewActions = {
       });
       if (data.scope === 'pack') {
         currentPack(job).state =
-          data.decision === 'Approved'
-            ? executionBlockers(job).length
-              ? 'Reviewed'
-              : currentPack(job).requiredSigners.length
-                ? 'Fully signed'
-                : 'Reviewed'
-            : 'Draft';
+          data.decision === 'Approved' ? await reviewedExecutionState(actor, job, tx) : 'Draft';
         job.state = data.decision === 'Approved' ? 'Action in progress' : 'Preparing';
       }
       if (data.scope === 'readiness' && data.decision === 'Approved') job.filingState = 'Ready';
@@ -138,6 +135,7 @@ export const reviewActions = {
     async run({ actor, job, tx, now }) {
       independent(actor, job, 'readiness');
       requireChecks(readinessBlockers(job));
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await validateDependencies(tx, actor, job, true);
       if (isBeyondReadiness(job)) fail('This filing has already progressed beyond readiness.');
       job.reviews.push({
@@ -173,6 +171,7 @@ export const reviewActions = {
       if (!approved(job, 'record') || !approved(job, 'pack'))
         fail('Review the exact pack and dated record separately before posting.');
       requireChecks([...preparationBlockers(job), ...executionBlockers(job)]);
+      requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await evidence(tx, actor, job.companyId, job.sourceEvidenceIds);
       const affectedFiled = (await repo.listJobs(actor, tx)).filter(
         (other) =>
@@ -224,6 +223,8 @@ export const reviewActions = {
         tx,
       );
       job.recordEventId = eventId;
+      // Director relationships are projections of posted events; refresh them in the same lock.
+      await syncDirectorProjection(job.companyId, tx);
       await repo.markSnapshotConsequences(actor, job.companyId, job.effectiveDate, eventId, tx);
       return `Recorded ${job.route} effective ${job.effectiveDate}; filing remains ${job.filingState}.`;
     },

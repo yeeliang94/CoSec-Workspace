@@ -1,11 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { TextDecoder } from 'node:util';
 import { z } from 'zod';
 import { assertCompany, DomainError } from '../domain/access';
 import type { Actor, Document } from '../domain/model';
-import { audit, getDocument, getJob, insertDocument } from './repository';
+import { audit, getDocument, getJob, insertDocument, type Transaction } from './repository';
+import * as schema from './schema';
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const metadataSchema = z.object({
@@ -60,7 +61,8 @@ export function validateFile(
 }
 
 export function safeStoragePath(storageKey: string) {
-  if (!/^[0-9a-f-]{36}\.(pdf|png|jpg|jpeg|txt)$/.test(storageKey))
+  // .docx keys are written only by storeGenerated; uploads still reject Word files.
+  if (!/^[0-9a-f-]{36}\.(pdf|png|jpg|jpeg|txt|docx)$/.test(storageKey))
     throw new DomainError('Document storage reference is invalid.', 'STORAGE', 500);
   return path.join(/* turbopackIgnore: true */ root(), storageKey);
 }
@@ -119,7 +121,8 @@ export async function storeUpload(
   return metadata;
 }
 
-export async function readDownload(actor: Actor, id: string) {
+/** `audit: false` only for callers that record their own, more specific download audit. */
+export async function readDownload(actor: Actor, id: string, options: { audit?: boolean } = {}) {
   const document = await getDocument(actor, id);
   assertCompany(actor, document.companyId);
   let bytes: Buffer;
@@ -138,8 +141,94 @@ export async function readDownload(actor: Actor, id: string) {
     createHash('sha256').update(bytes).digest('hex') !== document.sha256
   )
     throw new DomainError('The stored file failed its integrity check.', 'STORAGE', 503);
-  await audit(actor, document.companyId, 'document.download', document.id, {
-    sha256: document.sha256,
-  });
+  if (options.audit !== false)
+    await audit(actor, document.companyId, 'document.download', document.id, {
+      sha256: document.sha256,
+    });
   return { document, bytes };
+}
+
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+/**
+ * Stores server-generated DOCX bytes privately: a new unique file, then the document row and
+ * audit (inside the caller's transaction when given). The file is removed if the insert fails;
+ * a caller whose transaction later rolls back must remove `storageKey` itself.
+ */
+export async function storeGenerated(
+  actor: Actor,
+  input: {
+    companyId: string;
+    jobId: string | null;
+    title: string;
+    fileName: string;
+    bytes: Buffer;
+    generationId: string;
+    /** Pre-allocated `<uuid>.docx` key, so a caller can clean up after a later failure. */
+    storageKey?: string;
+  },
+  tx?: Transaction,
+) {
+  assertCompany(actor, input.companyId);
+  if (!actor.capabilities.some((cap) => ['generate_documents', 'prepare_job'].includes(cap)))
+    throw new DomainError('You do not have permission to generate documents.', 'FORBIDDEN', 403);
+  const b = input.bytes;
+  if (!b.byteLength || b.subarray(0, 4).toString('binary') !== 'PK\x03\x04')
+    throw new DomainError('The generated document is not a Word package.', 'STORAGE', 500);
+  const storageKey = input.storageKey ?? `${randomUUID()}.docx`;
+  if (!storageKey.endsWith('.docx'))
+    throw new DomainError('Generated files must be Word documents.', 'STORAGE', 500);
+  const doc: Document = {
+    id: randomUUID(),
+    companyId: input.companyId,
+    jobId: input.jobId,
+    title: metadataSchema.shape.title.parse(input.title.slice(0, 200)),
+    originalName: path
+      .basename(input.fileName)
+      .replace(/[\r\n\x00-\x1f"\\/]/g, '')
+      .slice(0, 200),
+    mimeType: DOCX_MIME,
+    size: b.byteLength,
+    sha256: createHash('sha256').update(b).digest('hex'),
+    storageKey,
+    createdBy: actor.id,
+    createdAt: new Date().toISOString(),
+    classification: 'General',
+    generationId: input.generationId,
+  };
+  await mkdir(root(), { recursive: true, mode: 0o700 });
+  const destination = safeStoragePath(storageKey);
+  await writeFile(destination, b, { flag: 'wx', mode: 0o600 });
+  const insert = async (t: Transaction) => {
+    await t.insert(schema.documents).values({ id: doc.id, companyId: doc.companyId, data: doc });
+    await audit(
+      actor,
+      doc.companyId,
+      'document.stored',
+      doc.id,
+      { sha256: doc.sha256, size: doc.size, generationId: input.generationId },
+      t,
+    );
+  };
+  try {
+    if (tx) await insert(tx);
+    else await (await import('./db')).db.transaction(insert);
+  } catch (error) {
+    await unlink(destination).catch(() => undefined);
+    throw error;
+  }
+  return doc;
+}
+
+/** Removes a stored file by key (orphan cleanup). Missing files are ignored. */
+export async function removeStoredFile(storageKey: string) {
+  await unlink(safeStoragePath(storageKey)).catch(() => undefined);
+}
+/** Generated files on disk, for orphan reconciliation. */
+export async function listGeneratedFiles() {
+  const names = await readdir(root()).catch(() => [] as string[]);
+  const out: { storageKey: string; modifiedAt: number }[] = [];
+  for (const name of names)
+    if (/^[0-9a-f-]{36}\.docx$/.test(name))
+      out.push({ storageKey: name, modifiedAt: (await stat(path.join(root(), name))).mtimeMs });
+  return out;
 }

@@ -5,7 +5,7 @@ import type { Job, Workspace } from '../../src/domain/model';
 import { createRecordFixture, removeRecordFixture, type RecordFixture } from './record-fixture';
 test.describe.configure({ mode: 'serial' });
 let fixture: RecordFixture;
-const origin = 'http://127.0.0.1:3000';
+const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
 test.beforeAll(async () => {
   fixture = await createRecordFixture();
   await mkdir('.local/record-previews', { recursive: true });
@@ -190,7 +190,12 @@ test('BO notice nonresponse, assessment, restricted evidence and posting stay se
   await page.getByLabel('Next review date', { exact: true }).fill('2027-01-01');
   await page.getByRole('button', { name: 'Save assessment for review', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Criteria and source', exact: true }),
+    page
+      .getByRole('definition')
+      .filter({ hasText: 'Fictional assessed criteria, not an encoded legal threshold' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('definition').filter({ hasText: 'Fictional approved source v1 for evaluation' }),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 1000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

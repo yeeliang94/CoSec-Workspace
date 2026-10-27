@@ -45,7 +45,6 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
       <div className="page-header">
         <div>
           <h1 className="company-title">{company.name}</h1>
-          <p className="metadata">{company.registrationNumber}</p>
         </div>
         {data.actor.capabilities.includes('prepare_job') ? (
           <Link className="button" href={'/jobs/new?company=' + id}>
@@ -54,6 +53,10 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
         ) : null}
       </div>
       <dl className="facts">
+        <div>
+          <dt>Registration number</dt>
+          <dd>{company.registrationNumber}</dd>
+        </div>
         <div>
           <dt>Legal status</dt>
           <dd>{company.legalStatus}</dd>
@@ -144,12 +147,23 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
               <tbody>
                 {record.officers.map((officer) => (
                   <tr key={officer.personId}>
-                    <td>
-                      {officer.personName}
-                      <div className="metadata">Person reference: {officer.personId}</div>
-                    </td>
+                    <td>{officer.personName}</td>
                     <td className="nowrap">{formatDate(officer.appointedOn)}</td>
-                    <td>{officer.eventId}</td>
+                    <td>
+                      <details className="file-details">
+                        <summary>Record references</summary>
+                        <dl className="record-meta">
+                          <div>
+                            <dt>Person</dt>
+                            <dd>{officer.personId}</dd>
+                          </div>
+                          <div>
+                            <dt>Event</dt>
+                            <dd>{officer.eventId}</dd>
+                          </div>
+                        </dl>
+                      </details>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -176,9 +190,19 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
               <li key={document.id}>
                 <div>
                   <a href={'/api/documents/' + document.id}>{document.title}</a>
-                  <small>
-                    {document.originalName} · {formatDate(document.createdAt)}
-                  </small>
+                  <details className="file-details">
+                    <summary>File details</summary>
+                    <dl className="record-meta">
+                      <div>
+                        <dt>Filename</dt>
+                        <dd>{document.originalName}</dd>
+                      </div>
+                      <div>
+                        <dt>Uploaded</dt>
+                        <dd>{formatDate(document.createdAt)}</dd>
+                      </div>
+                    </dl>
+                  </details>
                 </div>
               </li>
             ))}

@@ -145,9 +145,16 @@ function CataloguePreview({
           Close preview
         </button>
       </div>
-      <p className="metadata">
-        {version.source} · effective {formatDate(version.effectiveDate)}
-      </p>
+      <dl className="record-meta">
+        <div>
+          <dt>Source</dt>
+          <dd>{version.source}</dd>
+        </div>
+        <div>
+          <dt>Effective date</dt>
+          <dd>{formatDate(version.effectiveDate)}</dd>
+        </div>
+      </dl>
       {error ? (
         <div className="feedback error" role="alert">
           {error}
@@ -314,11 +321,23 @@ function Catalogues() {
           <details className="disclosure">
             <summary>Template placeholders</summary>
             <div>
-              <p className="prose metadata">
-                {
-                  '{{company.name}}, {{company.registrationNumber}}, {{company.address}}, {{job.title}}, {{job.year}}, {{job.anniversaryDate}}, {{job.effectiveDate}}, {{firm.name}}, {{today}}'
-                }
-              </p>
+              <ul className="compact-list">
+                {[
+                  'company.name',
+                  'company.registrationNumber',
+                  'company.address',
+                  'job.title',
+                  'job.year',
+                  'job.anniversaryDate',
+                  'job.effectiveDate',
+                  'firm.name',
+                  'today',
+                ].map((field) => (
+                  <li key={field}>
+                    <code>{'{{' + field + '}}'}</code>
+                  </li>
+                ))}
+              </ul>
             </div>
           </details>
         </div>
@@ -343,6 +362,11 @@ const capabilities: Capability[] = [
   'manage_catalogue',
   'manage_users',
   'view_bo',
+  'manage_people',
+  'manage_templates',
+  'generate_documents',
+  'view_audit',
+  'export_audit',
 ];
 function Users() {
   const { data } = useWorkspace();
@@ -549,15 +573,31 @@ export default function Settings() {
   ];
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings">
+        {data.actor.capabilities.includes('manage_templates') ||
+        data.actor.capabilities.includes('view_audit') ? (
+          <div className="header-actions">
+            {data.actor.capabilities.includes('manage_templates') ? (
+              <Link className="button" href="/templates">
+                Clause library
+              </Link>
+            ) : null}
+            {data.actor.capabilities.includes('view_audit') ? (
+              <Link className="button" href="/audit">
+                Audit log
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+      </PageHeader>
       <nav className="section-nav" aria-label="Settings sections">
         {tabs.map((item) => (
           <button
             key={item}
             className={tab === item ? 'active' : ''}
             aria-current={tab === item ? 'page' : undefined}
-            onClick={() => {
-              if (canLeaveEditing()) setTab(item);
+            onClick={async () => {
+              if (await canLeaveEditing()) setTab(item);
             }}
           >
             {item}
@@ -612,10 +652,12 @@ export default function Settings() {
                 },
               ]}
             />
-            <div className="form-section">
-              <h3>Approval policy</h3>
-              <p>Independent review</p>
-            </div>
+            <dl className="record-meta form-section">
+              <div>
+                <dt>Approval policy</dt>
+                <dd>Independent review</dd>
+              </div>
+            </dl>
           </section>
         ) : tab === 'Catalogues' ? (
           <Catalogues />

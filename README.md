@@ -1,11 +1,16 @@
 # CoSec Workspace
 
-The proposed next milestone is documented in the [resolution builder implementation handoff](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md): in-app template authoring, linked company/person/event records, custom input forms, Word document generation, version history and audit. This is a plan, not a claim that these capabilities are already delivered.
+The [resolution builder](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md) is implemented for fictional-data evaluation: an in-app clause library and assembly builder, people and dated company relationships, resolution cases with steps, generated question forms, native Word (.docx) generation with immutable history, and scoped before/after audit. Status per milestone, evidence and open gaps are in [docs/RESOLUTION_BUILDER_PROGRESS.md](docs/RESOLUTION_BUILDER_PROGRESS.md). Sample clause wording is fictional, not approved legal precedent.
 
 The local first build now supports annual returns (W03), director appointments/cessations (W04), members/share capital/transfers (W05), restricted beneficial ownership records (W06), integrated follow-ups, company history, private evidence, exact-version review, external filing tracking and editable settings.
 
 ```sh
 npm run db:start
+npm run db:migrate
+# Once, after migration 0003 on an existing database:
+npx tsx scripts/migrate-people.ts
+npx tsx scripts/grant-resolution-capabilities.ts
+npx tsx scripts/seed-resolution-samples.ts
 npm run dev
 # Another terminal:
 npm run worker
