@@ -16,6 +16,8 @@ Users must author templates **inside the application**. A template author writes
 
 The owner also requested linked companies, directors/board members, events and their smaller steps, customisation, and audit logs for changes. This plan covers all five foundations previously proposed: linked records; versioned templates and custom questions; document generation; reproducible document history; and searchable before/after auditing.
 
+**Clause-library model (added 26 October 2026).** The users' reference product, Superior ComSec, does not keep one template per resolution document. It keeps a library of small resolution items (clauses), such as "Appointment of auditors" or "Directors' fees". A preparer picks clauses, orders them and produces one document; each clause holds a separate wording per output type (resolution, minutes, notice). This plan adopts that structure: **clause templates** are the main reusable unit, and a **resolution assembly** combines a header, ordered clauses, closing text and a signature block. Whole-document templates remain available as starter assemblies. Observations and their mapping are in [docs/research/superior-comsec-resolution-video.md](docs/research/superior-comsec-resolution-video.md). That note is a product reference only; it is not a source for legal wording, section numbers or time limits.
+
 **First action for the implementing agent:** execute M0 below, reconcile this plan with the actual checkout, then work through the dependency graph. The current conversation authorises this planning document; it does not claim that implementation, purchase of software, deployment or live statutory use has already been approved. When the owner asks the next agent to implement this plan, ordinary local implementation and fictional-data verification can proceed within that request.
 
 ### Reading order
@@ -24,8 +26,9 @@ The owner also requested linked companies, directors/board members, events and t
 2. [DESIGN.md](DESIGN.md): approved Option A tokens and component behaviour.
 3. [DESIGN_SPEC.md](DESIGN_SPEC.md): read Product authority and scope; Staff roles and access; Object relationships; Independent states and time; W04/W07 coverage; Documents and signatures; Settings and editing requirements; failure states; and acceptance scenarios.
 4. This document: next delivery scope, proposed contracts and milestones.
-5. [docs/CONTRACTS.md](docs/CONTRACTS.md), [docs/SUPPORT_ACTIONS.md](docs/SUPPORT_ACTIONS.md), [docs/WORKFLOW_ACTIONS.md](docs/WORKFLOW_ACTIONS.md): existing implementation contracts.
-6. [docs/VERIFICATION.md](docs/VERIFICATION.md), [docs/RECOVERY.md](docs/RECOVERY.md), [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md): existing evidence and operating limits.
+5. [docs/research/superior-comsec-resolution-video.md](docs/research/superior-comsec-resolution-video.md): the reference product's resolution features, which explain the clause-library model.
+6. [docs/CONTRACTS.md](docs/CONTRACTS.md), [docs/SUPPORT_ACTIONS.md](docs/SUPPORT_ACTIONS.md), [docs/WORKFLOW_ACTIONS.md](docs/WORKFLOW_ACTIONS.md): existing implementation contracts.
+7. [docs/VERIFICATION.md](docs/VERIFICATION.md), [docs/RECOVERY.md](docs/RECOVERY.md), [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md): existing evidence and operating limits.
 
 The owner's new scope changes delivery priority. It does not erase the broader W01–W12 backlog or permit weakening existing statutory, access, evidence or historical-record contracts. If the new document-first path changes a documented workflow, record the specific change in DESIGN_SPEC.md during implementation. Retain the original brief and prototype.
 
@@ -39,11 +42,11 @@ All statuses below are **Planned**, not delivered.
 | M1 | Audit and mutation foundations | M0 | New changes have transactional, scoped before/after audit |
 | M2 | Companies, people and dated relationships | M1 | One person can participate in multiple authorised companies |
 | M3 | Resolution cases and steps | M2 | A board-resolution case or W04-linked case has owned work and explicit dates |
-| M4 | Structured templates and field definitions | M1, M2; context contracts from M3 | Versioned templates contain validated fields and document structure |
-| M5 | In-app template authoring | M4 | User creates document content and custom input tags in the browser |
-| M6 | Generated forms and value resolution | M3, M4, M5 | Known values fill automatically; remaining inputs form a validated form |
+| M4 | Clause templates, assemblies and field definitions | M1, M2; context contracts from M3 | Versioned clauses with per-output wordings, assemblies and validated fields |
+| M5 | In-app clause and assembly authoring | M4 | User writes clauses, builds assemblies and creates custom input tags in the browser |
+| M6 | Clause selection, generated forms and value resolution | M3, M4, M5 | Preparer orders clauses for a case; known values fill automatically; shared questions are asked once |
 | M7 | DOCX generation and saved history | M6; renderer proved in M0 | A complete first slice generates, stores and downloads Word documents |
-| M8 | Conditions, repeats and practical layout | M7 | Optional clauses, multiple signatories and multi-page output work |
+| M8 | Conditions, repeats, signer roles and practical layout | M7 | Clause variants, per-row tables, signer lists and multi-page output work |
 | M9 | Review, director-change integration and consequences | M3, M7, M8 | Both priority use cases work with exact-version review and existing W04 safeguards |
 | M10 | Hardening, user acceptance and handoff | M1–M9 | Verified feature, migration/recovery evidence and usable documentation |
 
@@ -61,7 +64,7 @@ This assessment comes from source inspection on 26 October 2026. Existing verifi
 | Director work | W04 appointment, resignation, removal and other cessation, evidence, packs, review and posting | Integrate new resolution documents; preserve existing event semantics |
 | Cases | W03–W06 fixed job types, correspondence, checklists, histories and filing attempts | Add a bounded resolution-case model and typed steps; avoid a general workflow engine |
 | Board resolutions | W07 specified but not implemented | Deliver document preparation and evidence-backed decision tracking; full meeting management stays later |
-| Templates | Settings catalogue stores versioned basic HTML with independent publication | Keep existing catalogue working; add a separate structured resolution-template contract |
+| Templates | Settings catalogue stores versioned basic HTML with independent publication | Keep existing catalogue working; add separate structured clause-template and assembly contracts |
 | Fields | Nine fixed placeholders; director name is not one of them | Add author-defined questions and allowlisted record bindings |
 | Editor | Basic paragraphs, emphasis, lists and undo/redo | Keep notes editor small; build a separate template editor |
 | Output | Illustrative `.txt` with source snapshot and hash | Add native DOCX rendering and independent generation history |
@@ -86,9 +89,17 @@ At planning time, uncommitted changes existed in verification docs, company/docu
 - Reusable people records and dated company/director relationships.
 - Company, person and case custom fields with typed, versioned definitions.
 - General board-resolution preparation and director appointment/resignation preparation.
-- In-app document authoring with field insertion, field configuration and preview.
+- A versioned clause library: each clause has a category, display order, hide-from-library flag, governing Act and one wording per supported output type.
+- Resolution assemblies: header, ordered clauses, closing text and signature block, with header and closing wording chosen per output type. Starter assemblies give a ready-made order for common resolutions.
+- A configurable list of output types. The first slice needs directors' written resolution and members' written resolution; directors' resolution and extract resolution follow when their wording is approved. Minutes, notices and circular forms stay with later W07 scope, but the clause model must leave room for their wordings.
+- A preparer selects and orders clauses for one case, from more than one category where allowed (for example a director appointment plus an auditor change in one document).
+- In-app clause and assembly authoring with field insertion, field configuration and preview.
 - Text, multiline text, date, number, boolean, single-choice, multi-choice and record-selection questions.
 - Database bindings, conditions and repeating content, including signatory blocks.
+- Case-level shared questions (for example resolution date, chair, which directors sign which report) answered once and used by every clause in the case.
+- Standard company fields for constitution citations (director authority, member authority, election authority), bound into headers and clauses.
+- Signer roles chosen at generation time: directors, members and certified-true-copy signers, each an ordered list, plus a signature column layout setting.
+- Date-offset derived fields (for example a lapse date computed from a circulation date). The offset rule must cite an approved source; the reference product is not one.
 - Document styles, tables, numbering, explicit page breaks, page settings and basic headers/footers.
 - Private DOCX generation, immutable versions, repeatable downloads and source provenance.
 - Independent template publication and exact-document review consistent with existing policy.
@@ -97,7 +108,9 @@ At planning time, uncommitted changes existed in verification docs, company/docu
 
 ### Later scope, retained explicitly
 
-- Full W07 meeting notices, attendance, quorum/vote calculation and procedural automation.
+- Full W07 meeting notices, attendance, quorum/vote calculation and procedural automation, including minutes, notice and circular output types and attendance/invitation lists.
+- Per-case edits to a clause's wording, unless the owner approves them (see section 12). Until then, wording changes go through the clause library and its review.
+- Posting several clause outcomes to the registers in one action. Each statutory change still posts through its own reviewed route, such as W04.
 - Configurable legal-rule engines or unrestricted user-built workflow state machines.
 - DOCX template upload, lossless import, external Word edit round-tripping and tracked changes.
 - Live collaborative editing, comments/mentions and presence.
@@ -112,35 +125,44 @@ At planning time, uncommitted changes existed in verification docs, company/docu
 
 ## 4. User journeys to deliver
 
-### A. Create and publish a template
+### A. Create and publish a clause
 
-1. Open Templates from the Documents area or its approved administration link.
-2. Create a template; choose board resolution, director appointment or director resignation as its usage context. Start blank or copy an existing draft/version.
-3. Write and format content in the app.
-4. Insert an existing field or create a new field. Configure label, value type, source, input control, validation and output format.
-5. Reuse the same field in several positions without asking the question repeatedly.
-6. Add optional clauses, signatory repeats and layout settings as needed.
+1. Open the clause library from the Documents area or its approved administration link. Clauses are grouped by category (for example Director, Auditor, Members, Dividend, Other).
+2. Create a clause or copy an existing one. Set its name, category, governing Act, usage contexts and display order.
+3. Write and format one wording per supported output type, for example directors' written resolution and members' written resolution. An output type with no wording is not offered for that clause.
+4. Insert an existing field or create a new field. Configure label, value type, source, input control, validation and output format. A field can be clause-specific (such as a year-end date) or a case-level shared question.
+5. Reuse the same field in several positions and wordings without asking the question repeatedly.
+6. Add variants or conditional text, per-row tables and layout settings as needed.
 7. Preview with clearly fictional data and inspect the DOCX preview artifact.
 8. Save a draft; ask a different authorised user to review and publish that exact version.
-9. Later edits create a successor version. Existing generated documents retain their prior template.
+9. Later edits create a successor version. Existing generated documents retain their prior clause version. A clause can be hidden from the library for new use without deleting it.
+
+### A2. Create and publish an assembly
+
+1. Create an assembly for an output type, such as members' written resolution.
+2. Write the header (for example the company block and the opening sentence citing the company's member authority) and the closing text.
+3. Configure the signature block: which signer roles appear, their order rules and the column layout.
+4. Optionally save a starter list of clauses in a default order, such as a standard AGM-business written resolution or a director appointment resolution.
+5. Preview, then submit for independent review and publication, as in journey A.
 
 ### B. Generate a board-resolution document
 
 1. Choose the company and create/open a resolution case.
-2. Choose a published, effective, compatible template.
-3. Select related people and the relevant date/context.
-4. See record-sourced values and answer only the remaining questions.
-5. Validate the form and preview the resolved document.
-6. Generate a DOCX draft. The application saves its exact source snapshot, answers, template version and bytes.
-7. Review, revise, issue and record external execution separately as applicable.
-8. Record the actual decision/evidence and complete only the tasks whose completion rules are satisfied.
+2. Choose the output type and a published, effective, compatible assembly, or a starter assembly.
+3. Add clauses from the library, from more than one category where allowed, remove clauses and set their order. Only published, effective, unhidden clauses with a wording for the chosen output type are offered.
+4. Select related people, signers for each role and the relevant date/context.
+5. See record-sourced values. Answer case-level shared questions once, then each clause's remaining questions.
+6. Validate the form and preview the resolved document.
+7. Generate a DOCX draft. The application saves its exact source snapshot, answers, assembly version, ordered clause versions and bytes.
+8. Review, revise, issue and record external execution separately as applicable.
+9. Record the actual decision/evidence and complete only the tasks whose completion rules are satisfied.
 
 ### C. Generate an appointment/resignation resolution
 
 1. Open an existing W04 case or start the guided director-change flow.
 2. Select an existing person, or create a person through an authorised record action.
 3. Select the appointment/resignation context and enter proposed dates/basis.
-4. Generate the resolution through the same template/form/output engine.
+4. Generate the resolution through the same clause/assembly/form/output engine. The director appointment or resignation clause is added by default; the preparer can add other clauses the firm allows alongside it.
 5. Attach the exact generation to a pack version and request its review.
 6. Record required signatures and source evidence through the existing workflow.
 7. Post the separately reviewed dated record through W04; record any filing separately.
@@ -149,7 +171,7 @@ A resignation template records the selected route and evidence. The application 
 
 ### D. Correct information after generation
 
-1. A company address, person name, event date or template changes.
+1. A company address, person name, event date, clause, assembly or the case's clause selection changes.
 2. Existing output bytes and approvals remain attached to their original versions.
 3. The user sees an available newer source or a material change requiring reassessment.
 4. An explicit revise/regenerate command creates a new document version and preserves predecessor links.
@@ -163,7 +185,7 @@ These are proposed contracts to finalise in M0. Use stable IDs for every referen
 
 | Concept | Meaning and required data |
 | --- | --- |
-| Company | Existing company identity, controlled particulars, verification, revision and dated changes |
+| Company | Existing company identity, controlled particulars, verification, revision and dated changes; includes constitution citations (director, member and election authority) as standard dated fields |
 | Person | Stable reusable identity; name and minimal needed contact/particulars; revision and source history |
 | Company relationship | Person + company + role/capacity + effective interval + source event/evidence; supports more than one company per person |
 | Corporate event | A dated proposed/approved/effective change to records; reuses officer-event semantics for director changes |
@@ -172,25 +194,33 @@ These are proposed contracts to finalise in M0. Use stable IDs for every referen
 | Custom field definition | Typed additional company/person/case attribute, versioned and access-classified |
 | Custom field value | Value tied to a record and definition version, with effective/recorded dates where applicable |
 
-"Event" must not conflate a corporate change, a case step and an audit entry. The user's "micro-events" are represented as case steps or actual dated corporate events according to their meaning. Registration/submission is a recorded external action, not proof that an appointment has taken legal effect.
+"Event" must not conflate a corporate change, a case step and an audit entry. The reference product calls its resolution items "events"; in this application they are **clauses**, never corporate events. The user's "micro-events" are represented as case steps or actual dated corporate events according to their meaning. Registration/submission is a recorded external action, not proof that an appointment has taken legal effect.
 
 Company relationships should distinguish executive/nonexecutive or other board capacities only as configured attributes where needed. A generic board role does not automatically become a statutory officer appointment. Derive statutory director membership from the existing approved event rules, with an explicit link between the event and relationship projection.
 
-### Templates and document generations
+### Clauses, assemblies and document generations
+
+"Template" in this plan means either a clause template or an assembly. Both follow the same versioning, review and publication rules.
 
 | Concept | Minimum proposed contract |
 | --- | --- |
-| Template | Stable ID, name, usage contexts, description, archive state and ownership |
-| Template version | Template ID, version, draft revision, schema version, structured body, field definitions, layout/styles, assets, source/basis, effective date, author, reviewer and publication status |
-| Template field | Stable field ID, label, value type, source, input UI, validation, formatting and optional repeat scope |
+| Output type | Stable ID, name (for example directors' written resolution, members' written resolution, extract resolution), resolution body (directors or members), active flag. Configurable list; labels are presentation only |
+| Clause template | Stable ID, name, category, usage contexts, governing Act, display order, hidden-from-library flag, description, archive state and ownership |
+| Clause version | Clause ID, version, draft revision, schema version, one structured wording per supported output type, field definitions, variants/conditions, source/basis, effective date, author, reviewer and publication status |
+| Assembly | Stable ID, name, output type, usage contexts, archive state and ownership |
+| Assembly version | Assembly ID, version, header and closing content, signature block settings (signer roles, order rules, column layout), optional starter clause list with order, shared field definitions, layout/styles, effective date, author, reviewer and publication status |
+| Template field | Stable field ID, label, value type, source, input UI, validation, formatting, scope (case-shared or clause-specific) and optional repeat scope |
+| Case clause selection | Case ID, output type, assembly version, ordered list of clause versions, revision; edits create a new revision and never change an earlier generation |
 | Document family | Stable ID grouping generations/revisions of one intended resolution |
-| Generation | Family ID, predecessor, template version, case/job/company IDs, source snapshot, answers, resolved document, renderer version, hash, storage reference, author and time |
+| Generation | Family ID, predecessor, output type, assembly version, ordered clause versions, case/job/company IDs, signer selections, source snapshot, answers, resolved document, renderer version, hash, storage reference, author and time |
 | Document review | Exact generation ID + content hash, scope, decision, reason, reviewer and timestamp |
 | Execution evidence | Exact document generation/version, signer identity/capacity, signed date and evidence IDs |
 
-Published versions and generated artifacts are immutable. Drafts have optimistic revision checks. Use explicit successor versions for content changes. Archiving removes a template from new selection while preserving historical access.
+Published versions and generated artifacts are immutable. Drafts have optimistic revision checks. Use explicit successor versions for content changes. Archiving or hiding removes a clause or assembly from new selection while preserving historical access. A case clause selection pins exact clause versions; a newer published clause version is offered to the preparer, not swapped in silently.
 
-Suggested dedicated persistence: `people`, `person_particular_versions`, `company_relationships`, `record_field_definitions`, `record_field_values`, `resolution_cases`, `case_steps`, `resolution_templates`, `resolution_template_versions`, `document_families`, `document_generations`, `document_reviews`, plus existing private-document metadata and audit tables. Consolidating small supporting records into typed JSON is acceptable when transaction/query/access needs are met; IDs, scope, revision and indexes must remain explicit. Avoid a generic entity-attribute-value framework for canonical company identity or officer events.
+Clause fields and case-shared fields share one namespace per case. When two selected clauses define a shared field with the same stable ID, the form asks it once. Clause-specific fields keep their own scope, so two clauses can each have a "year end" without colliding. Conflicting definitions for the same shared ID (different type or options) block generation with a useful message.
+
+Suggested dedicated persistence: `people`, `person_particular_versions`, `company_relationships`, `record_field_definitions`, `record_field_values`, `resolution_cases`, `case_steps`, `output_types`, `clause_templates`, `clause_template_versions`, `resolution_assemblies`, `resolution_assembly_versions`, `case_clause_selections`, `document_families`, `document_generations`, `document_reviews`, plus existing private-document metadata and audit tables. Consolidating small supporting records into typed JSON is acceptable when transaction/query/access needs are met; IDs, scope, revision and indexes must remain explicit. Avoid a generic entity-attribute-value framework for canonical company identity or officer events.
 
 ### Field value sources
 
@@ -199,7 +229,7 @@ Every field has exactly one primary source:
 1. **Bound:** allowlisted company/person/relationship/event/case/custom-record attribute.
 2. **Question:** an answer entered when the template is used.
 3. **Constant:** author-defined fixed value, normally better expressed as text.
-4. **Derived:** a small allowlisted formatter/transformation such as formatting a date or joining names. Add only where a real template needs it.
+4. **Derived:** a small allowlisted formatter/transformation such as formatting a date, joining names, summing a table column or adding a number of days to a date. Add only where a real template needs it. A date offset that expresses a legal time limit must record its approved source and version on the field definition.
 
 Record selection and property binding are distinct. A `selected_director` question selects a scoped person/relationship; another field can bind to that selection's name. A signatories selection returns an ordered collection of identity/capacity snapshots that a repeat block can iterate.
 
@@ -255,8 +285,11 @@ Store validated, schema-versioned JSON as the template source. Suggested nodes:
 - Table, row and cell with supported widths/alignment.
 - Conditional block with a declarative predicate.
 - Repeat block over a bounded collection, containing scoped field references.
-- Signature block composed from supported elements and selected people/capacities.
+- Signature block composed from supported elements, signer roles (directors, members, certified-true-copy signers) and a column layout setting.
+- Clause slot (assemblies only): where the ordered clauses are placed between header and closing text, with optional automatic clause numbering.
 - Explicit page break; layout and header/footer content kept in document settings.
+
+A clause wording is a fragment, not a whole document: it may contain headings, paragraphs, lists, tables, conditions and repeats, but not page settings or signature blocks. The compiler places each selected clause's wording for the chosen output type into the assembly's clause slot, in case order, then resolves fields.
 
 Editor JSON should compile into a renderer-neutral resolved document model. The browser preview and DOCX exporter consume that same resolved model. A node view's screen markup is not the DOCX source. Never perform token replacement on arbitrary HTML and call that equivalent structured export.
 
@@ -270,10 +303,11 @@ Unknown nodes, invalid references, source incompatibility, unsupported formattin
 | --- | --- |
 | People/relationships | Scoped person identity, dated particulars, company associations and migration mappings |
 | Resolution cases | Case creation, steps, dependencies and links to existing jobs/events |
-| Template definitions | Versioned schema, fields, layout, validation and publication |
-| Template editor | Authoring UI, custom nodes, inspector, keyboard operations and draft save |
-| Binding/form engine | Field dependencies, scoped source selection, validation and snapshot construction |
-| Document compiler | Template + resolved values → validated resolved document model |
+| Template definitions | Output types, clause and assembly versions, schema, fields, layout, validation and publication |
+| Template editor | Clause and assembly authoring UI, per-output-type wording tabs, custom nodes, inspector, keyboard operations and draft save |
+| Clause selection | Case clause list: add, remove, reorder, pin versions, offer newer versions, check output-type compatibility |
+| Binding/form engine | Shared/clause field merging, field dependencies, scoped source selection, validation and snapshot construction |
+| Document compiler | Assembly + ordered clause wordings + resolved values → validated resolved document model |
 | DOCX renderer | Resolved model → native DOCX bytes without fetching external content |
 | Generation service | Atomic reservation/finalisation, provenance, private storage and family history |
 | Review/execution adapter | Exact generation-to-pack linkage and review/signature invalidation |
@@ -308,7 +342,7 @@ M0 must prove the required output features, package compatibility, licence and l
 
 Template draft → review → published → archived for new use. Preserve existing independent publication policy: creator cannot publish their own version. A returned review keeps its reason and draft data. Published versions are selected by explicit ID and effective date, not a floating "latest" pointer.
 
-Change field type/options, bindings, conditions, wording or layout through a new version. The publisher sees a diff and affected future/open work; existing generations remain pinned. Template publication is internal content review, not legal certification. Sample templates remain clearly fictional until real wording and sources are approved.
+Change field type/options, bindings, conditions, wording or layout through a new version. The publisher sees a diff and affected future/open work; existing generations remain pinned. Clauses and assemblies are published independently; publishing a clause does not republish every assembly, and an open case keeps its pinned clause versions until the preparer accepts a newer one. Template publication is internal content review, not legal certification. Sample templates remain clearly fictional until real wording and sources are approved.
 
 Generated draft → exact-version review → issue/execution evidence as applicable. Use existing canonical document states where possible. A new generation invalidates downstream approvals for that new version. Never relabel the previous generated document as reviewed because its template was published.
 
@@ -373,17 +407,19 @@ New business writes and their audit entries commit together. Existing applicatio
 - Add reusable minimal person profiles, controlled edits, verification/source history, company relationships and as-at views.
 - Add company-particular changes with revision/history rather than mutating immutable opening/anniversary records.
 - Add typed custom field definitions/values for company, person and case scopes; at minimum text, date, number, boolean and choices. Defer more exotic types explicitly.
+- Add standard, dated company fields for constitution citations: director authority, member authority and election authority. They feed assembly headers and clauses through bindings. Seed choices must be fictional or source-approved.
 - Distinguish firm-level identity from company-visible relationships and historical particulars. A company-scoped user cannot alter shared identity in a way that silently changes other companies' prepared outputs.
 - Migrate legacy person references without guessing that matching names imply the same person. Preserve IDs where identity is reliable; record ambiguous matches for review.
 - Link officer-event projections to relationships without creating two independently editable director registers.
 
-**Done when** one person can be reused across three companies without leaking inaccessible associations, appointment/resignation dates produce correct as-at directors, name corrections preserve historical document values, and migration reruns are safe and auditable. Existing W03 snapshots and W04 job IDs remain valid.
+**Done when** one person can be reused across three companies without leaking inaccessible associations, appointment/resignation dates produce correct as-at directors, name corrections preserve historical document values, a constitution citation change is dated and audited, and migration reruns are safe and auditable. Existing W03 snapshots and W04 job IDs remain valid.
 
 ### M3 — Resolution cases and smaller steps
 
 **Work**
 
 - Implement bounded board-resolution cases with company, title, owner, route/context, dates, evidence, documents and optional W04 linkage.
+- Reserve the case-side contract for a clause selection (output type, assembly, ordered clause versions, revision) and case-level shared answers, so M4 and M6 can attach to it.
 - Add typed owned case steps with dependencies and states such as pending, in progress, waiting, complete and not applicable with reason.
 - Support instruction, preparation, review, circulation/execution and external registration/filing evidence steps where applicable.
 - Define cancellation/correction consequences and reminder adapters; retain independent job, document, event and filing states.
@@ -391,72 +427,85 @@ New business writes and their audit entries commit together. Existing applicatio
 
 **Done when** a general board-resolution case can be prepared without a fictitious director change or automatic statutory filing, a W04 case links to its own steps/documents, dependency cycles are rejected, and completing an operational step cannot bypass record-posting review or unresolved filing tasks.
 
-### M4 — Template schema, fields and lifecycle
+### M4 — Clause templates, assemblies, fields and lifecycle
 
 **Work**
 
-- Implement template/version storage and the structured document schema, field unions, binding registry, question validation and limits.
-- Implement draft save/revision, copy, preview validation, independent publication and archive.
+- Implement the output-type list, clause template/version storage and assembly/version storage.
+- Implement the structured document schema for clause fragments (one wording per output type) and for assemblies (header, clause slot, closing, signature block), plus field unions, case-shared versus clause-specific field scope, binding registry, question validation and limits.
+- Store clause category, governing Act, display order and hidden-from-library flag; filter the library by these.
+- Implement draft save/revision, copy, preview validation, independent publication, hide and archive for both clauses and assemblies.
 - Add field rename/reuse/deletion rules and schema-version handling.
+- Validate shared-field compatibility across clauses that may be combined; report conflicts with both clause locations.
 - Keep legacy catalogue templates and existing illustrative generation compatible. Provide explicit conversion/copy into a new draft only where content can be represented; report unsupported markup.
 - Validate that every referenced field exists, bound paths fit the template context, required values can be supplied, and field/condition dependencies are sound.
 
-**Done when** valid templates round-trip without loss, invalid or unsupported structures fail with a useful location, field rename preserves references, delete/type changes expose impact, published bytes/schema stay immutable, and stale edits/self-publication are rejected.
+**Done when** valid clauses and assemblies round-trip without loss, a clause with wordings for two output types stores and validates both, a clause fragment cannot contain page settings or a signature block, invalid or unsupported structures fail with a useful location, field rename preserves references, delete/type changes expose impact, published bytes/schema stay immutable, and stale edits/self-publication are rejected.
 
 ### M5 — In-app authoring experience
 
 **Work**
 
-- Add a template library and separate template editor following DESIGN.md.
-- Provide a document canvas, restrained formatting toolbar, insert-field control and contextual field/settings inspector.
+- Add a clause library (grouped by category, with order, hide and Act filters), an assembly library and a separate template editor following DESIGN.md.
+- In the clause editor, show one wording tab per output type, with a way to copy one wording into another as a starting point.
+- In the assembly editor, show the header, a clause-slot placeholder with sample clauses, the closing text and the signature block settings.
+- Provide a document canvas, restrained formatting toolbar, insert-field control and contextual field/settings inspector. The inspector shows whether a field is case-shared or clause-specific.
 - Support creating a question at the point of insertion and reusing it elsewhere; offer existing field search.
 - Implement baseline formatting: paragraphs/headings, bold/italic/underline where supported, alignment, lists, indentation, tables and page settings needed by the sample resolutions.
 - Provide draft save status, undo/redo, safe paste, validation navigation, sample preview and discard protection.
 - Keep long forms and field inspector keyboard reachable; adapt to tablet/mobile with disclosed panels rather than a permanently tiny canvas.
 
-**Done when** a user builds a board-resolution draft entirely in the browser, inserts one bound company name and two custom questions, reuses one question twice, saves/reopens without loss and reaches publication review. Verify keyboard operation, reduced motion, larger text and interrupted navigation.
+**Done when** a user builds two clauses and one assembly entirely in the browser, inserts one bound company name and two custom questions, reuses one question twice, writes wordings for two output types, saves/reopens without loss and reaches publication review. Verify keyboard operation, reduced motion, larger text and interrupted navigation.
 
-### M6 — Form generation and record resolution
+### M6 — Clause selection, form generation and record resolution
 
 **Work**
 
+- Add the case clause list: choose output type and assembly, start from a starter list, add clauses from the library (across categories where allowed), remove and reorder them with keyboard-operable controls, and pin exact versions. Offer, but do not apply, newer published clause versions.
+- Offer only clauses that are published, effective, not hidden, compatible with the case context and have a wording for the chosen output type.
+- Build one form per case: case-shared questions first and asked once, then a section per clause for its own questions, in clause order.
 - Render template-defined questions using shared accessible form components.
 - Support searchable scoped record selectors, booleans, single/multi-choice, text/multiline, dates and exact numbers with validation.
 - Fill bound values and show their source/as-at context on demand. Define default handling, display formatting and ordered selections.
-- Save answer drafts against an exact template version and revision; define explicit migration when switching versions instead of silently reusing incompatible answers.
+- Save answer drafts against the exact clause selection revision, clause versions and assembly version; define explicit migration when switching versions instead of silently reusing incompatible answers.
 - Resolve source data consistently and report stale/ceased/incompatible selections with retained user input.
 
-**Done when** the owner's two-question example asks exactly two questions, repeating a tag does not duplicate the question, false/zero values survive, guessed unauthorised IDs fail server-side, and invalid selections/missing values produce actionable errors without losing answers.
+**Done when** the owner's two-question example asks exactly two questions, repeating a tag does not duplicate the question, two clauses sharing a case-level question ask it once, removing a clause drops its questions without losing other answers, reordering clauses keeps answers, false/zero values survive, guessed unauthorised IDs fail server-side, and invalid selections/missing values produce actionable errors without losing answers.
 
 ### M7 — Native DOCX and immutable generation history
 
 **Work**
 
-- Implement the compiler and native DOCX renderer for the agreed baseline node set.
+- Implement the compiler (assembly + ordered clause wordings for the chosen output type + resolved values) and native DOCX renderer for the agreed baseline node set, including automatic clause numbering where the assembly asks for it.
 - Implement snapshot reservation, bounded rendering, private file finalisation, retry/idempotency and cleanup.
 - Add preview/generate/download endpoints and document-family history with template/source metadata.
 - Keep internal metadata separate from clean resolution text; label fictional/draft examples appropriately.
 - Verify output integrity and actual layout, not just a `.docx` filename or ZIP signature.
 
-**Done when** a user can create a template in-app, publish it independently, select a company, answer custom questions and download an editable Word file; the same stored document can be downloaded later; source/template changes leave it unchanged; failure/retry/stale-link scenarios do not create duplicate pack attachments or false-ready documents. This is the first usable document-generation slice.
+**Done when** a user can create clauses and an assembly in-app, publish them independently, select a company, pick and order at least three clauses, answer custom questions and download an editable Word file; switching the output type of the same case uses each clause's matching wording; the same stored document can be downloaded later; source/template changes leave it unchanged; failure/retry/stale-link scenarios do not create duplicate pack attachments or false-ready documents. This is the first usable document-generation slice.
 
-### M8 — Conditions, repeating signatories and practical layout
+### M8 — Conditions, repeats, signer roles and practical layout
 
 **Work**
 
 - Add authorable declarative conditional blocks and visibility rules, with dependency/type validation.
 - Add bounded repeats over signatory selections and other permitted collections, including ordering and empty-list rules.
 - Add repeating signature rows/blocks, basic headers/footers, page numbers, supported page breaks, table widths and paragraph keep rules.
+- Add signer roles chosen at generation time: directors, members and certified-true-copy signers, each an ordered, drag- and keyboard-reorderable list; plus a signature column layout setting on the assembly.
+- Add clause variants (for example "fees payable" and "no fees provided" within one clause) using conditions, so the library does not need near-duplicate clauses.
+- Add per-row inputs inside repeats (for example a fee for each selected director) and a derived column total. Use exact decimals.
+- Add the date-offset derived field. Any offset representing a legal time limit records its approved source; without one, use clearly fictional sample values.
 - Include company/person/case custom fields in safe binding selection with definition versions pinned in snapshots.
 - Define limits on nodes, nesting, repeat length, asset size, total output and generation time. Reject unbounded work with useful errors.
 
-**Done when** a checkbox adds/removes a whole clause without stray text, selecting three signatories yields exactly three correct signature blocks, repeated record properties resolve within their own item scope, long names and multi-page content remain usable, and invalid cycles/oversized output fail safely.
+**Done when** a checkbox adds/removes a whole clause without stray text, selecting three signatories yields exactly three correct signature blocks, director and member signer lists keep their own order, a per-director fee table totals exactly, a date offset recomputes when its base date changes, repeated record properties resolve within their own item scope, long names and multi-page content remain usable, and invalid cycles/oversized output fail safely.
 
 ### M9 — Review and director-change integration
 
 **Work**
 
-- Add fictional starter templates for general board resolution, appointment resolution and resignation resolution. Their wording is evaluation content, not an approved legal precedent.
+- Add fictional starter clauses and assemblies for general board resolution, appointment resolution and resignation resolution. Their wording is evaluation content, not an approved legal precedent.
+- When a W04 case opens a resolution, pre-select the matching appointment or resignation clause and bind it to the case's person and dates. Removing that clause from a W04-linked case requires a reason.
 - Link a generation to an exact W04 pack version and preserve proposal/person/date snapshots.
 - Make later director/date/content revisions create a new document/pack version and trigger required independent review.
 - Record issued/signed copies and signer capacities against the exact generation. Keep signed attachments separate from generated draft bytes.
@@ -510,7 +559,7 @@ If parallel work is authorised, suggested ownership is:
 | --- | --- | --- |
 | Coordinator | Schema/migrations, shared types, API contracts, auth, capability mapping and integration | One owner merges shared contract changes |
 | Records/cases | People, relationships, custom record values, case services and domain tests | Uses agreed schema and transaction contracts |
-| Template/output | Template validation, compiler, renderer, snapshots and generation tests | Uses fixed node/field contracts |
+| Template/output | Clause and assembly validation, clause selection, compiler, renderer, snapshots and generation tests | Uses fixed node/field contracts |
 | UI | Template editor, generated forms, library/history/audit interfaces and browser tests | Consumes versioned DTOs; does not invent server rules |
 
 Use branch/worktree/file ownership according to the active agent instructions. Avoid concurrent edits to shared schema, type unions, package files or central router/workspace. Communicate contract changes before dependent implementation. Never bypass a failing permission gate merely to integrate a UI demo.
@@ -538,10 +587,14 @@ Endpoint names are proposals. Preserve existing routes and error conventions; fi
 | Company relationships | `GET/POST /api/companies/:id/relationships` |
 | Custom fields/values | Scoped definition and record-value endpoints; distinct schemas from template questions |
 | Resolution cases/steps | `GET/POST /api/resolution-cases`, `GET/POST /api/resolution-cases/:id` |
-| Template library/create | `GET/POST /api/resolution-templates` |
-| Draft edits/versions/publish | `GET/POST /api/resolution-templates/:id/versions/:versionId` |
+| Output types | `GET/POST /api/output-types` |
+| Clause library/create | `GET/POST /api/clause-templates` with category, Act, hidden and context filters |
+| Clause draft edits/versions/publish | `GET/POST /api/clause-templates/:id/versions/:versionId` |
+| Assembly library/create | `GET/POST /api/resolution-assemblies` |
+| Assembly draft edits/versions/publish | `GET/POST /api/resolution-assemblies/:id/versions/:versionId` |
+| Case clause selection | `GET/POST /api/resolution-cases/:id/clauses` with expected revision |
 | Preview and field discovery | Version-specific preview/form endpoints returning only authorised data |
-| Generate | `POST /api/document-generations` with explicit template version, case/job/company, source revisions, answers and request ID |
+| Generate | `POST /api/document-generations` with explicit clause-selection revision, assembly and clause versions, output type, case/job/company, source revisions, answers and request ID |
 | History | `GET /api/document-families/:id` and generation metadata endpoints |
 | Download | Existing private document route or generation-scoped equivalent |
 | Audit list/export | `GET /api/audit` and controlled audited export command |
@@ -582,6 +635,12 @@ Create behavioural tests at domain/service/database/browser boundaries and inspe
 | A24 | UI resilience | Keyboard, 320/390/768/desktop, larger text, reduced motion, failed save and discard paths work |
 | A25 | Migration/recovery | Legacy data links survive; restored files match hashes; replay creates no duplicates |
 | A26 | Existing application | W03/W04/W05/W06, BO restrictions, reminders, uploads, reviews and edit guards regressions pass |
+| A27 | Clause assembly | Three clauses from two categories render in case order with correct numbering; reordering changes only the new generation |
+| A28 | Output types | The same case switched between two output types uses each clause's matching wording and header; a clause with no wording for a type is not offered |
+| A29 | Shared and clause questions | A case-shared question used by two clauses is asked once; same-named clause-specific fields stay separate; conflicting shared definitions block generation with both locations |
+| A30 | Clause versions in open cases | Publishing a newer clause version leaves open cases and earlier generations pinned; the preparer sees and can accept the newer version |
+| A31 | Library curation | Hidden or archived clauses disappear from new selection but remain readable in history; display order and Act filters work |
+| A32 | Constitution citations | A company's member-authority citation fills the header; a dated change affects only later generations |
 
 For DOCX QA, generate short and multi-page examples with long names, punctuation, Unicode and several signatories. Inspect package content plus rendered pages; test in the team's target Word environment before asserting Word acceptance. Browser preview must disclose pagination differences when it is not the final document renderer. PDF export may be a later feature even if internal PDF rendering is used for QA.
 
@@ -608,11 +667,15 @@ Technical completion and live use are separate. Live use still needs approved re
 - Company details, directors/board members and events need linked records.
 - Changes/events need audit history.
 - A detailed Markdown handoff should let another agent orchestrate the work.
+- Superior ComSec is the users' reference product. Its clause-library model is adopted (26 October 2026); its interface, wording and legal content are not.
 
 ### Proposed defaults that allow progress
 
 - Retain the existing local stack, Option A interface and independent review policy.
-- Keep the two document use cases on a shared template/form/rendering engine.
+- Keep the two document use cases on a shared clause/assembly/form/rendering engine.
+- Clauses are the main reusable unit; assemblies supply header, closing and signatures. Whole-document resolutions are starter assemblies with a default clause list.
+- First output types: directors' written resolution and members' written resolution. Others are added as configuration once their wording is approved.
+- No per-case wording edits to a clause until the owner decides; wording changes go through the library and its review.
 - Use JSON document structure and stable field IDs, with an allowlisted binding registry.
 - Treat board-resolution preparation as a bounded W07 subset; keep full meeting automation later.
 - Use manual event dates and source evidence; do not add invented legal rules.
@@ -632,12 +695,20 @@ Technical completion and live use are separate. Live use still needs approved re
 | Must browser preview match exact printed pagination? | Shared content model and DOCX preview artifacts | M0 scope agreement; editor/export complexity |
 | Which custom record fields and output layouts are essential? | Core typed fields and layout matrix | M4/M8 acceptance |
 | Is any commercial module acceptable? | Start with compatible local/open-source candidates | Before purchase or paid dependency commitment |
+| Do users think in clauses or whole documents, and which clauses come first? | Build the clause model with a starter assembly for each priority journey | M4 schema acceptance; M9 starter content |
+| Which output types are needed, in what order (written, circular, extract, minutes, notice)? | Directors' and members' written resolutions | M4 output-type list; M10 acceptance |
+| May a preparer edit one clause's wording for a single case? If yes, who reviews it? | Library-only wording changes | M6/M9; would add an audited per-case override with mandatory re-review |
+| Which clauses may be combined in one document, and across which categories? | Allow any published clause compatible with the case context | M6 selection rules |
+| Which constitution citations does the firm track per company? | Director, member and election authority fields | M2 company fields |
+| What is the approved source for any date offset, such as a written-resolution lapse period? | Fictional offset clearly labelled as sample | M8 derived dates; live use |
+| Can the team share a director appointment/resignation example from the reference product? | Build from W04 and fictional wording | M9 starter content |
 
 Ask these questions when needed; do not use missing legal wording as a reason to stop building safe fictional document infrastructure. Conversely, elapsed time or an unanswered question is not approval of a legal rule, paid service or live-use claim.
 
 ## 13. Final completion checklist for the implementing agent
 
-- [ ] Owner can build and publish a template entirely within the application.
+- [ ] Owner can build and publish clauses and assemblies entirely within the application.
+- [ ] Preparer can select, order and combine clauses for a case and switch between output types.
 - [ ] Owner can define/reuse custom inputs and bind values to authorised records.
 - [ ] Companies, people, company relationships and cases support the agreed customisation and dated history.
 - [ ] General board, director appointment and director resignation examples all generate editable DOCX output.
@@ -651,4 +722,4 @@ Ask these questions when needed; do not use missing legal wording as a reason to
 
 ### Copyable prompt for the next agent
 
-> Implement `RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md` in this repository. Start with AGENTS.md and M0, inspect and preserve all existing local changes, and keep the approved Option A design and existing workflow/access/history safeguards. Deliver the in-app template builder, linked records, generated forms, native DOCX generation, immutable history and audit capabilities through the listed milestones. Use fictional content until real wording is approved. Track completion evidence in `docs/RESOLUTION_BUILDER_PROGRESS.md`, validate each milestone before marking it complete, and keep incomplete acceptance gates explicit. The initial usable slice is M0–M7; the full requested scope is M0–M10. Do not treat a working mock screen or a draft download as completion of the full plan. Follow your active session's rules for delegation; if you use multiple workers, assign shared-contract ownership before parallel edits. Do not deploy, purchase services, erase data or publish externally without the necessary user authorisation.
+> Implement `RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md` in this repository. Start with AGENTS.md and M0, inspect and preserve all existing local changes, and keep the approved Option A design and existing workflow/access/history safeguards. Deliver the in-app clause library and assembly builder (see `docs/research/superior-comsec-resolution-video.md` for the reference model), linked records, generated forms, native DOCX generation, immutable history and audit capabilities through the listed milestones. Use fictional content until real wording is approved. Track completion evidence in `docs/RESOLUTION_BUILDER_PROGRESS.md`, validate each milestone before marking it complete, and keep incomplete acceptance gates explicit. The initial usable slice is M0–M7; the full requested scope is M0–M10. Do not treat a working mock screen or a draft download as completion of the full plan. Follow your active session's rules for delegation; if you use multiple workers, assign shared-contract ownership before parallel edits. Do not deploy, purchase services, erase data or publish externally without the necessary user authorisation.
