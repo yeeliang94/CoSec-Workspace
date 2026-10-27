@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type {
   AssemblyVersion,
@@ -59,8 +59,12 @@ export function useTemplateVersion<K extends Kind>(kind: K, id: string) {
     setReady(true);
   }, [versionParam]);
 
+  // Only the newest load may apply its reply; an older one finishing late is ignored.
+  const loadTicket = useRef(0);
   const load = useCallback(
     async (target: string | null) => {
+      const ticket = ++loadTicket.current;
+      const current = () => ticket === loadTicket.current;
       setLoading(true);
       setError('');
       try {
@@ -87,6 +91,7 @@ export function useTemplateVersion<K extends Kind>(kind: K, id: string) {
         const detail = await getJson<{ version: Version<K>; issues: Issue[]; changes: Change[] }>(
           `${base(kind)}/${id}/versions/${chosen.id}`,
         );
+        if (!current()) return;
         setState({
           template,
           all,
@@ -100,9 +105,9 @@ export function useTemplateVersion<K extends Kind>(kind: K, id: string) {
         });
         setGeneration((n) => n + 1);
       } catch (e) {
-        setError(errorText(e));
+        if (current()) setError(errorText(e));
       } finally {
-        setLoading(false);
+        if (current()) setLoading(false);
       }
     },
     [id, kind],

@@ -187,13 +187,27 @@ function Overview({ api }: { api: CaseApi }) {
   const details = useAction();
   const decision = useAction();
   const closing = useAction();
-  const [form, setForm] = useState({
+  const saved = {
     title: item.title,
     ownerId: item.ownerId,
     instructionDate: item.instructionDate || '',
     resolutionDate: item.resolutionDate || '',
     effectiveDate: item.effectiveDate || '',
-  });
+  };
+  const [form, setForm] = useState(saved);
+  // When the case changes elsewhere (for example linking a W04 job sets the effective date),
+  // fields the user has not touched follow the latest values, so saving never reverts them.
+  const [base, setBase] = useState(saved);
+  const savedKey = JSON.stringify(saved);
+  if (savedKey !== JSON.stringify(base)) {
+    setBase(saved);
+    setForm((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(saved) as (keyof typeof saved)[])
+        if (current[key] === base[key]) next[key] = saved[key];
+      return next;
+    });
+  }
   const [record, setRecord] = useState({
     status: item.decision.status,
     date: item.decision.date || '',

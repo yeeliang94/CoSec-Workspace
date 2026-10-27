@@ -24,18 +24,20 @@ export default function NewJob() {
     setPersonId('');
     setPersonName('');
   };
+  const appointment = route === 'appointment';
   useEffect(() => {
-    if (activity !== 'W04' || !companyId) return setPeople([]);
+    // A person chosen against an earlier list must never carry into a reloaded one. Clear it
+    // when the request starts, so a late reply never erases what the user typed meanwhile.
+    setPeople([]);
+    setPersonId('');
+    if (activity !== 'W04' || !companyId) return;
     let current = true;
-    // A person chosen against an earlier list must never carry into a reloaded one.
     const loaded = (list: Person[]) => {
-      if (!current) return;
-      setPeople(list);
-      setPersonId('');
-      setPersonName('');
+      if (current) setPeople(list);
     };
+    // An appointee may be anyone the preparer can see; a cessation needs this company's people.
     request<{ people: Person[] }>(
-      '/api/people?companyId=' + encodeURIComponent(companyId),
+      appointment ? '/api/people' : '/api/people?companyId=' + encodeURIComponent(companyId),
       undefined,
       'GET',
     )
@@ -44,7 +46,7 @@ export default function NewJob() {
     return () => {
       current = false;
     };
-  }, [activity, companyId]);
+  }, [activity, companyId, appointment]);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setCompanyId(params.get('company') || '');
@@ -179,7 +181,7 @@ export default function NewJob() {
           if (activity === 'W04') {
             if (personId && !people.some((p) => p.id === personId)) {
               resetPerson();
-              setError('The selected person is not linked to this company. Choose again.');
+              setError('The selected person is no longer available. Choose again.');
               return;
             }
             if (!personId && selectedRoute !== 'appointment') {

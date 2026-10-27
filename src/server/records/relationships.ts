@@ -257,10 +257,16 @@ export async function syncDirectorProjection(
  * UUID, or, for a cessation, an officer of this company whose projection is still pending. Every
  * failure gives the same not-found response so ids from other companies are not disclosed.
  */
+/**
+ * The W04 person must be one the actor may act on. At posting (`posting: true`) a still-unlinked
+ * person is also accepted, since the preparer chose them and linking exposes them only to this
+ * company; a person linked elsewhere must be visible to the poster.
+ */
 export async function assertDirectorChangePerson(
   actor: Actor,
   input: { companyId: string; route: string; personId: string; personName: string },
   tx?: Transaction,
+  posting = false,
 ) {
   const { companyId, route, personId, personName } = input;
   if (personId.length > PERSON_ID_MAX) throw personUnavailable();
@@ -274,8 +280,17 @@ export async function assertDirectorChangePerson(
       route === 'appointment' ? { ids: [personId] } : { ids: [personId], companyId },
       tx,
     );
-    if (!visible.length || row.fullName !== personName) throw personUnavailable();
-    return;
+    if (row.fullName !== personName) throw personUnavailable();
+    if (visible.length) return;
+    if (posting && route === 'appointment') {
+      const [linked] = await (tx ?? db)
+        .select({ id: s.companyRelationships.id })
+        .from(s.companyRelationships)
+        .where(eq(s.companyRelationships.personId, personId))
+        .limit(1);
+      if (!linked) return;
+    }
+    throw personUnavailable();
   }
   if (route === 'appointment') {
     if (!UUID.test(personId)) throw personUnavailable();

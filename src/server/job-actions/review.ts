@@ -12,7 +12,7 @@ import {
 import { applyRecordCommand } from '../record-actions';
 import { readRegisters } from '../record-store';
 import * as repo from '../repository';
-import { syncDirectorProjection } from '../records/relationships';
+import { assertDirectorChangePerson, syncDirectorProjection } from '../records/relationships';
 import { generatedExecutionStatus, reviewedExecutionState } from '../resolution/execution';
 import {
   action,
@@ -173,6 +173,18 @@ export const reviewActions = {
       requireChecks([...preparationBlockers(job), ...executionBlockers(job)]);
       requireChecks((await generatedExecutionStatus(actor, job, tx)).blockers);
       await evidence(tx, actor, job.companyId, job.sourceEvidenceIds);
+      // Access may have changed since the job was created; re-check before linking the person.
+      await assertDirectorChangePerson(
+        actor,
+        {
+          companyId: job.companyId,
+          route: job.route,
+          personId: job.personId,
+          personName: job.personName,
+        },
+        tx,
+        true,
+      );
       const affectedFiled = (await repo.listJobs(actor, tx)).filter(
         (other) =>
           other.companyId === job.companyId &&

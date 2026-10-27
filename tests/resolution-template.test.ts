@@ -1152,3 +1152,137 @@ describe('output bounds and hostile identifiers', () => {
     expect(dateString.safeParse('2026-02-29').success).toBe(false);
   });
 });
+
+describe('review fixes: bounded walks, clause depth and shared fields', () => {
+  const people: FieldDefinition = {
+    id: 'people',
+    label: 'People',
+    valueType: 'recordList',
+    source: { kind: 'question' },
+    scope: 'clause',
+    required: true,
+    record: { context: 'currentDirectors' },
+  };
+  const nest = (levels: number, inner: BlockNode): BlockNode =>
+    levels ? { type: 'repeat', fieldId: 'people', content: [nest(levels - 1, inner)] } : inner;
+  const wide = structuredClone(ctx);
+  wide.directors = Array.from({ length: 50 }, (_, i) => ({
+    ...ctx.directors[0],
+    id: `wide-${i}`,
+    name: `Director ${i} (fictional)`,
+  }));
+
+  it('stops nested repeats with TOO_LARGE before walking every combination', () => {
+    const deep: ClausePart = {
+      key: 'deep',
+      name: 'Deep',
+      version: {
+        id: 'v-deep',
+        fields: [people],
+        wordings: { directors_written: [nest(6, p(f('people', 'name')))] },
+      },
+    };
+    const input = {
+      ...caseInput(
+        'directors',
+        [deep],
+        { resolution_date: '2026-10-26' },
+        { deep: { people: wide.directors.map((d) => d.id) } },
+      ),
+      ctx: wide,
+    };
+    const started = Date.now();
+    expect(() => buildForm(input)).toThrow(expect.objectContaining({ code: 'TOO_LARGE' }));
+    expect(() => compileDocument(input, 'preview')).toThrow(
+      expect.objectContaining({ code: 'TOO_LARGE' }),
+    );
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it('keeps deeply nested clause wording when the slot itself is nested', () => {
+    const nestCondition = (levels: number, inner: BlockNode): BlockNode =>
+      levels
+        ? {
+            type: 'condition',
+            when: { op: 'isNotEmpty', fieldId: 'resolution_date' },
+            content: [nestCondition(levels - 1, inner)],
+          }
+        : inner;
+    const a = assembly('directors');
+    a.version.header = [nestCondition(10, { type: 'clauseSlot', numbering: 'none' })];
+    const deepText: ClausePart = {
+      key: 'deep',
+      name: 'Deep text',
+      version: {
+        id: 'v-deep-text',
+        fields: [],
+        wordings: {
+          directors_written: [
+            {
+              type: 'list',
+              ordered: false,
+              items: [[nestCondition(9, p('Deep wording survives'))]],
+            },
+          ],
+        },
+      },
+    };
+    const input = {
+      ...caseInput('directors', [deepText], { resolution_date: '2026-10-26' }),
+      assembly: a,
+    };
+    const compiled = compileDocument(input, 'preview');
+    expect(resolvedText(compiled.resolved)).toContain('Deep wording survives');
+  });
+
+  it('reports shared fields whose source or answer rules differ', () => {
+    const date = (path: string): FieldDefinition => ({
+      id: 'key_date',
+      label: 'Key date',
+      valueType: 'date',
+      source: { kind: 'binding', path } as FieldDefinition['source'],
+      scope: 'case',
+      required: true,
+    });
+    expect(
+      sharedFieldConflicts([
+        { name: 'A', fields: [date('case.resolutionDate')] },
+        { name: 'B', fields: [date('case.effectiveDate')] },
+      ]),
+    ).toHaveLength(1);
+    const asked: FieldDefinition = { ...date('x'), source: { kind: 'question' } };
+    expect(
+      sharedFieldConflicts([
+        { name: 'A', fields: [asked] },
+        { name: 'B', fields: [{ ...asked, required: false }] },
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('rejects a shared calculation over one clause’s own field', () => {
+    const issues = validateClause('Fees', {
+      fields: [
+        people,
+        {
+          id: 'shared_count',
+          label: 'Count',
+          valueType: 'number',
+          source: { kind: 'derived', op: 'count', fieldId: 'people' },
+          scope: 'case',
+          required: true,
+        },
+      ],
+      wordings: { directors_written: [p(f('shared_count'))] },
+    });
+    expect(issues.some((i) => i.message.includes('cannot depend on'))).toBe(true);
+  });
+});
+
+describe('calendar dates', () => {
+  it('returns false for well-shaped but impossible dates instead of throwing', async () => {
+    const { isCalendarDate } = await import('../src/domain/resolution/records');
+    expect(isCalendarDate('2026-13-01')).toBe(false);
+    expect(isCalendarDate('2026-02-30')).toBe(false);
+    expect(isCalendarDate('2026-02-28')).toBe(true);
+  });
+});

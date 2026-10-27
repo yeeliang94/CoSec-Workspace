@@ -32,7 +32,8 @@ import { db, type Transaction } from '../db';
 import { getJob } from '../repository';
 import { loadResolutionContext } from '../records/context';
 import * as s from '../schema';
-import { mutateCase, readCase, requestId } from './shared';
+import { inForce, mutateCase, readCase, requestId, type Lifecycle } from './shared';
+export { inForce };
 import { listOutputTypes } from './output-types';
 
 type Reader = Transaction | typeof db;
@@ -63,24 +64,6 @@ async function library(tx: Reader): Promise<Library> {
   };
 }
 
-type Lifecycle = Pick<ClauseVersion, 'id' | 'status' | 'effectiveDate' | 'version'>;
-/**
- * The version of a lineage in force on `asAt`: the highest-numbered Published or Superseded
- * version whose effective date has arrived. Publishing a future-dated successor marks the
- * predecessor Superseded at once, but the predecessor stays in force until the successor's date.
- */
-export function inForce<V extends Lifecycle>(lineage: V[], asAt: string): V | null {
-  let best: V | null = null;
-  for (const v of lineage)
-    if (
-      (v.status === 'Published' || v.status === 'Superseded') &&
-      v.effectiveDate &&
-      v.effectiveDate <= asAt &&
-      (!best || v.version > best.version)
-    )
-      best = v;
-  return best;
-}
 /** Why a version cannot be newly chosen on `asAt` (lifecycle only), or null. */
 function lifecycleProblem<V extends Lifecycle>(lineage: V[], version: V, asAt: string) {
   if (version.status !== 'Published' && version.status !== 'Superseded')

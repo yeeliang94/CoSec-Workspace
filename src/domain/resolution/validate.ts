@@ -98,6 +98,17 @@ function fieldIssues(prefix: string, fields: FieldDefinition[], assembly: boolea
       }
       if (field.repeatScope) err('A record value cannot be asked per row.');
     }
+    if (scopeOf(field) === 'case') {
+      const inputs = [
+        source.kind === 'derived' ? source.fieldId : undefined,
+        source.kind === 'binding' ? bindingInfo(source.path)?.selection : undefined,
+      ];
+      for (const id of inputs) {
+        const input = id ? target(id) : undefined;
+        if (input && scopeOf(input) !== 'case')
+          err(`A shared field cannot depend on ${q(input.id)}, which belongs to one clause.`);
+      }
+    }
     if (source.kind === 'derived') {
       const base = target(source.fieldId);
       if (!base) err(`It is calculated from ${q(source.fieldId)}, which does not exist.`);
@@ -426,7 +437,7 @@ export function validateAssembly(
 
 /**
  * Case-scope ids are one question per case, so every definition of one id must agree on
- * type, options and selector context. Reports both places.
+ * type, options, selector context, source and answer rules. Reports both places.
  */
 export function sharedFieldConflicts(
   units: { name: string; fields: FieldDefinition[]; kind?: string }[],
@@ -457,7 +468,7 @@ export function sharedFieldConflicts(
       }
       if (signature(seen.def) !== signature(def))
         issues.push({
-          message: `The shared field ${q(def.id)} is defined differently in ${seen.kind} ${q(seen.name)} (${seen.def.valueType}) and ${unit.kind ?? 'clause'} ${q(unit.name)} (${def.valueType}). Align the definitions before generating.`,
+          message: `The shared field ${q(def.id)} is defined differently in ${seen.kind} ${q(seen.name)} and ${unit.kind ?? 'clause'} ${q(unit.name)}. Align its type, options, source, format and answer rules before generating.`,
           location: `${seen.kind} ${q(seen.name)} › field ${q(def.id)}; ${unit.kind ?? 'clause'} ${q(unit.name)} › field ${q(def.id)}`,
           unit: 'case',
           fieldId: def.id,

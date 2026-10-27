@@ -18,6 +18,7 @@ import { db } from '../db';
 import * as s from '../schema';
 import { loadTemplate, loadVersion, assertTemplateReader } from './templates';
 import { listOutputTypes } from './output-types';
+import { inForce } from './shared';
 
 // ---------------------------------------------------------------- template preview service
 const previewInput = z.strictObject({
@@ -87,16 +88,23 @@ export async function previewTemplate(actor: Actor, input: unknown) {
     const outputType = types.find((t) => t.id === (request.outputTypeId ?? assembly.outputTypeId));
     if (!outputType) throw new DomainError('Choose a configured output type.');
     issues = validateAssembly(assembly.name, content);
-    const starters = content.starterClauseIds.length
+    const candidates = content.starterClauseIds.length
       ? (
           await db
             .select()
             .from(s.clauseTemplateVersions)
             .where(inArray(s.clauseTemplateVersions.clauseId, content.starterClauseIds))
-        )
-          .map((r) => r.data)
-          .filter((v) => v.status === 'Published' && wordingFor(v.wordings, outputType.id)?.length)
+        ).map((r) => r.data)
       : [];
+    // Starters follow the same effective-date rule as a new case dated today.
+    const asAt = today();
+    const starters = content.starterClauseIds.flatMap((id) => {
+      const v = inForce(
+        candidates.filter((x) => x.clauseId === id),
+        asAt,
+      );
+      return v && wordingFor(v.wordings, outputType.id)?.length ? [v] : [];
+    });
     const names = starters.length
       ? (
           await db

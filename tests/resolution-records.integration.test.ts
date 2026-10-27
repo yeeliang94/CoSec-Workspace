@@ -7,6 +7,7 @@ import * as s from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { changePerson, getPerson, listPeople } from '../src/server/records/people';
 import {
+  assertDirectorChangePerson,
   changeRelationship,
   listCompanyRelationships,
   syncDirectorProjection,
@@ -398,6 +399,42 @@ describe('people and relationships', () => {
       reason: 'Resigned as secretary',
     });
     expect(ended.endDate).toBe('2026-09-01');
+  });
+
+  it('re-checks person access on replay and at W04 posting', async () => {
+    const requestId = randomUUID();
+    const create = (actor: Actor) =>
+      changePerson(actor, { action: 'create', requestId, fullName: `Replay ${tag}` });
+    const person = await create(limited);
+    createdPeople.push(person.id);
+    const posting = (companyId: string) => ({
+      companyId,
+      route: 'appointment',
+      personId: person.id,
+      personName: person.fullName,
+    });
+    // Still unlinked: a poster other than the preparer who chose them is accepted.
+    await expect(assertDirectorChangePerson(admin, posting(A))).rejects.toThrow('unavailable');
+    await expect(
+      assertDirectorChangePerson(admin, posting(A), undefined, true),
+    ).resolves.toBeUndefined();
+    // Once linked to company A, an actor who has since lost A cannot replay or post them.
+    await changeRelationship(limited, A, {
+      action: 'add',
+      requestId: randomUUID(),
+      personId: person.id,
+      role: 'secretary',
+      capacity: 'Company secretary',
+      startDate: '2026-01-01',
+      evidenceIds: [],
+    });
+    const moved: Actor = { ...limited, companyIds: [C] };
+    expect((await create(limited)).id).toBe(person.id);
+    const replay = await create(moved).catch((e) => e);
+    expect([replay.status, replay.message]).toEqual([404, 'Person access is unavailable.']);
+    await expect(assertDirectorChangePerson(moved, posting(C), undefined, true)).rejects.toThrow(
+      'unavailable',
+    );
   });
 
   it('A17: future and backdated director events give correct as-at directors', async () => {

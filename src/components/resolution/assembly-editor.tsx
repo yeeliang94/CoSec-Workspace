@@ -152,9 +152,20 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
       issue,
     })),
   );
+  // Running page header and footer count as uses too, so their fields cannot be deleted.
   const wordingRefs = [
     { key: 'header', name: 'Header', blocks: draft.header },
     { key: 'closing', name: 'Closing', blocks: draft.closing },
+    {
+      key: 'page_header',
+      name: 'Page header',
+      blocks: [{ type: 'paragraph' as const, content: draft.layout.header }],
+    },
+    {
+      key: 'page_footer',
+      name: 'Page footer',
+      blocks: [{ type: 'paragraph' as const, content: draft.layout.footer }],
+    },
   ];
   const editorFor = (part: Part) => (
     <TemplateEditor

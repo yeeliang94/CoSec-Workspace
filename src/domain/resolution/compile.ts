@@ -10,15 +10,17 @@ import type {
 } from './model';
 import {
   evaluate,
+  MAX_BLOCKS,
   resolverFor,
   SIGNER_LABELS,
   signerPool,
+  tooDeep,
+  tooLarge,
   validateAnswers,
   valueAt,
   type CaseInput,
   type ItemScope,
 } from './form';
-import { DomainError } from '../access';
 import { LIMITS, wordingFor } from './schema';
 import { sharedFieldConflicts, type Issue } from './validate';
 import { ASSEMBLY_KEY, formatValue, personProperty, type Raw } from './values';
@@ -38,18 +40,12 @@ export type CompileResult = {
   placeholders: boolean;
 };
 
-const MAX_BLOCKS = LIMITS.nodes * LIMITS.clauses;
 /**
  * Total inline runs (text, breaks, field lines, signature entries) one document may emit.
  * Repeats and shared fields multiply template size, so the budget bounds output (and the
  * renderer's work) independently of how the template is structured.
  */
 export const MAX_RUNS = 200_000;
-const tooLarge = () =>
-  new DomainError(
-    'The document is too large to produce. Reduce repeated items or clause content.',
-    'TOO_LARGE',
-  );
 
 export function compileDocument(input: CaseInput, mode: CompileMode): CompileResult {
   const resolver = resolverFor(input);
@@ -172,7 +168,7 @@ export function compileDocument(input: CaseInput, mode: CompileMode): CompileRes
     depth: number,
   ): ResolvedBlock[] => {
     const out: ResolvedBlock[] = [];
-    if (depth > LIMITS.depth + 2) return out;
+    if (depth > LIMITS.depth + 2) throw tooDeep();
     for (const block of list) {
       if (++emitted > MAX_BLOCKS) throw tooLarge();
       const produced = one(block, unitKey, scope, depth);
@@ -274,7 +270,8 @@ export function compileDocument(input: CaseInput, mode: CompileMode): CompileRes
             });
             return [];
           }
-          const out = blocks(wording, clause.key, new Map(), depth + 1);
+          // Clause wording is depth-checked on its own, so it starts again at the top level.
+          const out = blocks(wording, clause.key, new Map(), 0);
           if (block.numbering !== 'decimal') return out;
           return numberClause(out, `${index + 1}.`);
         });

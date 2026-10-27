@@ -153,6 +153,7 @@ async function precompile(
     return null;
   const template = await loadCaseTemplate(db, rc.selection);
   const asAt = caseAsAt(rc);
+  assertUsableVersions(template, asAt);
   const ctx = await loadResolutionContext(actor, rc.id, asAt);
   const compiled = compileDocument(caseInput(template, ctx, rc), 'final');
   const blocking = errorsOnly(compiled.issues);
@@ -164,6 +165,20 @@ async function precompile(
     templateKey: templateKey(template),
     compiled,
   };
+}
+/**
+ * Every pinned version must be published (or since superseded) and already in force on the
+ * case date. The date can move after selection, so this is checked again at generation.
+ */
+function assertUsableVersions(template: LoadedCaseTemplate, asAt: string) {
+  for (const v of [template.assembly.version, ...template.clauses.map((c) => c.version)]) {
+    if (v.status !== 'Published' && v.status !== 'Superseded')
+      throw new DomainError('Only published template versions can be generated.');
+    if (!v.effectiveDate || v.effectiveDate > asAt)
+      throw new DomainError(
+        `A selected template version takes effect after the resolution date (${asAt}). Choose the version in force on that date.`,
+      );
+  }
 }
 const caseInput = (
   template: LoadedCaseTemplate,
@@ -232,10 +247,8 @@ export async function generateDocument(
           409,
         );
       const template = await loadCaseTemplate(tx, rc.selection);
-      for (const v of [template.assembly.version, ...template.clauses.map((c) => c.version)])
-        if (v.status !== 'Published' && v.status !== 'Superseded')
-          throw new DomainError('Only published template versions can be generated.');
       const asAt = caseAsAt(rc);
+      assertUsableVersions(template, asAt);
       const ctx = await loadResolutionContext(actor, rc.id, asAt, tx);
       // Reuse the pre-lock compile only when every input is unchanged under the lock.
       const compiled =

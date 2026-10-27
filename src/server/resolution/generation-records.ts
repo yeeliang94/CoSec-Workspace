@@ -4,12 +4,9 @@ import { z } from 'zod';
 import { assertCapability, assertCompany, DomainError, today } from '../../domain/access';
 import type { Actor, Job } from '../../domain/model';
 import type {
-  Answers,
   ClauseEntry,
   DocumentGeneration,
   GenerationRecord,
-  ResolutionContext,
-  SignerSelection,
 } from '../../domain/resolution/model';
 import { dateString, plainText } from '../../domain/resolution/schema';
 import { db, type Transaction } from '../db';
