@@ -580,6 +580,7 @@ export function sampleContext(asAt = '2026-10-26'): ResolutionContext {
   ];
   return {
     asAt,
+    preparedOn: '2026-10-26',
     firm: { name: 'Example Secretarial Services (fictional)' },
     company: {
       id: 'sample-company',
