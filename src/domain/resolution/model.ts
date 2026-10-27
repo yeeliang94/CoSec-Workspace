@@ -356,6 +356,8 @@ export type PersonSnapshot = {
 };
 export type ResolutionContext = {
   asAt: string;
+  /** Preparation date in Asia/Kuala_Lumpur, frozen independently of the record as-at date. */
+  preparedOn: string;
   firm: { name: string };
   company: {
     id: string;

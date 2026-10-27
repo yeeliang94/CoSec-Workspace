@@ -117,7 +117,7 @@ export function resolveBinding(
     case 'firm.name':
       return ctx.firm.name;
     case 'today':
-      return ctx.asAt;
+      return ctx.preparedOn;
   }
   throw new Error(`Binding ${path} is not allowed.`);
 }
