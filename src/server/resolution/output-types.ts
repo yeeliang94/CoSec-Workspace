@@ -4,7 +4,7 @@ import { assertCapability, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
 import { type OutputType } from '../../domain/resolution/model';
 import { OUTPUT_TYPE_ID, plainText } from '../../domain/resolution/schema';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import { prior, remember, requestKey } from '../repository';
 import * as s from '../schema';
 import { auditChange, requestId } from './shared';
@@ -38,13 +38,9 @@ export async function applyOutputTypeAction(actor: Actor, input: unknown) {
   assertCapability(actor, 'manage_templates');
   const action = outputTypeAction.parse(input);
   const key = requestKey(actor, `output_type:${action.id}`, action.requestId);
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     if (await prior(tx, key)) return;
-    const [row] = await tx
-      .select()
-      .from(s.outputTypes)
-      .where(eq(s.outputTypes.id, action.id))
-      .for('update');
+    const [row] = await tx.select().from(s.outputTypes).where(eq(s.outputTypes.id, action.id));
     const before: OutputType | null = row?.data ?? null;
     let next: OutputType;
     if (action.action === 'create') {

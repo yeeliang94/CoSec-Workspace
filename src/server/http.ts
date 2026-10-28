@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { isBusy, isUniqueViolation } from './db-errors';
 import { DomainError } from '../domain/access';
 export function checkOrigin(request: Request) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
@@ -30,11 +31,16 @@ export async function endpoint<T>(request: Request, fn: () => Promise<T>) {
         { error: 'Enter a valid request body.', code: 'VALIDATION' },
         { status: 400 },
       );
-    const failure = error as { code?: string; cause?: { code?: string } };
-    if (failure?.code === 'ER_DUP_ENTRY' || failure?.cause?.code === 'ER_DUP_ENTRY')
+    if (isUniqueViolation(error))
       return Response.json(
         { error: 'A record with this identity already exists.', code: 'DUPLICATE' },
         { status: 409 },
+      );
+    const failure = error as { code?: string; cause?: { code?: string } };
+    if (isBusy(error))
+      return Response.json(
+        { error: 'The workspace is busy saving other work. Try again in a moment.', code: 'BUSY' },
+        { status: 503, headers: { 'Retry-After': '2' } },
       );
     console.error('Request failed', {
       type: error instanceof Error ? error.name : 'Unknown',

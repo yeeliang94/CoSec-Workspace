@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from 'better-auth/crypto';
 import { eq } from 'drizzle-orm';
-import { db } from './db';
+import { db, transaction } from './db';
 import { user, account, session, companies } from './schema';
 import { audit } from './repository';
 import { assertCapability, DomainError } from '../domain/access';
@@ -62,7 +62,7 @@ export async function changeUser(actor: Actor, input: unknown) {
     const id = randomUUID(),
       now = new Date(),
       password = await hashPassword(extra.password);
-    await db.transaction(async (tx) => {
+    await transaction(async (tx) => {
       await tx.insert(user).values({
         id,
         name: data.name,
@@ -108,8 +108,8 @@ export async function changeUser(actor: Actor, input: unknown) {
       'Keep your administrator access active. Use another administrator to change it.',
     );
   const password = extra.password ? await hashPassword(extra.password) : null;
-  await db.transaction(async (tx) => {
-    const [current] = await tx.select().from(user).where(eq(user.id, extra.id)).for('update');
+  await transaction(async (tx) => {
+    const [current] = await tx.select().from(user).where(eq(user.id, extra.id));
     if (!current) throw new DomainError('User is unavailable.', 'NOT_FOUND', 404);
     if (
       new Date(current.updatedAt).toISOString() !== new Date(extra.expectedUpdatedAt).toISOString()

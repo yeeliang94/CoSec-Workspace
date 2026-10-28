@@ -26,7 +26,7 @@ import {
   validateClause,
   type Issue,
 } from '../../domain/resolution/validate';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import { prior, remember, requestKey } from '../repository';
 import * as s from '../schema';
 import { auditChange, diff, requestId } from './shared';
@@ -78,11 +78,10 @@ export async function loadTemplate<K extends Kind>(
   tx: Transaction | typeof db,
   kind: K,
   id: string,
-  lock = false,
 ): Promise<Template<K>> {
   const table = kind === 'clause' ? s.clauseTemplates : s.resolutionAssemblies;
   const query = tx.select().from(table).where(eq(table.id, id));
-  const [row] = await (lock ? query.for('update') : query);
+  const [row] = await query;
   if (!row) throw new DomainError('The template is unavailable.', 'NOT_FOUND', 404);
   return row.data as Template<K>;
 }
@@ -90,42 +89,24 @@ export async function loadVersion<K extends Kind>(
   tx: Transaction | typeof db,
   kind: K,
   id: string,
-  lock = false,
 ): Promise<Version<K>> {
   const table = kind === 'clause' ? s.clauseTemplateVersions : s.resolutionAssemblyVersions;
   const query = tx.select().from(table).where(eq(table.id, id));
-  const [row] = await (lock ? query.for('update') : query);
+  const [row] = await query;
   if (!row) throw new DomainError('The template version is unavailable.', 'NOT_FOUND', 404);
   return row.data as Version<K>;
 }
-async function lineage<K extends Kind>(
-  tx: Transaction | typeof db,
-  kind: K,
-  parentId: string,
-  lock = false,
-) {
+async function lineage<K extends Kind>(tx: Transaction | typeof db, kind: K, parentId: string) {
   const rows =
     kind === 'clause'
-      ? await (lock
-          ? tx
-              .select()
-              .from(s.clauseTemplateVersions)
-              .where(eq(s.clauseTemplateVersions.clauseId, parentId))
-              .for('update')
-          : tx
-              .select()
-              .from(s.clauseTemplateVersions)
-              .where(eq(s.clauseTemplateVersions.clauseId, parentId)))
-      : await (lock
-          ? tx
-              .select()
-              .from(s.resolutionAssemblyVersions)
-              .where(eq(s.resolutionAssemblyVersions.assemblyId, parentId))
-              .for('update')
-          : tx
-              .select()
-              .from(s.resolutionAssemblyVersions)
-              .where(eq(s.resolutionAssemblyVersions.assemblyId, parentId)));
+      ? await tx
+          .select()
+          .from(s.clauseTemplateVersions)
+          .where(eq(s.clauseTemplateVersions.clauseId, parentId))
+      : await tx
+          .select()
+          .from(s.resolutionAssemblyVersions)
+          .where(eq(s.resolutionAssemblyVersions.assemblyId, parentId));
   return rows.map((r) => r.data as Version<K>).sort((a, b) => a.version - b.version);
 }
 async function writeVersion(tx: Transaction, version: AnyVersion, insert = false) {
@@ -404,12 +385,12 @@ export async function templateAction(actor: Actor, kind: Kind, input: unknown) {
     `${templateEntity(kind)}:${action.action === 'update' ? action.id : action.action}`,
     action.requestId,
   );
-  const id = await db.transaction(async (tx) => {
+  const id = await transaction(async (tx) => {
     const old = await prior(tx, key);
     if (old) return old.id;
     const now = new Date().toISOString();
     if (action.action === 'update') {
-      const current = await loadTemplate(tx, kind, action.id, true);
+      const current = await loadTemplate(tx, kind, action.id);
       if (current.revision !== action.expectedRevision)
         throw new DomainError(
           'This template changed. Refresh and review the current version.',
@@ -544,10 +525,9 @@ export async function applyVersionAction<K extends Kind>(
     content = (kind === 'clause' ? clauseContentSchema : assemblyContentSchema).parse(rest);
   }
   const key = requestKey(actor, `${versionEntity(kind)}:${versionId}`, action.requestId);
-  return db.transaction(async (tx) => {
-    // The template row lock serialises every lifecycle change in one lineage.
-    const template = await loadTemplate(tx, kind, templateId, true);
-    const current = await loadVersion(tx, kind, versionId, true);
+  return transaction(async (tx) => {
+    const template = await loadTemplate(tx, kind, templateId);
+    const current = await loadVersion(tx, kind, versionId);
     if (parentOf(current) !== templateId)
       throw new DomainError('The template version is unavailable.', 'NOT_FOUND', 404);
     const old = await prior(tx, key);
@@ -640,7 +620,7 @@ export async function applyVersionAction<K extends Kind>(
         ];
         if (errorsOnly(issues).length)
           throw new IssuesError('Publication is blocked:', errorsOnly(issues));
-        for (const other of await lineage(tx, kind, templateId, true))
+        for (const other of await lineage(tx, kind, templateId))
           if (other.id !== current.id && other.status === 'Published')
             others.push({ ...other, status: 'Superseded', updatedAt: now });
         next = {
@@ -655,7 +635,7 @@ export async function applyVersionAction<K extends Kind>(
       case 'new_version': {
         if (current.status !== 'Published' && current.status !== 'Superseded')
           throw new DomainError('Start a new version from a published version.', 'CONFLICT', 409);
-        const versions = await lineage(tx, kind, templateId, true);
+        const versions = await lineage(tx, kind, templateId);
         const open = versions.find((v) => ['Draft', 'In review', 'Returned'].includes(v.status));
         if (open)
           throw new DomainError(

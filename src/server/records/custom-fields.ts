@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
@@ -98,12 +98,11 @@ export async function changeFieldDefinition(actor: Actor, input: FieldDefinition
   if (!FIELD_ID.test(input.id))
     throw new DomainError('Field ids are lowercase letters, digits and underscores (2–64).');
   const key = requestKey(actor, `field:${input.id}`, input.requestId);
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     const [row] = await tx
       .select()
       .from(s.recordFieldDefinitions)
-      .where(eq(s.recordFieldDefinitions.id, input.id))
-      .for('update');
+      .where(eq(s.recordFieldDefinitions.id, input.id));
     const replay = await prior(tx, key);
     if (replay && row) return row.data;
     if (input.action === 'create') {

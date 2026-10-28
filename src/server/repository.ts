@@ -1,7 +1,8 @@
 import { memberSnapshot, readRegisters } from './record-store';
 import { and, eq, inArray, lt } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { db, type Transaction } from './db';
+import { db, transaction, type Transaction } from './db';
+import { isUniqueViolation } from './db-errors';
 import * as s from './schema';
 import type {
   Actor,
@@ -84,20 +85,22 @@ export async function audit(
   detail: unknown,
   tx?: Transaction,
 ) {
-  await (tx ?? db).insert(s.auditEvents).values({
-    id: randomUUID(),
-    actorId: actor.id,
-    companyId,
-    action,
-    subjectId,
-    detail,
-    createdAt: new Date(),
-  });
+  const write = (t: Transaction) =>
+    t.insert(s.auditEvents).values({
+      id: randomUUID(),
+      actorId: actor.id,
+      companyId,
+      action,
+      subjectId,
+      detail,
+      createdAt: new Date(),
+    });
+  await (tx ? write(tx) : transaction(write));
 }
 /** A replayed request returns the subject's current state, so only a small receipt is stored. */
 type RequestReceipt = { id: string; revision?: number; activity?: Job['activity'] };
 export async function prior(tx: Transaction, key: string) {
-  const [r] = await tx.select().from(s.requests).where(eq(s.requests.id, key)).for('update');
+  const [r] = await tx.select().from(s.requests).where(eq(s.requests.id, key));
   return r?.result as RequestReceipt | undefined;
 }
 export async function remember(tx: Transaction, key: string, receipt: RequestReceipt) {
@@ -105,8 +108,10 @@ export async function remember(tx: Transaction, key: string, receipt: RequestRec
 }
 export async function pruneRequests(olderThanDays: number) {
   const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
-  const [result] = await db.delete(s.requests).where(lt(s.requests.createdAt, cutoff));
-  return result.affectedRows;
+  const result = await transaction((tx) =>
+    tx.delete(s.requests).where(lt(s.requests.createdAt, cutoff)).run(),
+  );
+  return result.changes;
 }
 export function requestKey(actor: Actor, subject: string, requestId: string) {
   if (!/^[a-zA-Z0-9_-]{8,80}$/.test(requestId))
@@ -118,9 +123,8 @@ export async function createJob(actor: Actor, job: Job, requestId: string) {
   assertJobAccess(actor, job);
   const key = requestKey(actor, `create:${job.companyId}`, requestId);
   try {
-    return await db.transaction(async (tx) => {
-      // Company lock also serializes duplicate creates, period constraints and director proposals.
-      await tx.select().from(s.companies).where(eq(s.companies.id, job.companyId)).for('update');
+    return await transaction(async (tx) => {
+      // The write transaction serialises duplicate creates, period constraints and director proposals.
       const old = await prior(tx, key);
       if (old) {
         // Access is checked before comparing activities so a replay never reveals a hidden job.
@@ -159,10 +163,7 @@ export async function createJob(actor: Actor, job: Job, requestId: string) {
       return job;
     });
   } catch (e) {
-    if (
-      (e as { cause?: { code?: string } }).cause?.code === 'ER_DUP_ENTRY' ||
-      (e as { code?: string }).code === 'ER_DUP_ENTRY'
-    )
+    if (isUniqueViolation(e))
       throw new DomainError(
         'An annual return already exists for this company and year.',
         'DUPLICATE',
@@ -179,17 +180,15 @@ export async function mutateJob(
   operation: (job: Job, tx: Transaction) => Promise<Job> | Job,
 ) {
   const key = requestKey(actor, id, requestId);
-  // Resolve immutable scope before starting the transaction; the company lock must precede
-  // its first snapshot read, including execution evidence committed while waiting for it.
+  // Company scope is immutable, so it can be resolved before the transaction.
   const [identity] = await db
     .select({ companyId: s.jobs.companyId })
     .from(s.jobs)
     .where(eq(s.jobs.id, id));
   if (!identity) throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
   assertCompany(actor, identity.companyId);
-  return db.transaction(async (tx) => {
-    await tx.select().from(s.companies).where(eq(s.companies.id, identity.companyId)).for('update');
-    const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, id)).for('update');
+  return transaction(async (tx) => {
+    const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, id));
     if (!row) throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
     assertJobAccess(actor, row.data);
     if (await prior(tx, key)) return row.data;
@@ -265,7 +264,7 @@ export async function insertDocument(actor: Actor, doc: Document) {
   if (doc.classification === 'BO') assertCapability(actor, 'view_bo');
   if (!actor.capabilities.some((c) => ['prepare_job', 'review_pack', 'record_filing'].includes(c)))
     throw new DomainError('You do not have permission to store evidence.', 'FORBIDDEN', 403);
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await tx.insert(s.documents).values({ id: doc.id, companyId: doc.companyId, data: doc });
     await audit(
       actor,
@@ -289,8 +288,8 @@ export async function mutateSettings(
   fn: (settings: Settings) => Promise<Settings> | Settings,
 ) {
   const key = requestKey(actor, 'settings', requestId);
-  return db.transaction(async (tx) => {
-    const [r] = await tx.select().from(s.settings).where(eq(s.settings.id, 'firm')).for('update');
+  return transaction(async (tx) => {
+    const [r] = await tx.select().from(s.settings).where(eq(s.settings.id, 'firm'));
     if (!r) throw new DomainError('Settings are not initialized.');
     if (await prior(tx, key)) return r.data;
     if (r.revision !== expectedRevision)
@@ -314,7 +313,7 @@ export async function mutateSettings(
   });
 }
 export async function saveActorPreferences(actor: Actor, preferences: Preferences) {
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await tx
       .update(s.user)
       .set({ preferences, updatedAt: new Date() })
@@ -336,25 +335,16 @@ export async function listReminders(actor: Actor) {
     .filter((r) => visibleJobs.has(r.jobId));
 }
 /**
- * Brings one company's open reminders in line with its jobs. The caller's transaction must hold
- * the company row lock, which serialises this with every job and register change for the company.
+ * Brings one company's open reminders in line with its jobs. The caller's write transaction
+ * serialises this with every job and register change.
  * Only rows whose state actually changes are written.
  */
 export async function reconcileCompanyReminders(
   companyId: string,
   tx?: Transaction,
 ): Promise<number> {
-  if (!tx)
-    return db.transaction(async (own) => {
-      await own.select().from(s.companies).where(eq(s.companies.id, companyId)).for('update');
-      return reconcileCompanyReminders(companyId, own);
-    });
-  // Locking reads see the latest committed jobs even if this transaction's snapshot is older.
-  const jobRows = await tx
-    .select()
-    .from(s.jobs)
-    .where(eq(s.jobs.companyId, companyId))
-    .for('share');
+  if (!tx) return transaction((own) => reconcileCompanyReminders(companyId, own));
+  const jobRows = await tx.select().from(s.jobs).where(eq(s.jobs.companyId, companyId));
   const registers = await readRegisters(companyId, tx);
   const activeBoJobs = new Set(beneficialOwnersAt(registers.boEvents, today()).map((e) => e.jobId));
   const wanted = new Map<string, Reminder>(
@@ -367,8 +357,7 @@ export async function reconcileCompanyReminders(
   const open = await tx
     .select()
     .from(s.reminders)
-    .where(and(eq(s.reminders.companyId, companyId), eq(s.reminders.resolved, false)))
-    .for('update');
+    .where(and(eq(s.reminders.companyId, companyId), eq(s.reminders.resolved, false)));
   for (const row of open) {
     const next = wanted.get(row.id);
     wanted.delete(row.id);
@@ -387,8 +376,7 @@ export async function reconcileCompanyReminders(
     const reopened = await tx
       .select()
       .from(s.reminders)
-      .where(inArray(s.reminders.id, [...wanted.keys()]))
-      .for('update');
+      .where(inArray(s.reminders.id, [...wanted.keys()]));
     for (const row of reopened) {
       const next = wanted.get(row.id)!;
       wanted.delete(row.id);
@@ -406,8 +394,8 @@ export async function reconcileCompanyReminders(
 }
 export async function createCompany(actor: Actor, company: Company) {
   assertCapability(actor, 'manage_users');
-  await db.transaction(async (tx) => {
-    const [u] = await tx.select().from(s.user).where(eq(s.user.id, actor.id)).for('update');
+  await transaction(async (tx) => {
+    const [u] = await tx.select().from(s.user).where(eq(s.user.id, actor.id));
     await tx.insert(s.companies).values({ id: company.id, data: company });
     await tx
       .update(s.user)
@@ -427,7 +415,7 @@ export async function markSnapshotConsequences(
   tx: Transaction,
   eventLabel = 'Director event',
 ) {
-  const rows = await tx.select().from(s.jobs).where(eq(s.jobs.companyId, companyId)).for('update');
+  const rows = await tx.select().from(s.jobs).where(eq(s.jobs.companyId, companyId));
   for (const row of rows) {
     const job = row.data;
     if (job.activity !== 'W03' || !job.snapshot || job.snapshot.asAt < effectiveDate) continue;
@@ -477,8 +465,8 @@ export async function reviewOpening(
       403,
     );
   const key = requestKey(actor, `opening:${id}`, input.requestId);
-  return db.transaction(async (tx) => {
-    const [row] = await tx.select().from(s.companies).where(eq(s.companies.id, id)).for('update');
+  return transaction(async (tx) => {
+    const [row] = await tx.select().from(s.companies).where(eq(s.companies.id, id));
     if (!row) throw new DomainError('Company access is unavailable.', 'NOT_FOUND', 404);
     if (await prior(tx, key)) return row.data;
     if (row.data.revision !== input.expectedRevision)

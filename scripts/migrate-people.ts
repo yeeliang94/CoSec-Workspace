@@ -7,7 +7,7 @@
  */
 import 'dotenv/config';
 import { eq } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, transaction } from '../src/server/db';
 import * as s from '../src/server/schema';
 import { auditChange } from '../src/server/resolution/shared';
 import { syncDirectorProjection } from '../src/server/records/relationships';
@@ -26,7 +26,7 @@ const totals = {
 };
 console.log(`Projecting officer events for ${companies.length} companies…`);
 for (const company of companies) {
-  const result = await db.transaction(async (tx) => {
+  const result = await transaction(async (tx) => {
     await lockCompany(company.id, tx);
     return syncDirectorProjection(company.id, tx);
   });
@@ -69,8 +69,8 @@ for (const [personId, byName] of names) {
   // users of each linked company, who must not learn of the person's other companies.
   review.push(`  ${personId}: ${description}`);
   const linkedCompanies = [...new Set([...byName.values()].flatMap((ids) => [...ids]))].sort();
-  await db.transaction(async (tx) => {
-    const [row] = await tx.select().from(s.people).where(eq(s.people.id, personId)).for('update');
+  await transaction(async (tx) => {
+    const [row] = await tx.select().from(s.people).where(eq(s.people.id, personId));
     if (!row || row.data.migrationNote === NOTE) return;
     const next = { ...row.data, migrationNote: NOTE, revision: row.revision + 1 };
     await tx
@@ -101,4 +101,4 @@ console.log(
   `  Person ids needing review:  ${review.length} (notes written this run: ${notesWritten})`,
 );
 if (review.length) console.log(review.join('\n'));
-await pool.end();
+closeDatabase();

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, like } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, writerDb } from '../src/server/db';
 import * as tables from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { readRegisters, activeBoReviewJobs } from '../src/server/record-store';
@@ -109,9 +109,9 @@ async function prepare(job: Job, doc = documentId, signers: string[] = []) {
   return job;
 }
 beforeAll(async () => {
-  await db.insert(tables.companies).values({ id: companyId, data: company });
+  await writerDb.insert(tables.companies).values({ id: companyId, data: company });
   for (const a of [preparer, reviewer])
-    await db.insert(tables.user).values({
+    await writerDb.insert(tables.user).values({
       id: a.id,
       name: a.name,
       email: a.email,
@@ -146,16 +146,18 @@ beforeAll(async () => {
     });
 });
 afterAll(async () => {
-  await db.delete(tables.reminders).where(eq(tables.reminders.companyId, companyId));
-  await db.delete(tables.companyRegisters).where(eq(tables.companyRegisters.companyId, companyId));
-  await db.delete(tables.auditEvents).where(eq(tables.auditEvents.companyId, companyId));
+  await writerDb.delete(tables.reminders).where(eq(tables.reminders.companyId, companyId));
+  await writerDb
+    .delete(tables.companyRegisters)
+    .where(eq(tables.companyRegisters.companyId, companyId));
+  await writerDb.delete(tables.auditEvents).where(eq(tables.auditEvents.companyId, companyId));
   for (const a of [preparer, reviewer])
-    await db.delete(tables.requests).where(like(tables.requests.id, `${a.id}:%`));
-  await db.delete(tables.documents).where(eq(tables.documents.companyId, companyId));
-  await db.delete(tables.jobs).where(eq(tables.jobs.companyId, companyId));
-  await db.delete(tables.companies).where(eq(tables.companies.id, companyId));
-  await db.delete(tables.user).where(inArray(tables.user.id, [preparer.id, reviewer.id]));
-  await pool.end();
+    await writerDb.delete(tables.requests).where(like(tables.requests.id, `${a.id}:%`));
+  await writerDb.delete(tables.documents).where(eq(tables.documents.companyId, companyId));
+  await writerDb.delete(tables.jobs).where(eq(tables.jobs.companyId, companyId));
+  await writerDb.delete(tables.companies).where(eq(tables.companies.id, companyId));
+  await writerDb.delete(tables.user).where(inArray(tables.user.id, [preparer.id, reviewer.id]));
+  closeDatabase();
 });
 let opening: Job;
 it('posts reviewed opening balances once and keeps record and filing states separate', async () => {
@@ -260,7 +262,7 @@ it('captures dated member snapshots, flags open consequences and protects filed 
   annual = await run(annual, 'refresh_snapshot');
   expect(annual.snapshotHistory?.[0].snapshot.members?.classes[0].units).toBe('100');
   expect(annual.snapshot?.members?.classes[0].units).toBe('110');
-  await db
+  await writerDb
     .update(tables.jobs)
     .set({
       data: {
@@ -396,10 +398,10 @@ it('filters restricted BO jobs, documents, reminders, detail and register querie
     boRegister({ ...reviewer, companyIds: [] }, companyId, '2026-10-22'),
   ).rejects.toThrow('unavailable');
   for (const reminder of deriveReminders([bo]))
-    await db
+    await writerDb
       .insert(tables.reminders)
       .values({ id: reminder.id, companyId, data: reminder })
-      .onDuplicateKeyUpdate({ set: { data: reminder } });
+      .onConflictDoUpdate({ target: tables.reminders.id, set: { data: reminder } });
   expect((await repo.listReminders(ordinary)).some((r) => r.jobId === bo.id)).toBe(false);
   expect((await repo.listReminders(reviewer)).some((r) => r.jobId === bo.id)).toBe(true);
   let general = await create('W05', '2027-01-01');

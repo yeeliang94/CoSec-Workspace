@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { getJob, prior, remember, requestKey } from '../repository';
 import { auditChange, mutateCase, readCase } from '../resolution/shared';
@@ -128,7 +128,7 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
   assertCompany(actor, input.companyId);
   assertAny(actor, [...CASE_WRITERS]);
   const key = requestKey(actor, `case:create:${input.companyId}`, input.requestId);
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     await lockCompany(input.companyId, tx);
     const old = await prior(tx, key);
     if (old) return readCase(actor, old.id, tx);
@@ -310,10 +310,9 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
           if (fields.ownerId !== undefined) await assertAssignable(fields.ownerId, c.companyId, tx);
           if (fields.evidenceIds !== undefined)
             fields.evidenceIds = await companyEvidence(actor, c.companyId, fields.evidenceIds, tx);
-          // Locking read: the transaction's snapshot predates the company lock, and the job may
-          // have posted its record event since. Company → case → job matches mutateJob's order.
+          // Read inside the write transaction, so a record event the job posted is visible.
           const [jobRow] = c.jobId
-            ? await tx.select().from(s.jobs).where(eq(s.jobs.id, c.jobId)).for('share')
+            ? await tx.select().from(s.jobs).where(eq(s.jobs.id, c.jobId))
             : [];
           const job = jobRow?.data ?? null;
           const before = c.steps.find((st) => st.id === stepId)?.state;
