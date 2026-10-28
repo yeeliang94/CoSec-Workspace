@@ -1,6 +1,6 @@
 /**
  * Seeds FICTIONAL starter clauses and assemblies for the resolution builder. Idempotent: a template
- * that already exists by name is resumed (or left alone once published), never duplicated.
+ * that already exists by name is left untouched, including staff drafts and hidden templates.
  *
  * Fictional sample wording — not approved legal precedent. Every version records that source.
  *
@@ -55,12 +55,12 @@ async function ensure(
   let template: Listed | undefined = (
     await listTemplates(author, kind, { includeHidden: true })
   ).find((t) => t.name === name);
-  if (!template)
-    template = (await templateAction(author, kind, {
-      action: 'create',
-      requestId: rid('create'),
-      ...create,
-    })) as Listed;
+  if (template) return { id: template.id, status: 'existing template retained' };
+  template = (await templateAction(author, kind, {
+    action: 'create',
+    requestId: rid('create'),
+    ...create,
+  })) as Listed;
   let version = template.versions.at(-1)!;
   if (version.status === 'Published') return { id: template.id, status: 'already published' };
   if (version.status === 'Draft' || version.status === 'Returned') {
