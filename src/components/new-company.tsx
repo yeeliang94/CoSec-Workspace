@@ -5,8 +5,9 @@ import { INDUSTRIES, MONTHS } from '@/domain/company';
 import { getJson } from '@/components/resolution/api';
 import { useLoad } from '@/components/resolution/use-load';
 import { request } from './workspace';
+import { emptyPick, PersonField, resolvePick, type PersonPick } from './person-field';
 
-type Row = { key: string; name: string; role: RelationshipRole; startDate: string };
+type Row = { key: string; pick: PersonPick; role: RelationshipRole; startDate: string };
 const ROLES: { value: RelationshipRole; label: string }[] = [
   { value: 'director', label: 'Director' },
   { value: 'member', label: 'Shareholder' },
@@ -16,7 +17,7 @@ const ROLES: { value: RelationshipRole; label: string }[] = [
 ];
 const newRow = (role: RelationshipRole = 'director'): Row => ({
   key: crypto.randomUUID(),
-  name: '',
+  pick: emptyPick(),
   role,
   startDate: '',
 });
@@ -46,8 +47,7 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
           setPending(true);
           const form = event.currentTarget;
           const values = Object.fromEntries(new FormData(form)) as Record<string, string>;
-          const people = (existing.data?.people ?? []).map((p) => [p.fullName.toLowerCase(), p.id]);
-          const known = new Map(people as [string, string][]);
+          const people = existing.data?.people ?? [];
           try {
             await request('/api/companies', {
               name: values.name,
@@ -58,15 +58,12 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
               industry: values.industry,
               activity: values.activity,
               people: rows
-                .filter((row) => row.name.trim())
-                .map((row) => {
-                  const personId = known.get(row.name.trim().toLowerCase());
-                  return {
-                    ...(personId ? { personId } : { fullName: row.name.trim() }),
-                    role: row.role,
-                    startDate: row.startDate || values.incorporationDate,
-                  };
-                }),
+                .filter((row) => row.pick.name.trim())
+                .map((row) => ({
+                  ...resolvePick(people, row.pick),
+                  role: row.role,
+                  startDate: row.startDate || values.incorporationDate,
+                })),
               requestId: crypto.randomUUID(),
             });
             form.dataset.dirty = 'false';
@@ -145,22 +142,15 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
         </div>
         <fieldset className="opening-people">
           <legend>People</legend>
-          <datalist id="existing-people">
-            {(existing.data?.people ?? []).map((person) => (
-              <option key={person.id} value={person.fullName} />
-            ))}
-          </datalist>
           {rows.map((row, index) => (
             <div className="opening-person" key={row.key}>
-              <label>
-                <span className={index ? 'sr-only' : undefined}>Name</span>
-                <input
-                  list="existing-people"
-                  value={row.name}
-                  autoComplete="off"
-                  onChange={(event) => update(row.key, { name: event.target.value })}
-                />
-              </label>
+              <PersonField
+                people={existing.data?.people ?? []}
+                pick={row.pick}
+                onChange={(pick) => update(row.key, { pick })}
+                listId={`existing-people-${row.key}`}
+                hideLabel={index > 0}
+              />
               <label>
                 <span className={index ? 'sr-only' : undefined}>Role</span>
                 <select
@@ -188,7 +178,7 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
               <button
                 type="button"
                 className="quiet"
-                aria-label={`Remove ${row.name || 'this person'}`}
+                aria-label={`Remove ${row.pick.name || 'this person'}`}
                 onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
               >
                 Remove

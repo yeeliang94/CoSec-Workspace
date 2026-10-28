@@ -286,6 +286,7 @@ function ReviewPanel({ api }: { api: CaseApi }) {
   const review = item.review;
   const name = (id: string) => data.users.find((u) => u.id === id)?.name || id;
   const me = data.actor.id;
+  const canTakeBack = me === review?.sentBy || me === review?.reviewerId;
   if (item.state !== 'Open')
     return item.cancellationReason ? (
       <div className="review-panel">Cancelled: {item.cancellationReason}</div>
@@ -358,15 +359,17 @@ function ReviewPanel({ api }: { api: CaseApi }) {
       <div className="review-panel" role="status">
         <strong>With {name(review.reviewerId)} for review</strong>
         <p className="metadata">Sent {formatDate(review.sentAt)}. Editing is paused meanwhile.</p>
-        <div className="actions">
-          <button
-            type="button"
-            disabled={action.pending}
-            onClick={() => void action.run(() => api.act('reopen'), 'Taken back')}
-          >
-            Take back to edit
-          </button>
-        </div>
+        {canTakeBack ? (
+          <div className="actions">
+            <button
+              type="button"
+              disabled={action.pending}
+              onClick={() => void action.run(() => api.act('reopen'), 'Taken back')}
+            >
+              Take back to edit
+            </button>
+          </div>
+        ) : null}
         {feedback}
       </div>
     );
@@ -375,15 +378,17 @@ function ReviewPanel({ api }: { api: CaseApi }) {
       <strong>Approved by {name(review.reviewerId)}</strong>
       {review.comment ? <p>{review.comment}</p> : null}
       <p className="metadata">Create the Word document under Word documents when needed.</p>
-      <div className="actions">
-        <button
-          type="button"
-          disabled={action.pending}
-          onClick={() => void action.run(() => api.act('reopen'), 'Reopened for changes')}
-        >
-          Reopen for changes
-        </button>
-      </div>
+      {canTakeBack ? (
+        <div className="actions">
+          <button
+            type="button"
+            disabled={action.pending}
+            onClick={() => void action.run(() => api.act('reopen'), 'Reopened for changes')}
+          >
+            Reopen for changes
+          </button>
+        </div>
+      ) : null}
       {feedback}
     </div>
   );
@@ -394,6 +399,7 @@ function CompleteResolution({ api }: { api: CaseApi }) {
   const action = useAction();
   if (
     api.detail.case.state !== 'Open' ||
+    api.detail.case.review?.status === 'With reviewer' ||
     !data?.actor.capabilities.some((cap) => cap === 'prepare_job' || cap === 'generate_documents')
   )
     return null;
@@ -554,7 +560,7 @@ function DecisionRecord({ api }: { api: CaseApi }) {
     note: item.decision.note,
     evidenceIds: item.decision.evidenceIds,
   });
-  if (!data || !item.review || item.review.status === 'Returned') return null;
+  if (!data) return null;
   const evidence = data.documents.filter((d) => d.companyId === item.companyId);
   const decisionDirty =
     record.status !== item.decision.status ||

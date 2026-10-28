@@ -2755,3 +2755,8 @@ dialog.confirm-dialog .actions {
   margin-top: 16px;
   color: var(--danger, #a83230);
 }
+.person-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}

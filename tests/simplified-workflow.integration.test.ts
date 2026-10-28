@@ -32,6 +32,12 @@ const reviewer: Actor = {
   name: 'Reviewer (test)',
   email: `sw-rev-${tag}@example.invalid`,
 };
+const bystander: Actor = {
+  ...preparer,
+  id: randomUUID(),
+  name: 'Bystander (test)',
+  email: `sw-by-${tag}@example.invalid`,
+};
 const company: Company = {
   id: companyId,
   name: `Simplified ${tag} Sdn. Bhd.`,
@@ -49,7 +55,7 @@ const company: Company = {
 };
 
 beforeAll(async () => {
-  for (const actor of [preparer, reviewer])
+  for (const actor of [preparer, reviewer, bystander])
     await writerDb.insert(s.user).values({
       id: actor.id,
       name: actor.name,
@@ -77,10 +83,12 @@ describe('company opened with its people', () => {
     );
     preparer.companyIds = [companyId];
     reviewer.companyIds = [companyId];
-    await writerDb
-      .update(s.user)
-      .set({ companyIds: [companyId] })
-      .where(eq(s.user.id, reviewer.id));
+    bystander.companyIds = [companyId];
+    for (const actor of [reviewer, bystander])
+      await writerDb
+        .update(s.user)
+        .set({ companyIds: [companyId] })
+        .where(eq(s.user.id, actor.id));
     const { relationships, directorsAsAt } = await listCompanyRelationships(
       preparer,
       companyId,
@@ -140,6 +148,26 @@ describe('company opened with its people', () => {
       reason: 'Resigned',
     });
     expect(ended.endDate).toBe('2026-05-01');
+    const appoint = (personId: string, startDate: string) =>
+      changeRelationship(preparer, companyId, {
+        action: 'add',
+        requestId: randomUUID(),
+        personId,
+        role: 'director',
+        capacity: '',
+        startDate,
+        evidenceIds: [],
+      });
+    await expect(appoint(person.id, '2026-04-01')).rejects.toThrow('previous term ended');
+    const nora = (
+      await listCompanyRelationships(preparer, companyId, '2026-02-01')
+    ).relationships.find((r) => r.role === 'director' && r.personName === `Nora ${tag}`)!;
+    // An earlier-dated appointment of a sitting director must not create a second director row.
+    await expect(appoint(nora.personId, '2026-01-01')).rejects.toThrow('already a director');
+    const directorRows = (
+      await listCompanyRelationships(preparer, companyId, '2026-06-01')
+    ).relationships.filter((r) => r.role === 'director' && r.personId === nora.personId);
+    expect(directorRows).toHaveLength(1);
     const { directorsAsAt } = await listCompanyRelationships(preparer, companyId, '2026-06-01');
     expect(directorsAsAt.map((d) => d.name)).toEqual([`Nora ${tag}`]);
   });
@@ -179,6 +207,7 @@ describe('resolution review hand-off', () => {
     ).rejects.toThrow('someone else');
     c = await act(preparer, c, { action: 'send_for_review', reviewerId: reviewer.id });
     expect(c.review).toMatchObject({ status: 'With reviewer', reviewerId: reviewer.id });
+    await expect(act(preparer, c, { action: 'complete' })).rejects.toThrow('with a reviewer');
     await expect(act(preparer, c, { action: 'update_details', title: 'Changed' })).rejects.toThrow(
       'with a reviewer',
     );
@@ -237,6 +266,7 @@ describe('resolution review hand-off', () => {
       },
     };
     await writerDb.update(s.resolutionCases).set({ data: c }).where(eq(s.resolutionCases.id, c.id));
+    await expect(act(bystander, c, { action: 'reopen' })).rejects.toThrow('Only the person');
     c = await act(preparer, c, { action: 'reopen' });
     expect(c.review).toBeNull();
     c = await act(preparer, c, { action: 'update_details', title: 'Editable again' });

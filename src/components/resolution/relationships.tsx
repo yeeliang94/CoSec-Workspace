@@ -11,6 +11,7 @@ import { currentDate, formatDate, useWorkspace } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from './api';
 import { LoadState, useLoad } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
+import { emptyPick, PersonField, resolvePick } from '@/components/person-field';
 
 type RelationshipView = CompanyRelationship & { personName: string };
 const ROLE_NAMES: Record<RelationshipRole, string> = {
@@ -237,14 +238,14 @@ function AddRelationship({
   const people = useLoad(() => getJson<{ people: Person[] }>('/api/people'), []);
   const action = useAction();
   const [form, setForm] = useState({
-    personId: '',
+    person: emptyPick(),
     role: 'director' as RelationshipRole,
     capacity: '',
     startDate: '',
     evidenceIds: [] as string[],
   });
   const evidence = data?.documents.filter((d) => d.companyId === companyId) ?? [];
-  const dirty = Boolean(form.personId || form.capacity || form.startDate);
+  const dirty = Boolean(form.person.name || form.capacity || form.startDate);
   return (
     <details className="disclosure">
       <summary>Add a person</summary>
@@ -253,34 +254,31 @@ function AddRelationship({
         data-dirty={dirty ? 'true' : 'false'}
         onSubmit={async (event) => {
           event.preventDefault();
-          const typed = form.personId.trim();
-          const match = (people.data?.people ?? []).find(
-            (p) => p.fullName.toLowerCase() === typed.toLowerCase(),
-          );
-          const ok = await action.run(
-            async () =>
-              postJson(`/api/companies/${companyId}/relationships`, {
-                action: 'add',
-                requestId: newRequestId(),
-                personId:
-                  match?.id ??
-                  (
+          const ok = await action.run(async () => {
+            const pick = resolvePick(people.data?.people ?? [], form.person);
+            const personId =
+              'personId' in pick
+                ? pick.personId
+                : (
                     await postJson<Person>('/api/people', {
                       action: 'create',
                       requestId: newRequestId(),
-                      fullName: typed,
+                      fullName: pick.fullName,
                     })
-                  ).id,
-                role: form.role,
-                capacity: form.capacity.trim(),
-                startDate: form.startDate || null,
-                evidenceIds: form.evidenceIds,
-              }),
-            'Person added',
-          );
+                  ).id;
+            return postJson(`/api/companies/${companyId}/relationships`, {
+              action: 'add',
+              requestId: newRequestId(),
+              personId,
+              role: form.role,
+              capacity: form.capacity.trim(),
+              startDate: form.startDate || null,
+              evidenceIds: form.evidenceIds,
+            });
+          }, 'Person added');
           if (ok) {
             setForm({
-              personId: '',
+              person: emptyPick(),
               role: 'director',
               capacity: '',
               startDate: '',
@@ -290,22 +288,13 @@ function AddRelationship({
           }
         }}
       >
-        <label>
-          Name
-          <input
-            required
-            list={`people-${companyId}`}
-            autoComplete="off"
-            placeholder="Type a name"
-            value={form.personId}
-            onChange={(event) => setForm({ ...form, personId: event.target.value })}
-          />
-          <datalist id={`people-${companyId}`}>
-            {(people.data?.people ?? []).map((person) => (
-              <option key={person.id} value={person.fullName} />
-            ))}
-          </datalist>
-        </label>
+        <PersonField
+          required
+          people={people.data?.people ?? []}
+          pick={form.person}
+          onChange={(person) => setForm({ ...form, person })}
+          listId={`people-${companyId}`}
+        />
         <label>
           Role
           <select
