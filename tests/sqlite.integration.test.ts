@@ -3,7 +3,14 @@ import { afterAll, expect, it, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
-import { closeDatabase, databasePath, db, transaction, writerDb } from '../src/server/db';
+import {
+  closeDatabase,
+  databasePath,
+  db,
+  readSnapshot,
+  transaction,
+  writerDb,
+} from '../src/server/db';
 import { isBusy, isUniqueViolation } from '../src/server/db-errors';
 import * as s from '../src/server/schema';
 import { defaultPreferences } from '../src/domain/model';
@@ -178,4 +185,33 @@ it('round-trips timestamps to the millisecond in UTC', async () => {
   await transaction((tx) => tx.insert(s.user).values(row));
   const [u] = await db.select().from(s.user).where(eq(s.user.id, row.id));
   expect(u.createdAt.toISOString()).toBe('2026-10-28T23:59:59.123Z');
+});
+
+it('keeps independent read snapshots stable while writers and other readers proceed', async () => {
+  const row = user(`snapshot-${randomUUID()}@example.test`);
+  await transaction((tx) => tx.insert(s.user).values({ ...row, name: 'before' }));
+  await readSnapshot(async (snapshot) => {
+    const read = async () => (await snapshot.select().from(s.user).where(eq(s.user.id, row.id)))[0];
+    expect((await read()).name).toBe('before');
+    await transaction((tx) =>
+      tx.update(s.user).set({ name: 'after' }).where(eq(s.user.id, row.id)),
+    );
+    await readSnapshot(async (other) => {
+      const [latest] = await other.select().from(s.user).where(eq(s.user.id, row.id));
+      expect(latest.name).toBe('after');
+    });
+    expect((await read()).name).toBe('before');
+    await expect(
+      snapshot.insert(s.user).values(user(`forbidden-${randomUUID()}@example.test`)),
+    ).rejects.toThrow('readonly');
+  });
+  await expect(
+    readSnapshot(async () => {
+      throw new Error('read failed');
+    }),
+  ).rejects.toThrow('read failed');
+  await readSnapshot(async (snapshot) => {
+    const [latest] = await snapshot.select().from(s.user).where(eq(s.user.id, row.id));
+    expect(latest.name).toBe('after');
+  });
 });

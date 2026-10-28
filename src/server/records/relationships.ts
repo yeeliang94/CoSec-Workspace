@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
-import { db, transaction, type Transaction } from '../db';
+import { db, readSnapshot, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { listOfficerEvents, prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
@@ -346,7 +346,7 @@ export async function directorsAsAt(
  */
 export async function listCompanyRelationships(actor: Actor, companyId: string, asAt: string) {
   assertCompany(actor, companyId);
-  return transaction(async (tx) => {
+  return readSnapshot(async (tx) => {
     const relationships = await companyRelationships(companyId, tx);
     return {
       relationships,

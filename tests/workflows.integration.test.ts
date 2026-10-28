@@ -485,7 +485,7 @@ describe('MySQL workflow integration', () => {
     ).toEqual([]);
   });
 });
-describe.skipIf(!process.env.DATABASE_URL)('job change plumbing against MySQL', () => {
+describe('job change plumbing against SQLite', () => {
   it('keeps reminders current from job changes alone, without a page-load sweep', async () => {
     let job = await annual(2030);
     const open = async () =>

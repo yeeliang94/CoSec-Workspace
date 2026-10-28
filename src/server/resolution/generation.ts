@@ -19,7 +19,7 @@ import { loadResolutionContext } from '../records/context';
 import { systemActor } from '../records/scope';
 import { requestKey } from '../repository';
 import * as s from '../schema';
-import { listGeneratedFiles, removeStoredFile, storeGenerated } from '../storage';
+import { listGeneratedFiles, recordGenerated, removeStoredFile, stageGenerated } from '../storage';
 import { renderDocx, RENDERER_VERSION } from './render-docx';
 import { assertPreparer, caseAsAt, loadCaseTemplate, type LoadedCaseTemplate } from './selection';
 import { auditChange, readCase, requestId } from './shared';
@@ -34,9 +34,9 @@ const generateInput = z.strictObject({
 });
 export type GenerationDeps = {
   render: (doc: NonNullable<DocumentGeneration['resolved']>) => Promise<Buffer>;
-  store: typeof storeGenerated;
+  stage: typeof stageGenerated;
 };
-const defaults: GenerationDeps = { render: (doc) => renderDocx(doc), store: storeGenerated };
+const defaults: GenerationDeps = { render: (doc) => renderDocx(doc), stage: stageGenerated };
 
 async function byRequestKey(tx: Transaction | typeof db, key: string) {
   const query = tx
@@ -416,32 +416,30 @@ async function finalise(actor: Actor, generation: DocumentGeneration, deps: Gene
     );
   }
   const storageKey = `${randomUUID()}.docx`;
+  let committed = false;
   try {
-    return await transaction(async (tx) => {
+    const [caseRow] = await db
+      .select({ data: s.resolutionCases.data })
+      .from(s.resolutionCases)
+      .where(eq(s.resolutionCases.id, generation.caseId));
+    const title = `${generation.resolved!.title} — ${caseRow?.data.title ?? 'Resolution'}`;
+    const document = await deps.stage(actor, {
+      companyId: generation.companyId,
+      jobId: generation.jobId,
+      title,
+      fileName: `${safeName(title)}.docx`,
+      bytes,
+      generationId: generation.id,
+      storageKey,
+    });
+    const result = await transaction(async (tx) => {
       const [row] = await tx
         .select()
         .from(s.documentGenerations)
         .where(eq(s.documentGenerations.id, generation.id));
       if (!row) throw new DomainError('Document access is unavailable.', 'NOT_FOUND', 404);
       if (row.data.status !== 'Pending') return row.data; // reconciled meanwhile
-      const [caseRow] = await tx
-        .select({ data: s.resolutionCases.data })
-        .from(s.resolutionCases)
-        .where(eq(s.resolutionCases.id, generation.caseId));
-      const title = `${generation.resolved!.title} — ${caseRow?.data.title ?? 'Resolution'}`;
-      const document = await deps.store(
-        actor,
-        {
-          companyId: generation.companyId,
-          jobId: generation.jobId,
-          title,
-          fileName: `${safeName(title)}.docx`,
-          bytes,
-          generationId: generation.id,
-          storageKey,
-        },
-        tx,
-      );
+      await recordGenerated(actor, document, tx);
       const next: DocumentGeneration = {
         ...row.data,
         status: 'Ready',
@@ -464,13 +462,16 @@ async function finalise(actor: Actor, generation: DocumentGeneration, deps: Gene
       });
       return next;
     });
+    committed = result.status === 'Ready' && result.documentId === document.id;
+    return result;
   } catch (error) {
-    await removeStoredFile(storageKey);
     return fail(
       actor,
       generation.id,
       `The Word document could not be stored. ${userReason(error)}`,
     );
+  } finally {
+    if (!committed) await removeStoredFile(storageKey);
   }
 }
 

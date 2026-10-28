@@ -105,3 +105,9 @@ The database connections now retain their write queue and nested-write guard acr
 Runtime database paths are excluded from Turbopack tracing, and local data/storage directories are excluded from deployment traces. The production build no longer emits the whole-project tracing warning; all 58 generated trace manifests were checked and contained no database, private-storage or environment files. The server external-package configuration now names `better-sqlite3`.
 
 Verification: all 168 tests in 16 files passed; type checking, the production build and formatting checks passed. Browser tests were not rerun for these server changes.
+
+### Greptile follow-up (28 October 2026)
+
+All three findings on PR #8 were reproduced and fixed. With `DATABASE_URL` empty, the old MySQL gates skipped 27 integration cases; those gates are removed, so every group runs against the automatically provisioned SQLite test database. Relationship and resolution-context reads now use independent read-only WAL snapshots, retaining a consistent view while saves proceed. Generation stages private DOCX bytes before reserving the write lock, then rechecks `Pending` and atomically records the document metadata, generation state and audit. Unused staged bytes are removed after reconciliation or transaction failure.
+
+Regression checks exercise both actual read callers while a save holds the write lock, stable independent snapshots across a concurrent update, an unrelated database save during file staging, reconciliation during staging, and rollback after a forced finalisation-audit failure. `DATABASE_URL= npm test` passed all 173 tests in 16 files with no skipped tests. Type checking, production build, formatting and diff-whitespace checks passed. Browser tests were not rerun for this server-only follow-up; the restore and real-staff contention release gates above remain open.

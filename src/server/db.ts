@@ -81,6 +81,23 @@ export function transaction<T>(fn: (tx: Transaction) => Promise<T> | T): Promise
     }
   });
 }
+/**
+ * Reads one consistent WAL snapshot without reserving the write lock. Each call owns its
+ * read-only connection, so overlapping async callbacks cannot join or end each other's snapshot.
+ */
+export async function readSnapshot<T>(fn: (tx: Transaction) => Promise<T> | T): Promise<T> {
+  const reader = open(true);
+  try {
+    reader.exec('BEGIN');
+    const result = await fn(drizzle(reader, { schema }));
+    reader.exec('COMMIT');
+    return result;
+  } finally {
+    // Closing also rolls back a snapshot whose callback failed.
+    reader.close();
+  }
+}
+
 /** Runs `fn` with sole use of `writerDb` in autocommit mode, for code that manages its own writes. */
 export function exclusive<T>(fn: () => Promise<T>): Promise<T> {
   return enqueue(fn);

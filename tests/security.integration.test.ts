@@ -41,7 +41,7 @@ const input = (companyId: string) => ({
   anniversaryDate: '2026-01-15',
 });
 
-describe.skipIf(!process.env.DATABASE_URL)('scope regression security against MySQL', () => {
+describe('scope regression security against SQLite', () => {
   beforeAll(async () => {
     const now = new Date();
     await writerDb.insert(tables.user).values({

@@ -19,7 +19,6 @@ import {
 import { readDownload, storeUpload } from '../src/server/storage';
 import { reconcileReminders, savePreferences } from '../src/server/support';
 
-const enabled = Boolean(process.env.DATABASE_URL);
 const actor: Actor = {
   id: randomUUID(),
   name: 'Support integration executive',
@@ -101,7 +100,7 @@ const job: Job = {
   history: [],
 };
 
-describe.skipIf(!enabled)('support operations against MySQL', () => {
+describe('support operations against SQLite', () => {
   beforeAll(async () => {
     storageDirectory = await mkdtemp(path.join(os.tmpdir(), 'cosec-support-db-'));
     process.env.STORAGE_DIR = storageDirectory;
