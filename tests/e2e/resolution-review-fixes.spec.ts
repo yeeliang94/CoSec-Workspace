@@ -10,7 +10,7 @@ import type {
 import type { ClausesResponse } from '../../src/components/resolution/api';
 import { answerPrompt } from './prompt';
 
-const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300';
 const today = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Kuala_Lumpur',
   year: 'numeric',

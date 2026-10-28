@@ -4,7 +4,7 @@ import { DomainError } from '../domain/access';
 export function checkOrigin(request: Request) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
   const origin = request.headers.get('origin');
-  const expected = new URL(process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3000').origin;
+  const expected = new URL(process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:4300').origin;
   if (!origin || origin !== expected)
     throw new DomainError('Request origin is unavailable. Refresh this page.', 'ORIGIN', 403);
 }

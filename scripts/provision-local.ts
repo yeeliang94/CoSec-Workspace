@@ -11,7 +11,7 @@ try {
 }
 await writeFile(
   '.env',
-  `DATABASE_PATH=.local/cosec.db\nBETTER_AUTH_SECRET=${randomBytes(40).toString('hex')}\nBETTER_AUTH_URL=http://127.0.0.1:3000\nSTORAGE_DIR=.local/storage\nNEXT_TELEMETRY_DISABLED=1\n`,
+  `DATABASE_PATH=.local/cosec.db\nBETTER_AUTH_SECRET=${randomBytes(40).toString('hex')}\nBETTER_AUTH_URL=http://127.0.0.1:4300\nSTORAGE_DIR=.local/storage\nNEXT_TELEMETRY_DISABLED=1\n`,
   { mode: 0o600, flag: 'wx' },
 );
 process.env.DATABASE_PATH = '.local/cosec.db';

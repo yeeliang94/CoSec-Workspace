@@ -6,6 +6,10 @@ The local first build now supports annual returns (W03), director appointments/c
 
 The database is a single SQLite file, `.local/cosec.db`; no database server is needed.
 
+To run it, double-click `start.bat` on Windows, or run `./start.sh` on macOS or Linux. Node 24 LTS must be installed. The script installs dependencies, creates the private settings and database with fictional data, builds the app when the code has changed, then starts the app and the reminder worker and opens the browser. Ctrl+C or closing the window stops both.
+
+The same steps by hand, using development mode:
+
 ```sh
 npm ci
 npm run db:provision   # first time only: private .env and empty database
@@ -17,7 +21,7 @@ npm run dev
 npm run worker
 ```
 
-Open [CoSec Workspace](http://127.0.0.1:3000). Generated fictional staff credentials are saved privately in `.local/ACCOUNTS.md`. See [local setup](docs/LOCAL_SETUP.md), [implementation plan](IMPLEMENTATION_PLAN.md), [recovery procedure](docs/RECOVERY.md) and [verification evidence](docs/VERIFICATION.md). No approved statutory rules or filing templates are bundled; this build is for fictional-data evaluation.
+Open [CoSec Workspace](http://127.0.0.1:4300). Generated fictional staff credentials are saved privately in `.local/ACCOUNTS.md`. See [local setup](docs/LOCAL_SETUP.md), [implementation plan](IMPLEMENTATION_PLAN.md), [recovery procedure](docs/RECOVERY.md) and [verification evidence](docs/VERIFICATION.md). No approved statutory rules or filing templates are bundled; this build is for fictional-data evaluation.
 
 [DESIGN.md](DESIGN.md) remains the approved Option A visual authority. [DESIGN_SPEC.md](DESIGN_SPEC.md) and the unchanged [original brief](references/product-brief.docx) define the broader product. The remaining W01–W12 workflows remain planned. BO access requires explicit `view_bo` assignment in Settings → Users; existing accounts are unchanged. See the [records scope](docs/COMPANY_RECORDS_PLAN.md).
 

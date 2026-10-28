@@ -9,7 +9,7 @@ if (!secret || secret.length < 32)
   throw new Error('Set BETTER_AUTH_SECRET to a private random value of at least 32 characters.');
 export const auth = betterAuth({
   secret,
-  baseURL: process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3000',
+  baseURL: process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:4300',
   // Better Auth writes sessions itself, so every call into it runs through `exclusive`.
   database: drizzleAdapter(writerDb, { provider: 'sqlite', schema }),
   emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 12 },
