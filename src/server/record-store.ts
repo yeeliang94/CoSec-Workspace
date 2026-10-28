@@ -8,16 +8,15 @@ export async function readRegisters(
   companyId: string,
   tx?: Transaction,
 ): Promise<CompanyRegisters> {
-  // MySQL REPEATABLE READ may retain the pre-lock snapshot after waiting for the company lock.
-  // A locking read observes the latest committed register and makes stale proposals fail.
+  // Inside a write transaction this is the latest committed register, so stale proposals fail.
   const query = (tx ?? db)
     .select()
     .from(companyRegisters)
     .where(eq(companyRegisters.companyId, companyId));
-  const [row] = await (tx ? query.for('update') : query);
+  const [row] = await query;
   return row?.data ?? emptyRegisters();
 }
-/** Caller holds the company row lock; all job/ledger/audit writes share this transaction. */
+/** Caller holds the write transaction; all job/ledger/audit writes share it. */
 export async function writeRegisters(
   companyId: string,
   records: CompanyRegisters,
@@ -27,7 +26,10 @@ export async function writeRegisters(
   await tx
     .insert(companyRegisters)
     .values({ companyId, revision: records.revision, data: records })
-    .onDuplicateKeyUpdate({ set: { revision: records.revision, data: records } });
+    .onConflictDoUpdate({
+      target: companyRegisters.companyId,
+      set: { revision: records.revision, data: records },
+    });
 }
 export async function memberSnapshot(companyId: string, asAt: string, tx?: Transaction) {
   return capitalAt((await readRegisters(companyId, tx)).capitalEvents, asAt);

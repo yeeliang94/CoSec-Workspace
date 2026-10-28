@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, like } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, writerDb } from '../src/server/db';
 import * as s from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { defaultPreferences, type Actor, type Company } from '../src/domain/model';
@@ -38,9 +38,9 @@ const company: Company = {
   revision: 1,
 };
 beforeAll(async () => {
-  await db.insert(s.companies).values({ id: companyId, data: company });
+  await writerDb.insert(s.companies).values({ id: companyId, data: company });
   for (const actor of [preparer, reviewer])
-    await db.insert(s.user).values({
+    await writerDb.insert(s.user).values({
       id: actor.id,
       name: actor.name,
       email: actor.email,
@@ -68,16 +68,14 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  await db.delete(s.auditEvents).where(eq(s.auditEvents.companyId, companyId));
-  await db.delete(s.requests).where(like(s.requests.id, `${reviewer.id}:%`));
-  await db.delete(s.documents).where(eq(s.documents.companyId, companyId));
-  await db.delete(s.companies).where(eq(s.companies.id, companyId));
-  await db.delete(s.user).where(inArray(s.user.id, [preparer.id, reviewer.id]));
-  await pool.end();
+  await writerDb.delete(s.auditEvents).where(eq(s.auditEvents.companyId, companyId));
+  await writerDb.delete(s.requests).where(like(s.requests.id, `${reviewer.id}:%`));
+  await writerDb.delete(s.documents).where(eq(s.documents.companyId, companyId));
+  await writerDb.delete(s.companies).where(eq(s.companies.id, companyId));
+  await writerDb.delete(s.user).where(inArray(s.user.id, [preparer.id, reviewer.id]));
+  closeDatabase();
 });
 it('reviews exact opening identity with source, independent actor, revision and idempotent audit', async () => {
-  const [zones] = await pool.query('SELECT @@session.time_zone AS zone');
-  expect((zones as { zone: string }[])[0].zone).toBe('+00:00');
   const input = {
     expectedRevision: 1,
     requestId: randomUUID(),

@@ -4,12 +4,13 @@ The [resolution builder](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md) is implement
 
 The local first build now supports annual returns (W03), director appointments/cessations (W04), members/share capital/transfers (W05), restricted beneficial ownership records (W06), integrated follow-ups, company history, private evidence, exact-version review, external filing tracking and editable settings.
 
+The database is a single SQLite file, `.local/cosec.db`; no database server is needed.
+
 ```sh
-npm run db:start
+npm ci
+npm run db:provision   # first time only: private .env and empty database
 npm run db:migrate
-# Once, after migration 0003 on an existing database:
-npx tsx scripts/migrate-people.ts
-npx tsx scripts/grant-resolution-capabilities.ts
+npm run db:seed        # fictional companies and staff, only into an empty database
 npx tsx scripts/seed-resolution-samples.ts
 npm run dev
 # Another terminal:

@@ -1,19 +1,19 @@
 # Coordinated backup and recovery
 
-The local milestone uses MySQL plus private attachment bytes in `STORAGE_DIR` (default `.local/storage`). Neither a database dump nor a folder copy is sufficient alone. Do not back up a running writable instance by independently copying these sources.
+The local milestone uses one SQLite database file (`DATABASE_PATH`, default `.local/cosec.db`) plus private attachment bytes in `STORAGE_DIR` (default `.local/storage`). Neither a database copy nor a folder copy is sufficient alone. Do not back up a running writable instance by independently copying these sources.
 
 ## Consistent local backup
 
-1. Stop the Next.js app and reminder worker; prevent other writers. Keep MySQL running. Record the app commit/dependency lockfile and migration version.
-2. Use the MySQL client tools matching the installed server. Run `mysqldump --single-transaction --routines --triggers --hex-blob --databases cosec` with credentials supplied through a protected MySQL option file or interactive prompt, and write the dump into a new timestamped backup directory. Never place a password in shell history.
-3. Copy the entire private storage directory into the same backup directory. Include protected deployment configuration separately: database connection, Better Auth secret/base URL and storage path. Do not copy the working MySQL data directory as an ad-hoc substitute for a dump.
-4. Create a manifest of relative filenames, sizes and SHA-256 hashes for dump, attachments and configuration. Restrict directory access to the responsible operator and encrypt any removable/off-machine copy. Preserve more than one generation.
+1. Stop the Next.js app and reminder worker; prevent other writers. Record the app commit/dependency lockfile and the latest row of `schema_migrations`.
+2. Write a consistent copy of the database into a new timestamped backup directory with SQLite's own snapshot command, for example `node -e "new (require('better-sqlite3'))('.local/cosec.db').exec(\"VACUUM INTO '<backup-dir>/cosec.db'\")"`. Never copy `cosec.db` with Finder or `cp` while it may be open: recent changes can still sit in the `-wal` file, and a plain copy can miss them.
+3. Copy the entire private storage directory into the same backup directory. Include protected deployment configuration separately: database path, Better Auth secret/base URL and storage path.
+4. Create a manifest of relative filenames, sizes and SHA-256 hashes for the database copy, attachments and configuration. Restrict directory access to the responsible operator and encrypt any removable/off-machine copy. Preserve more than one generation.
 5. Restart the app and worker. Check an authorised workspace and download. Record backup completion and failures in the firm's operational log. Backups are complete only after both database and attachments are present and verified.
 
 ## Restore rehearsal
 
-1. Stop the app and worker. Restore into an isolated, empty database and a new storage directory first; preserve the existing environment for rollback.
-2. Import the dump using the MySQL client. Restore the matching attachment directory and protected configuration. Confirm schema migrations match the recorded app version; do not blindly run a destructive reset or seed script.
+1. Stop the app and worker. Restore into a new database path and a new storage directory first; preserve the existing environment for rollback.
+2. Copy the backed-up `cosec.db` to the new path and run `PRAGMA integrity_check` on it (it must report `ok`). Restore the matching attachment directory and protected configuration. Confirm schema migrations match the recorded app version; do not blindly run a destructive reset or seed script.
 3. Verify all document metadata references resolve under the restored storage root, their sizes and SHA-256 hashes match, and no public directory serves attachments. Missing/tampered documents must remain errors, not successful downloads.
 4. Sign in as executive, reviewer and lodger; verify company-scoped reads/downloads, pack/review history, dated officer history, submission/outcome separation, correspondence and audit. Check one historical annual snapshot remains unchanged.
 5. Start the reminder worker or load the work queue. Overdue reminders are regenerated from persisted dates; reading a reminder does not resolve work. Confirm no duplicate occurrences after a second reconciliation.

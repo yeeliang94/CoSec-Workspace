@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
@@ -16,12 +16,12 @@ export const emptyProfile = (companyId: string): CompanyProfile => ({
   customValues: {},
 });
 
-export async function readProfile(companyId: string, tx?: Transaction, lock = false) {
+export async function readProfile(companyId: string, tx?: Transaction) {
   const query = (tx ?? db)
     .select()
     .from(s.companyProfiles)
     .where(eq(s.companyProfiles.companyId, companyId));
-  const [row] = await (tx && lock ? query.for('update') : query);
+  const [row] = await query;
   return row?.data ?? emptyProfile(companyId);
 }
 
@@ -43,9 +43,9 @@ export async function changeProfile(actor: Actor, companyId: string, input: Prof
   assertCompany(actor, companyId);
   assertAny(actor, ['confirm_record', 'manage_people']);
   const key = requestKey(actor, `profile:${companyId}`, input.requestId);
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     await lockCompany(companyId, tx);
-    const before = await readProfile(companyId, tx, true);
+    const before = await readProfile(companyId, tx);
     if (await prior(tx, key)) return before;
     if (before.revision !== input.expectedRevision)
       throw new DomainError('The company profile changed. Refresh and try again.', 'STALE', 409);
@@ -69,7 +69,10 @@ export async function changeProfile(actor: Actor, companyId: string, input: Prof
     await tx
       .insert(s.companyProfiles)
       .values({ companyId, revision: next.revision, data: next })
-      .onDuplicateKeyUpdate({ set: { revision: next.revision, data: next } });
+      .onConflictDoUpdate({
+        target: s.companyProfiles.companyId,
+        set: { revision: next.revision, data: next },
+      });
     await auditChange(tx, actor, {
       companyId,
       entityType: 'company_profile',

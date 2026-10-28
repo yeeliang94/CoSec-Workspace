@@ -3,7 +3,7 @@ import { pruneRequestRecords, reconcileReminders } from '../src/server/support';
 import { reconcilePendingGenerations } from '../src/server/resolution/generation';
 
 // Job changes keep their own company's reminders current; this sweep catches date-driven changes.
-// Reconciliation is idempotent and runs per company under the company lock, so two workers are safe.
+// Reconciliation is idempotent and runs per company in one write transaction, so two workers are safe.
 let stopping = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 async function tick() {

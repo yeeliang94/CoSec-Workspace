@@ -13,18 +13,15 @@ import type {
   ResolutionAssembly,
   ResolutionCase,
 } from '../domain/resolution/model';
+import { sql } from 'drizzle-orm';
 import {
-  mysqlTable,
-  varchar,
+  sqliteTable,
   text,
-  timestamp,
-  boolean,
-  int,
-  json,
+  integer,
   uniqueIndex,
   index,
   foreignKey,
-} from 'drizzle-orm/mysql-core';
+} from 'drizzle-orm/sqlite-core';
 import { defaultPreferences } from '../domain/model';
 import type {
   Capability,
@@ -36,129 +33,134 @@ import type {
   Settings,
   Reminder,
 } from '../domain/model';
-export const user = mysqlTable('user', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  emailVerified: boolean('email_verified').notNull().default(false),
-  image: text('image'),
-  createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
-  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull(),
-  capabilities: json('capabilities')
-    .$type<Capability[]>()
-    .notNull()
-    .$defaultFn(() => []),
-  companyIds: json('company_ids')
-    .$type<string[]>()
-    .notNull()
-    .$defaultFn(() => []),
-  preferences: json('preferences')
-    .$type<Preferences>()
-    .notNull()
-    .$defaultFn(() => defaultPreferences),
-  active: boolean('active').notNull().default(true),
-});
-export const session = mysqlTable('session', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
-  token: varchar('token', { length: 255 }).notNull().unique(),
-  createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
-  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull(),
+export const user = sqliteTable(
+  'user',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+    image: text('image'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    capabilities: text('capabilities', { mode: 'json' })
+      .$type<Capability[]>()
+      .notNull()
+      .$defaultFn(() => []),
+    companyIds: text('company_ids', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .$defaultFn(() => []),
+    preferences: text('preferences', { mode: 'json' })
+      .$type<Preferences>()
+      .notNull()
+      .$defaultFn(() => defaultPreferences),
+    active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  },
+  // MySQL's default collation ignored case; keep one account per address regardless of case.
+  (t) => [uniqueIndex('user_email_unique').on(sql`lower(${t.email})`)],
+);
+export const session = sqliteTable('session', {
+  id: text('id').primaryKey(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  token: text('token').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: varchar('user_id', { length: 36 })
+  userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 });
-export const account = mysqlTable('account', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  accountId: varchar('account_id', { length: 255 }).notNull(),
-  providerId: varchar('provider_id', { length: 255 }).notNull(),
-  userId: varchar('user_id', { length: 36 })
+export const account = sqliteTable('account', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at', { fsp: 3 }),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { fsp: 3 }),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp_ms' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp_ms' }),
   scope: text('scope'),
   password: text('password'),
-  createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
-  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
-export const verification = mysqlTable('verification', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  identifier: varchar('identifier', { length: 255 }).notNull(),
+export const verification = sqliteTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
   value: text('value').notNull(),
-  expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
-  createdAt: timestamp('created_at', { fsp: 3 }),
-  updatedAt: timestamp('updated_at', { fsp: 3 }),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
 });
-export const companies = mysqlTable('companies', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  data: json('data').$type<Company>().notNull(),
+export const companies = sqliteTable('companies', {
+  id: text('id').primaryKey(),
+  data: text('data', { mode: 'json' }).$type<Company>().notNull(),
 });
-export const jobs = mysqlTable(
+export const jobs = sqliteTable(
   'jobs',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    companyId: varchar('company_id', { length: 36 })
+    id: text('id').primaryKey(),
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    periodKey: varchar('period_key', { length: 80 }),
-    revision: int('revision').notNull(),
-    data: json('data').$type<Job>().notNull(),
+    periodKey: text('period_key'),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<Job>().notNull(),
   },
   (t) => [uniqueIndex('jobs_period_unique').on(t.periodKey)],
 );
-export const officerEvents = mysqlTable('officer_events', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  companyId: varchar('company_id', { length: 36 })
+export const officerEvents = sqliteTable('officer_events', {
+  id: text('id').primaryKey(),
+  companyId: text('company_id')
     .notNull()
     .references(() => companies.id),
-  data: json('data').$type<OfficerEvent>().notNull(),
+  data: text('data', { mode: 'json' }).$type<OfficerEvent>().notNull(),
 });
-export const documents = mysqlTable('documents', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  companyId: varchar('company_id', { length: 36 })
+export const documents = sqliteTable('documents', {
+  id: text('id').primaryKey(),
+  companyId: text('company_id')
     .notNull()
     .references(() => companies.id),
-  data: json('data').$type<Document>().notNull(),
+  data: text('data', { mode: 'json' }).$type<Document>().notNull(),
 });
-export const settings = mysqlTable('settings', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  revision: int('revision').notNull(),
-  data: json('data').$type<Settings>().notNull(),
+export const settings = sqliteTable('settings', {
+  id: text('id').primaryKey(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<Settings>().notNull(),
 });
-export const reminders = mysqlTable(
+export const reminders = sqliteTable(
   'reminders',
   {
-    id: varchar('id', { length: 180 }).primaryKey(),
-    companyId: varchar('company_id', { length: 36 })
+    id: text('id').primaryKey(),
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    resolved: boolean('resolved').notNull().default(false),
-    data: json('data').$type<Reminder>().notNull(),
+    resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
+    data: text('data', { mode: 'json' }).$type<Reminder>().notNull(),
   },
   (t) => [index('reminders_open_by_company').on(t.companyId, t.resolved)],
 );
-export const auditEvents = mysqlTable(
+export const auditEvents = sqliteTable(
   'audit_events',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    actorId: varchar('actor_id', { length: 36 }).notNull(),
-    companyId: varchar('company_id', { length: 36 }),
-    action: varchar('action', { length: 100 }).notNull(),
-    subjectId: varchar('subject_id', { length: 80 }).notNull(),
-    detail: json('detail').notNull(),
-    createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
-    entityType: varchar('entity_type', { length: 40 }),
-    requestId: varchar('request_id', { length: 100 }),
+    id: text('id').primaryKey(),
+    actorId: text('actor_id').notNull(),
+    companyId: text('company_id'),
+    action: text('action').notNull(),
+    subjectId: text('subject_id').notNull(),
+    detail: text('detail', { mode: 'json' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    entityType: text('entity_type'),
+    requestId: text('request_id'),
     reason: text('reason'),
-    sensitivity: varchar('sensitivity', { length: 20 }).notNull().default('General'),
+    sensitivity: text('sensitivity').notNull().default('General'),
     /** Companies whose staff may read the entry, fixed at the time of change. */
-    scopeCompanyIds: json('scope_company_ids').$type<string[]>(),
+    scopeCompanyIds: text('scope_company_ids', { mode: 'json' }).$type<string[]>(),
   },
   (t) => [
     index('audit_events_company_time').on(t.companyId, t.createdAt),
@@ -166,124 +168,123 @@ export const auditEvents = mysqlTable(
     index('audit_events_entity').on(t.entityType, t.subjectId),
   ],
 );
-export const requests = mysqlTable(
+export const requests = sqliteTable(
   'mutation_requests',
   {
-    id: varchar('id', { length: 180 }).primaryKey(),
-    result: json('result').notNull(),
-    createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
+    id: text('id').primaryKey(),
+    result: text('result', { mode: 'json' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (t) => [index('mutation_requests_created_at').on(t.createdAt)],
 );
 
-export const companyRegisters = mysqlTable('company_registers', {
-  companyId: varchar('company_id', { length: 36 })
+export const companyRegisters = sqliteTable('company_registers', {
+  companyId: text('company_id')
     .primaryKey()
     .references(() => companies.id),
-  revision: int('revision').notNull(),
-  data: json('data').$type<CompanyRegisters>().notNull(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<CompanyRegisters>().notNull(),
 });
 
 // ---------------------------------------------------------------- resolution builder (0003)
-export const people = mysqlTable(
+export const people = sqliteTable(
   'people',
   {
-    id: varchar('id', { length: 64 }).primaryKey(),
-    fullName: varchar('full_name', { length: 255 }).notNull(),
-    revision: int('revision').notNull(),
-    data: json('data').$type<Person>().notNull(),
+    id: text('id').primaryKey(),
+    fullName: text('full_name').notNull(),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<Person>().notNull(),
   },
   (t) => [index('people_full_name').on(t.fullName)],
 );
-export const companyRelationships = mysqlTable(
+export const companyRelationships = sqliteTable(
   'company_relationships',
   {
-    id: varchar('id', { length: 64 }).primaryKey(),
-    companyId: varchar('company_id', { length: 36 })
+    id: text('id').primaryKey(),
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    personId: varchar('person_id', { length: 64 })
+    personId: text('person_id')
       .notNull()
       .references(() => people.id),
-    role: varchar('role', { length: 20 }).notNull(),
-    revision: int('revision').notNull(),
-    data: json('data').$type<CompanyRelationship>().notNull(),
+    role: text('role').notNull(),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<CompanyRelationship>().notNull(),
   },
   (t) => [
     index('company_relationships_company').on(t.companyId, t.role),
     index('company_relationships_person').on(t.personId),
   ],
 );
-export const companyProfiles = mysqlTable('company_profiles', {
-  companyId: varchar('company_id', { length: 36 })
+export const companyProfiles = sqliteTable('company_profiles', {
+  companyId: text('company_id')
     .primaryKey()
     .references(() => companies.id),
-  revision: int('revision').notNull(),
-  data: json('data').$type<CompanyProfile>().notNull(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<CompanyProfile>().notNull(),
 });
-export const recordFieldDefinitions = mysqlTable('record_field_definitions', {
-  id: varchar('id', { length: 64 }).primaryKey(),
-  scope: varchar('scope', { length: 20 }).notNull(),
-  revision: int('revision').notNull(),
-  data: json('data').$type<RecordFieldDefinition>().notNull(),
+export const recordFieldDefinitions = sqliteTable('record_field_definitions', {
+  id: text('id').primaryKey(),
+  scope: text('scope').notNull(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<RecordFieldDefinition>().notNull(),
 });
-export const resolutionCases = mysqlTable(
+export const resolutionCases = sqliteTable(
   'resolution_cases',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    companyId: varchar('company_id', { length: 36 })
+    id: text('id').primaryKey(),
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    jobId: varchar('job_id', { length: 36 }),
-    revision: int('revision').notNull(),
-    data: json('data').$type<ResolutionCase>().notNull(),
+    jobId: text('job_id'),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<ResolutionCase>().notNull(),
   },
   (t) => [
     index('resolution_cases_company').on(t.companyId),
     index('resolution_cases_job').on(t.jobId),
   ],
 );
-export const outputTypes = mysqlTable('output_types', {
-  id: varchar('id', { length: 64 }).primaryKey(),
-  data: json('data').$type<OutputType>().notNull(),
+export const outputTypes = sqliteTable('output_types', {
+  id: text('id').primaryKey(),
+  data: text('data', { mode: 'json' }).$type<OutputType>().notNull(),
 });
-export const clauseTemplates = mysqlTable('clause_templates', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  revision: int('revision').notNull(),
-  data: json('data').$type<ClauseTemplate>().notNull(),
+export const clauseTemplates = sqliteTable('clause_templates', {
+  id: text('id').primaryKey(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<ClauseTemplate>().notNull(),
 });
-export const clauseTemplateVersions = mysqlTable(
+export const clauseTemplateVersions = sqliteTable(
   'clause_template_versions',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    clauseId: varchar('clause_id', { length: 36 })
+    id: text('id').primaryKey(),
+    clauseId: text('clause_id')
       .notNull()
       .references(() => clauseTemplates.id),
-    version: int('version').notNull(),
-    status: varchar('status', { length: 20 }).notNull(),
-    revision: int('revision').notNull(),
-    data: json('data').$type<ClauseVersion>().notNull(),
+    version: integer('version').notNull(),
+    status: text('status').notNull(),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<ClauseVersion>().notNull(),
   },
   (t) => [uniqueIndex('clause_versions_unique').on(t.clauseId, t.version)],
 );
-export const resolutionAssemblies = mysqlTable('resolution_assemblies', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  revision: int('revision').notNull(),
-  data: json('data').$type<ResolutionAssembly>().notNull(),
+export const resolutionAssemblies = sqliteTable('resolution_assemblies', {
+  id: text('id').primaryKey(),
+  revision: integer('revision').notNull(),
+  data: text('data', { mode: 'json' }).$type<ResolutionAssembly>().notNull(),
 });
-export const resolutionAssemblyVersions = mysqlTable(
+export const resolutionAssemblyVersions = sqliteTable(
   'resolution_assembly_versions',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    assemblyId: varchar('assembly_id', { length: 36 }).notNull(),
-    version: int('version').notNull(),
-    status: varchar('status', { length: 20 }).notNull(),
-    revision: int('revision').notNull(),
-    data: json('data').$type<AssemblyVersion>().notNull(),
+    id: text('id').primaryKey(),
+    assemblyId: text('assembly_id').notNull(),
+    version: integer('version').notNull(),
+    status: text('status').notNull(),
+    revision: integer('revision').notNull(),
+    data: text('data', { mode: 'json' }).$type<AssemblyVersion>().notNull(),
   },
   (t) => [
     uniqueIndex('assembly_versions_unique').on(t.assemblyId, t.version),
-    // MySQL identifiers are limited to 64 characters, so this key is named explicitly.
     foreignKey({
       name: 'assembly_versions_assembly_fk',
       columns: [t.assemblyId],
@@ -291,22 +292,22 @@ export const resolutionAssemblyVersions = mysqlTable(
     }),
   ],
 );
-export const documentGenerations = mysqlTable(
+export const documentGenerations = sqliteTable(
   'document_generations',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    familyId: varchar('family_id', { length: 36 }).notNull(),
-    caseId: varchar('case_id', { length: 36 })
+    id: text('id').primaryKey(),
+    familyId: text('family_id').notNull(),
+    caseId: text('case_id')
       .notNull()
       .references(() => resolutionCases.id),
-    companyId: varchar('company_id', { length: 36 })
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    status: varchar('status', { length: 20 }).notNull(),
+    status: text('status').notNull(),
     /** actor:operation:requestId; same key + same payload returns the original generation. */
-    requestKey: varchar('request_key', { length: 180 }).notNull(),
-    data: json('data').$type<DocumentGeneration>().notNull(),
-    createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
+    requestKey: text('request_key').notNull(),
+    data: text('data', { mode: 'json' }).$type<DocumentGeneration>().notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (t) => [
     uniqueIndex('document_generations_request').on(t.requestKey),
@@ -314,19 +315,19 @@ export const documentGenerations = mysqlTable(
     index('document_generations_family').on(t.familyId),
   ],
 );
-export const generationRecords = mysqlTable(
+export const generationRecords = sqliteTable(
   'generation_records',
   {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    generationId: varchar('generation_id', { length: 36 })
+    id: text('id').primaryKey(),
+    generationId: text('generation_id')
       .notNull()
       .references(() => documentGenerations.id),
-    companyId: varchar('company_id', { length: 36 })
+    companyId: text('company_id')
       .notNull()
       .references(() => companies.id),
-    kind: varchar('kind', { length: 20 }).notNull(),
-    data: json('data').$type<GenerationRecord>().notNull(),
-    createdAt: timestamp('created_at', { fsp: 3 }).notNull(),
+    kind: text('kind').notNull(),
+    data: text('data', { mode: 'json' }).$type<GenerationRecord>().notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (t) => [index('generation_records_generation').on(t.generationId)],
 );

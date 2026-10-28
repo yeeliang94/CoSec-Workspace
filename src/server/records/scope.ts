@@ -1,4 +1,4 @@
-import { and, eq, inArray, like, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db';
 import * as s from '../schema';
 import { getDocuments } from '../repository';
@@ -24,11 +24,7 @@ export function assertAny(actor: Actor, capabilities: Capability[]) {
 }
 
 export async function lockCompany(companyId: string, tx: Transaction) {
-  const [row] = await tx
-    .select()
-    .from(s.companies)
-    .where(eq(s.companies.id, companyId))
-    .for('update');
+  const [row] = await tx.select().from(s.companies).where(eq(s.companies.id, companyId));
   if (!row) throw new DomainError('Company access is unavailable.', 'NOT_FOUND', 404);
   return row.data;
 }
@@ -51,7 +47,7 @@ export async function visiblePeople(
   const limit = options.limit ?? 100000;
   const companies = options.companyId ? [options.companyId] : actor.companyIds;
   const nameFilter = options.q?.trim()
-    ? like(s.people.fullName, `%${escapeLike(options.q.trim())}%`)
+    ? sql`${s.people.fullName} LIKE ${`%${escapeLike(options.q.trim())}%`} ESCAPE ${'\\'}`
     : undefined;
   const idFilter = options.ids ? inArray(s.people.id, options.ids) : undefined;
   const found = new Map<string, string>();
@@ -67,7 +63,7 @@ export async function visiblePeople(
   }
   if (!options.companyId) {
     const conditions: (SQL | undefined)[] = [
-      sql`JSON_UNQUOTE(JSON_EXTRACT(${s.people.data}, '$.createdBy')) = ${actor.id}`,
+      sql`json_extract(${s.people.data}, '$.createdBy') = ${actor.id}`,
       sql`NOT EXISTS (SELECT 1 FROM company_relationships r WHERE r.person_id = ${s.people.id})`,
       nameFilter,
       idFilter,

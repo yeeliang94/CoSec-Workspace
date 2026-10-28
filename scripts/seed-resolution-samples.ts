@@ -13,7 +13,7 @@
 import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import type { Actor, Capability } from '../src/domain/model';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db } from '../src/server/db';
 import { getActorById } from '../src/server/repository';
 import {
   SAMPLE_SOURCE,
@@ -134,4 +134,4 @@ for (const a of STARTER_ASSEMBLIES) {
   console.info(`assembly ${a.name.padEnd(36)} ${result.status}`);
 }
 console.info(`Fictional resolution samples ready (${SAMPLE_SOURCE}).`);
-await pool.end();
+closeDatabase();

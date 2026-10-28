@@ -61,7 +61,7 @@ export function validateFile(
 }
 
 export function safeStoragePath(storageKey: string) {
-  // .docx keys are written only by storeGenerated; uploads still reject Word files.
+  // .docx keys are written only by stageGenerated; uploads still reject Word files.
   if (!/^[0-9a-f-]{36}\.(pdf|png|jpg|jpeg|txt|docx)$/.test(storageKey))
     throw new DomainError('Document storage reference is invalid.', 'STORAGE', 500);
   return path.join(/* turbopackIgnore: true */ root(), storageKey);
@@ -150,11 +150,10 @@ export async function readDownload(actor: Actor, id: string, options: { audit?: 
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 /**
- * Stores server-generated DOCX bytes privately: a new unique file, then the document row and
- * audit (inside the caller's transaction when given). The file is removed if the insert fails;
- * a caller whose transaction later rolls back must remove `storageKey` itself.
+ * Stages server-generated DOCX bytes privately without touching the database. The caller must
+ * record the metadata in its transaction, or remove `storageKey` if the file is not committed.
  */
-export async function storeGenerated(
+export async function stageGenerated(
   actor: Actor,
   input: {
     companyId: string;
@@ -166,7 +165,6 @@ export async function storeGenerated(
     /** Pre-allocated `<uuid>.docx` key, so a caller can clean up after a later failure. */
     storageKey?: string;
   },
-  tx?: Transaction,
 ) {
   assertCompany(actor, input.companyId);
   if (!actor.capabilities.some((cap) => ['generate_documents', 'prepare_job'].includes(cap)))
@@ -198,25 +196,20 @@ export async function storeGenerated(
   await mkdir(root(), { recursive: true, mode: 0o700 });
   const destination = safeStoragePath(storageKey);
   await writeFile(destination, b, { flag: 'wx', mode: 0o600 });
-  const insert = async (t: Transaction) => {
-    await t.insert(schema.documents).values({ id: doc.id, companyId: doc.companyId, data: doc });
-    await audit(
-      actor,
-      doc.companyId,
-      'document.stored',
-      doc.id,
-      { sha256: doc.sha256, size: doc.size, generationId: input.generationId },
-      t,
-    );
-  };
-  try {
-    if (tx) await insert(tx);
-    else await (await import('./db')).db.transaction(insert);
-  } catch (error) {
-    await unlink(destination).catch(() => undefined);
-    throw error;
-  }
   return doc;
+}
+
+/** Commits staged document metadata and its audit in the caller's transaction; no file I/O. */
+export async function recordGenerated(actor: Actor, doc: Document, tx: Transaction) {
+  await tx.insert(schema.documents).values({ id: doc.id, companyId: doc.companyId, data: doc });
+  await audit(
+    actor,
+    doc.companyId,
+    'document.stored',
+    doc.id,
+    { sha256: doc.sha256, size: doc.size, generationId: doc.generationId },
+    tx,
+  );
 }
 
 /** Removes a stored file by key (orphan cleanup). Missing files are ignored. */

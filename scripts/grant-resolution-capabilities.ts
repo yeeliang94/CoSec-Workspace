@@ -5,7 +5,7 @@
  */
 import 'dotenv/config';
 import { eq } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, transaction } from '../src/server/db';
 import * as s from '../src/server/schema';
 import { auditChange } from '../src/server/resolution/shared';
 import { systemActor } from '../src/server/records/scope';
@@ -14,8 +14,8 @@ import { mappedResolutionCapabilities } from '../src/domain/resolution/records';
 const users = await db.select({ id: s.user.id }).from(s.user);
 let changed = 0;
 for (const { id } of users) {
-  await db.transaction(async (tx) => {
-    const [u] = await tx.select().from(s.user).where(eq(s.user.id, id)).for('update');
+  await transaction(async (tx) => {
+    const [u] = await tx.select().from(s.user).where(eq(s.user.id, id));
     if (!u) return;
     const added = mappedResolutionCapabilities(u.capabilities);
     if (!added.length) return;
@@ -36,4 +36,4 @@ for (const { id } of users) {
   });
 }
 console.log(`Granted resolution capabilities to ${changed} of ${users.length} users.`);
-await pool.end();
+closeDatabase();

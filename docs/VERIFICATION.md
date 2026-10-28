@@ -79,3 +79,35 @@ Manual in-app-browser inspection used a separately scoped fictional company with
 SSM source indexes were checked on 22 October 2026; no legal threshold or response deadline is inferred from share percentages. Each assessment records its criteria/source version, notices and evidence. Existing staff accounts receive no new BO permission automatically; an administrator must explicitly assign `view_bo`. The evaluation build remains subject to the live-use gates above.
 
 Final extension cleanup confirmed six companies, six original jobs and six original staff accounts; no synthetic company registers remain. Temporary credential files and fixture attachments were removed, the browser viewport override was reset, and the updated worker restarted successfully with seven persisted reminder occurrences. The production application and isolated MySQL remain running locally.
+
+## SQLite migration (28 October 2026)
+
+The database moved from MySQL 8.4 to one SQLite file through `better-sqlite3` 13.0.3 (SQLite 3.53.4); plan and decisions are in [SQLITE_MIGRATION_PLAN.md](SQLITE_MIGRATION_PLAN.md). The owner chose a fresh fictional seed and full removal of MySQL. The final MySQL dump, document files and account list are kept privately in `.local/backups/mysql-final-20261028/`.
+
+| Check | MySQL baseline (before) | SQLite (after) |
+| --- | --- | --- |
+| `npm run typecheck` | clean | clean |
+| `npm test` | 157 tests in 15 files passed | 164 tests in 16 files passed (157 existing plus 7 new SQLite checks) |
+| `npm run build` | passed | passed |
+| `npm run test:e2e` | 27 passed | 27 passed, with the reminder worker running against the same database |
+| `npm run format:check` | — | clean |
+
+The new SQLite checks cover: a second process holding the write lock (the app waits, then commits); a lock held past the five-second timeout (a retryable busy error, and the connection recovers); ten overlapping writes in one process with no lost update; rollback of every write on failure; refusal of nested transactions; one account per email regardless of case; refusal of writes on the read connection; and millisecond UTC timestamp round trips. The documented backup command (`VACUUM INTO`) was run against the seeded database and the copy passed `PRAGMA integrity_check`.
+
+A driver spike rejected `@libsql/client` 0.18.0: when one save timed out under contention, that connection kept failing every later save. `better-sqlite3` recovered from the same test with no lost updates.
+
+Not yet done: a full restore rehearsal from a backup, and measured contention under real staff use. Both remain release gates, as before.
+
+### SQLite review fixes (28 October 2026)
+
+The database connections now retain their write queue and nested-write guard across development module reloads. A regression test holds a transaction open across a reload, queues another transaction and an auth-style autocommit write, and verifies that rolling back the first save preserves both later writes. People search explicitly declares its SQLite escape character, with regression cases for literal underscores, percent signs and backslashes, including the creator visibility boundary.
+
+Runtime database paths are excluded from Turbopack tracing, and local data/storage directories are excluded from deployment traces. The production build no longer emits the whole-project tracing warning; all 58 generated trace manifests were checked and contained no database, private-storage or environment files. The server external-package configuration now names `better-sqlite3`.
+
+Verification: all 168 tests in 16 files passed; type checking, the production build and formatting checks passed. Browser tests were not rerun for these server changes.
+
+### Greptile follow-up (28 October 2026)
+
+All three findings on PR #8 were reproduced and fixed. With `DATABASE_URL` empty, the old MySQL gates skipped 27 integration cases; those gates are removed, so every group runs against the automatically provisioned SQLite test database. Relationship and resolution-context reads now use independent read-only WAL snapshots, retaining a consistent view while saves proceed. Generation stages private DOCX bytes before reserving the write lock, then rechecks `Pending` and atomically records the document metadata, generation state and audit. Unused staged bytes are removed after reconciliation or transaction failure.
+
+Regression checks exercise both actual read callers while a save holds the write lock, stable independent snapshots across a concurrent update, an unrelated database save during file staging, reconciliation during staging, and rollback after a forced finalisation-audit failure. `DATABASE_URL= npm test` passed all 173 tests in 16 files with no skipped tests. Type checking, production build, formatting and diff-whitespace checks passed. Browser tests were not rerun for this server-only follow-up; the restore and real-staff contention release gates above remain open.

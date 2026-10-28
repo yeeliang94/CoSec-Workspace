@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { eq, like } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, writerDb } from '../src/server/db';
 import * as schema from '../src/server/schema';
 import type { Actor, Company, Job } from '../src/domain/model';
 import { defaultPreferences } from '../src/domain/model';
@@ -19,7 +19,6 @@ import {
 import { readDownload, storeUpload } from '../src/server/storage';
 import { reconcileReminders, savePreferences } from '../src/server/support';
 
-const enabled = Boolean(process.env.DATABASE_URL);
 const actor: Actor = {
   id: randomUUID(),
   name: 'Support integration executive',
@@ -101,12 +100,12 @@ const job: Job = {
   history: [],
 };
 
-describe.skipIf(!enabled)('support operations against MySQL', () => {
+describe('support operations against SQLite', () => {
   beforeAll(async () => {
     storageDirectory = await mkdtemp(path.join(os.tmpdir(), 'cosec-support-db-'));
     process.env.STORAGE_DIR = storageDirectory;
     const now = new Date();
-    await db.insert(schema.user).values({
+    await writerDb.insert(schema.user).values({
       id: actor.id,
       name: actor.name,
       email: actor.email,
@@ -118,21 +117,21 @@ describe.skipIf(!enabled)('support operations against MySQL', () => {
       preferences: actor.preferences,
       active: true,
     });
-    await db.insert(schema.companies).values({ id: companyId, data: company });
+    await writerDb.insert(schema.companies).values({ id: companyId, data: company });
     await createJob(actor, job, randomUUID());
   });
   afterAll(async () => {
-    await db.delete(schema.documents).where(eq(schema.documents.companyId, companyId));
-    await db.delete(schema.reminders).where(eq(schema.reminders.companyId, companyId));
-    await db.delete(schema.jobs).where(eq(schema.jobs.companyId, companyId));
-    await db.delete(schema.auditEvents).where(eq(schema.auditEvents.actorId, actor.id));
-    await db.delete(schema.requests).where(like(schema.requests.id, `${actor.id}:%`));
-    await db.delete(schema.companies).where(eq(schema.companies.id, companyId));
-    await db.delete(schema.user).where(eq(schema.user.id, actor.id));
+    await writerDb.delete(schema.documents).where(eq(schema.documents.companyId, companyId));
+    await writerDb.delete(schema.reminders).where(eq(schema.reminders.companyId, companyId));
+    await writerDb.delete(schema.jobs).where(eq(schema.jobs.companyId, companyId));
+    await writerDb.delete(schema.auditEvents).where(eq(schema.auditEvents.actorId, actor.id));
+    await writerDb.delete(schema.requests).where(like(schema.requests.id, `${actor.id}:%`));
+    await writerDb.delete(schema.companies).where(eq(schema.companies.id, companyId));
+    await writerDb.delete(schema.user).where(eq(schema.user.id, actor.id));
     if (storageDirectory) await rm(storageDirectory, { recursive: true, force: true });
     if (previousStorage === undefined) delete process.env.STORAGE_DIR;
     else process.env.STORAGE_DIR = previousStorage;
-    await pool.end();
+    closeDatabase();
   });
   it('atomically persists private file metadata and audit, enforces scope and detects tampering', async () => {
     const uploaded = await storeUpload(actor, {

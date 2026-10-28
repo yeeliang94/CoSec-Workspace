@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { assertCompany, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
@@ -90,9 +90,9 @@ export async function auditChange(
   });
 }
 
-export async function readCase(actor: Actor, id: string, tx?: Transaction, lock = false) {
+export async function readCase(actor: Actor, id: string, tx?: Transaction) {
   const query = (tx ?? db).select().from(s.resolutionCases).where(eq(s.resolutionCases.id, id));
-  const [row] = await (tx && lock ? query.for('update') : query);
+  const [row] = await query;
   if (!row) throw new DomainError('Resolution case access is unavailable.', 'NOT_FOUND', 404);
   assertCompany(actor, row.companyId);
   return row.data;
@@ -115,12 +115,8 @@ export async function mutateCase(
   ) => Promise<{ next: ResolutionCase; detail: string; reason?: string }>,
 ) {
   const key = requestKey(actor, `case:${id}`, requestId);
-  // Company identity is immutable. Resolve it before the transaction so a plain identity
-  // read cannot establish a repeatable-read snapshot before we wait for the company lock.
-  const identity = await readCase(actor, id);
-  return db.transaction(async (tx) => {
-    await tx.select().from(s.companies).where(eq(s.companies.id, identity.companyId)).for('update');
-    const current = await readCase(actor, id, tx, true);
+  return transaction(async (tx) => {
+    const current = await readCase(actor, id, tx);
     if (await prior(tx, key)) return current;
     if (current.revision !== expectedRevision)
       throw new DomainError(
