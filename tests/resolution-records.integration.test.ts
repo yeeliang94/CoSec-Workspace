@@ -212,6 +212,25 @@ async function project(...companyIds: string[]) {
 const people = async (actor: Actor, options: { q?: string; companyId?: string } = {}) =>
   (await listPeople(actor, options)).people;
 
+/** Keeps these record tests on the optional approved-case path. */
+const markApproved = async (c: ResolutionCase) => {
+  const next: ResolutionCase = {
+    ...c,
+    review: {
+      status: 'Approved',
+      reviewerId: limited.id,
+      sentBy: admin.id,
+      sentAt: new Date().toISOString(),
+      decidedAt: new Date().toISOString(),
+      comment: '',
+    },
+  };
+  await writerDb
+    .update(s.resolutionCases)
+    .set({ data: next })
+    .where(eq(s.resolutionCases.id, c.id));
+  return next;
+};
 const auditCount = async (subjectId: string) =>
   (await db.select().from(s.auditEvents).where(eq(s.auditEvents.subjectId, subjectId))).length;
 
@@ -393,7 +412,7 @@ describe('people and relationships', () => {
         endDate: '2026-06-01',
         reason: 'Test',
       }),
-    ).rejects.toThrow('W04');
+    ).rejects.toThrow('already ended');
     const capacity = await changeRelationship(admin, A, {
       action: 'set_capacity',
       id: director.id,
@@ -540,8 +559,8 @@ describe('audit', () => {
       title: 'Rollback case',
     });
     await expect(
-      changeCase(admin, c.id, { action: 'complete', expectedRevision: 1, requestId: randomUUID() }),
-    ).rejects.toThrow('Complete or mark not applicable');
+      changeCase(admin, c.id, { action: 'reopen', expectedRevision: 1, requestId: randomUUID() }),
+    ).rejects.toThrow('already a draft');
     expect((await queryAudit(admin, { entityId: c.id })).entries.map((e) => e.action)).toEqual([
       'resolution_case.created',
     ]);
@@ -815,6 +834,7 @@ describe('profile, context and cases', () => {
         expectedRevision: c.revision,
         requestId: randomUUID(),
       });
+      c = await markApproved(c);
       c = await changeCase(admin, c.id, {
         action: 'complete',
         expectedRevision: c.revision,
@@ -905,6 +925,7 @@ describe('profile, context and cases', () => {
       date: '2026-10-01',
       evidenceIds: [docId],
     });
+    c = await markApproved(c);
     c = await changeCase(admin, c.id, {
       action: 'complete',
       expectedRevision: c.revision,

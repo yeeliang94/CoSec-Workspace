@@ -132,7 +132,7 @@ export function FieldEditor({
             value={field.scope}
             onChange={(event) => set({ scope: event.target.value as 'case' | 'clause' })}
           >
-            <option value="clause">For this clause only</option>
+            <option value="clause">For this paragraph only</option>
             <option value="case">Once per resolution (shared)</option>
           </select>
         </label>

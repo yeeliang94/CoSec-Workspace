@@ -64,8 +64,8 @@ export function AssemblyLibrary({
             <caption className="sr-only">Assemblies</caption>
             <thead>
               <tr>
-                <th>Assembly</th>
-                <th>Output type</th>
+                <th>Layout</th>
+                <th>Document type</th>
                 <th>Version</th>
                 {canManage ? <th>Actions</th> : null}
               </tr>
@@ -79,7 +79,7 @@ export function AssemblyLibrary({
                       <Link href={'/templates/assemblies/' + assembly.id}>{assembly.name}</Link>
                       {assembly.archived ? <div className="state">Archived</div> : null}
                     </td>
-                    <td data-label="Output type">{typeName(assembly.outputTypeId)}</td>
+                    <td data-label="Document type">{typeName(assembly.outputTypeId)}</td>
                     <td data-label="Version">
                       {last ? `v${last.version} · ${last.status}` : '—'}
                       {published && published.id !== last?.id ? (
@@ -145,7 +145,7 @@ export function AssemblyLibrary({
           </table>
         </div>
       ) : (
-        <Empty>No assemblies yet</Empty>
+        <Empty>No layouts yet</Empty>
       )}
     </>
   );
@@ -171,7 +171,7 @@ function CreateAssembly({
   const [form, setForm] = useState(initialForm);
   return (
     <section className="new-resolution" aria-labelledby="new-assembly">
-      <h2 id="new-assembly">New assembly</h2>
+      <h2 id="new-assembly">New layout</h2>
       <form
         className="form-grid"
         data-dirty={JSON.stringify(form) !== JSON.stringify(initialForm) ? 'true' : 'false'}

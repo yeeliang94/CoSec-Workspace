@@ -1,3 +1,4 @@
+import { assertEditable } from '../../domain/resolution/cases';
 import { randomUUID } from 'node:crypto';
 import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -211,12 +212,12 @@ export async function loadCaseTemplate(
 ): Promise<LoadedCaseTemplate> {
   const types = await listOutputTypes(tx);
   const outputType = types.find((t) => t.id === selection.outputTypeId);
-  if (!outputType) throw new DomainError('The output type is unavailable.');
+  if (!outputType) throw new DomainError('The document type is unavailable.');
   const [assemblyRow] = await tx
     .select()
     .from(s.resolutionAssemblyVersions)
     .where(inArray(s.resolutionAssemblyVersions.id, [selection.assemblyVersionId]));
-  if (!assemblyRow) throw new DomainError('The assembly version is unavailable.', 'NOT_FOUND', 404);
+  if (!assemblyRow) throw new DomainError('The layout is unavailable.', 'NOT_FOUND', 404);
   const [assembly] = await tx
     .select()
     .from(s.resolutionAssemblies)
@@ -242,7 +243,7 @@ export async function loadCaseTemplate(
     clauses: selection.clauses.map((entry) => {
       const version = versions.find((v) => v.id === entry.clauseVersionId);
       if (!version || version.clauseId !== entry.clauseId)
-        throw new DomainError('A pinned clause version is unavailable.', 'NOT_FOUND', 404);
+        throw new DomainError('A paragraph version is unavailable.', 'NOT_FOUND', 404);
       return {
         key: entry.key,
         name: templates.find((t) => t.id === entry.clauseId)?.name ?? 'Clause',
@@ -359,12 +360,14 @@ export async function applyClauseAction(actor: Actor, caseId: string, input: unk
     action.action,
     async (current, tx) => {
       if (current.state !== 'Open') throw new DomainError('This case is closed.', 'CONFLICT', 409);
+      assertEditable(current);
       if (action.action === 'set_selection') return setSelection(actor, current, action, tx);
-      if (!current.selection) throw new DomainError('Choose an assembly and clauses first.');
+      if (!current.selection) throw new DomainError('Choose the layout and wording first.');
       if (action.action === 'accept_version') {
         const lib = await library(tx);
         const entry = current.selection.clauses.find((c) => c.key === action.key);
-        if (!entry) throw new DomainError('The clause is not in this case.', 'NOT_FOUND', 404);
+        if (!entry)
+          throw new DomainError('That paragraph is not in this resolution.', 'NOT_FOUND', 404);
         const pinned = lib.clauseVersions.find((v) => v.id === entry.clauseVersionId);
         const newer = lib.clauseVersions.find((v) => v.id === action.clauseVersionId);
         if (
@@ -372,7 +375,7 @@ export async function applyClauseAction(actor: Actor, caseId: string, input: unk
           newer.clauseId !== entry.clauseId ||
           (pinned && newer.version <= pinned.version)
         )
-          throw new DomainError('Choose a newer version of the same clause.');
+          throw new DomainError('Choose a newer version of the same paragraph.');
         const problem = clauseProblem(
           lib,
           newer,
@@ -405,7 +408,7 @@ export async function applyClauseAction(actor: Actor, caseId: string, input: unk
       const keys = new Set(current.selection.clauses.map((c) => c.key));
       for (const key of Object.keys(action.clauses))
         if (!keys.has(key))
-          throw new DomainError('Answers refer to a clause that is not in this case.');
+          throw new DomainError('Answers refer to a paragraph that is not in this resolution.');
       const template = await loadCaseTemplate(tx, current.selection);
       const ctx = await loadResolutionContext(actor, current.id, caseAsAt(current), tx);
       const answers = {
@@ -432,11 +435,10 @@ async function setSelection(
 ) {
   const lib = await library(tx);
   const outputType = (await listOutputTypes(tx)).find((t) => t.id === action.outputTypeId);
-  if (!outputType?.active) throw new DomainError('Choose an active output type.');
+  if (!outputType?.active) throw new DomainError('Choose an active document type.');
   const previous = current.selection;
   const assemblyVersion = lib.assemblyVersions.find((v) => v.id === action.assemblyVersionId);
-  if (!assemblyVersion)
-    throw new DomainError('The assembly version is unavailable.', 'NOT_FOUND', 404);
+  if (!assemblyVersion) throw new DomainError('The layout is unavailable.', 'NOT_FOUND', 404);
   const assembly = lib.assemblies.get(assemblyVersion.assemblyId);
   const keptAssembly =
     previous?.assemblyVersionId === assemblyVersion.id &&
@@ -468,14 +470,14 @@ async function setSelection(
       requested = [{ clauseId: director.clauseId, clauseVersionId: director.id }, ...requested];
   }
   if (requested.length > LIMITS.clauses)
-    throw new DomainError(`Choose at most ${LIMITS.clauses} clauses.`);
+    throw new DomainError(`Choose at most ${LIMITS.clauses} paragraphs.`);
   const used = new Set<string>();
   const entries: ClauseEntry[] = requested.map((item) => {
     const template = lib.clauses.get(item.clauseId);
     const version = lib.clauseVersions.find((v) => v.id === item.clauseVersionId);
     const name = template?.name ?? 'Clause';
     if (!version || version.clauseId !== item.clauseId)
-      throw new DomainError(`"${name}": the clause version is unavailable.`, 'NOT_FOUND', 404);
+      throw new DomainError(`"${name}": the paragraph version is unavailable.`, 'NOT_FOUND', 404);
     // Keys keep clause answers across reordering; without a key, the next unused entry of the clause.
     const existing = previous?.clauses.find(
       (c) =>
@@ -583,7 +585,7 @@ async function prefillDirectorClause(
 /** Live preview from the saved draft and current records; no side effects. */
 export async function previewCase(actor: Actor, caseId: string) {
   const rc = await readCase(actor, caseId);
-  if (!rc.selection) throw new DomainError('Choose an assembly and clauses first.');
+  if (!rc.selection) throw new DomainError('Choose the layout and wording first.');
   const template = await loadCaseTemplate(db, rc.selection);
   const ctx = await loadResolutionContext(actor, caseId, caseAsAt(rc));
   const result = compileDocument(

@@ -9,6 +9,8 @@ import {
 } from '@/components/registers/company-registers';
 import { ActionForm } from '@/components/forms';
 import { WorkTable } from '@/components/work-list';
+import { CompanyRelationships } from '@/components/resolution/relationships';
+import { formatYearEnd, industryLabel } from '@/domain/company';
 export default function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data } = useWorkspace();
@@ -75,7 +77,14 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
         </div>
         <div>
           <dt>Financial year end</dt>
-          <dd>{formatDate(company.financialYearEnd)}</dd>
+          <dd>{formatYearEnd(company.financialYearEnd)}</dd>
+        </div>
+        <div>
+          <dt>Industry</dt>
+          <dd>
+            {industryLabel(company.industry)}
+            {company.activity ? <div className="metadata">{company.activity}</div> : null}
+          </dd>
         </div>
         <div>
           <dt>Registered address</dt>
@@ -116,63 +125,13 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
           </div>
         </details>
       ) : null}
-      <section className="section">
-        <div className="page-header section-header">
-          <h2>Officers as at {formatDate(asAt)}</h2>
-          <label>
-            Record as at
-            <input
-              type="date"
-              value={asAt}
-              onChange={(e) => e.target.value && setAsAt(e.target.value)}
-            />
-          </label>
+      {asAt !== currentDate() ? <p className="warning">Historical view · read only</p> : null}
+      {error ? (
+        <div className="feedback error" role="alert">
+          {error}
         </div>
-        {asAt !== currentDate() ? <p className="warning">Historical view · read only</p> : null}
-        {error ? (
-          <div className="feedback error" role="alert">
-            {error}
-          </div>
-        ) : record?.officers?.length ? (
-          <div className="table-wrap">
-            <table>
-              <caption className="sr-only">Dated director appointments</caption>
-              <thead>
-                <tr>
-                  <th>Director</th>
-                  <th>Appointed</th>
-                  <th>Record event</th>
-                </tr>
-              </thead>
-              <tbody>
-                {record.officers.map((officer) => (
-                  <tr key={officer.personId}>
-                    <td>{officer.personName}</td>
-                    <td className="nowrap">{formatDate(officer.appointedOn)}</td>
-                    <td>
-                      <details className="file-details">
-                        <summary>Record references</summary>
-                        <dl className="record-meta">
-                          <div>
-                            <dt>Person</dt>
-                            <dd>{officer.personId}</dd>
-                          </div>
-                          <div>
-                            <dt>Event</dt>
-                            <dd>{officer.eventId}</dd>
-                          </div>
-                        </dl>
-                      </details>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="muted">No evidenced director appointments at this date.</p>
-        )}
-      </section>
+      ) : null}
+      <CompanyRelationships companyId={id} asAt={asAt} onAsAtChange={setAsAt} />
       <MembersRegister companyId={id} asAt={asAt} />
       {data.actor.capabilities.includes('view_bo') ? (
         <BeneficialOwnershipRegister companyId={id} asAt={asAt} />

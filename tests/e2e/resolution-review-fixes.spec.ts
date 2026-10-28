@@ -35,42 +35,23 @@ async function post<T>(page: Page, path: string, data: object): Promise<T> {
   return response.json();
 }
 
-test('company and view changes preserve relationship drafts until discard is accepted', async ({
+test('leaving a company page preserves an unsaved person draft until discard is accepted', async ({
   page,
 }) => {
   await login(page);
-  await page.goto('/people');
-  await page.getByRole('button', { name: 'Company relationships', exact: true }).click();
-  const company = page.getByRole('combobox', { name: 'Company', exact: true });
-  const first = await company.inputValue();
-  const second = await company
-    .locator('option')
-    .evaluateAll(
-      (options, first) =>
-        options
-          .map((option) => (option as HTMLOptionElement).value)
-          .find((value) => value !== first),
-      first,
-    );
-  expect(second).toBeTruthy();
-  await page.getByText('Add a relationship', { exact: true }).click();
+  const workspace: Workspace = await (await page.request.get('/api/workspace')).json();
+  await page.goto('/companies/' + workspace.companies[0].id);
+  await page.getByText('Add a person', { exact: true }).click();
   await page.getByLabel('Capacity', { exact: true }).fill('Unsaved relationship draft');
-  await company.selectOption(second!);
-  await answerPrompt(page, false);
-  await expect(company).toHaveValue(first);
-  await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue(
-    'Unsaved relationship draft',
-  );
-  await page.getByRole('button', { name: 'Directory', exact: true }).click();
+  const nav = page.getByRole('navigation', { name: 'Main navigation' });
+  await nav.getByRole('link', { name: 'People', exact: true }).click();
   await answerPrompt(page, false);
   await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue(
     'Unsaved relationship draft',
   );
-  await company.selectOption(second!);
+  await nav.getByRole('link', { name: 'People', exact: true }).click();
   await answerPrompt(page, true);
-  await expect(company).toHaveValue(second!);
-  await page.getByText('Add a relationship', { exact: true }).click();
-  await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue('');
+  await page.waitForURL(/\/people$/);
 });
 
 test('per-person multi-choice answers save and generate, then attach the exact document to a W04 pack', async ({
@@ -174,7 +155,7 @@ test('per-person multi-choice answers save and generate, then attach the exact d
     action: 'submit',
     expectedRevision: version.revision,
   }));
-  await login(page, 'reviewer');
+  await login(page, 'admin');
   await post(page, versionPath, {
     action: 'publish',
     expectedRevision: version.revision,
@@ -240,8 +221,8 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   expect(saved.case.answers.clauses[item.selection!.clauses[0].key].selected_options).toEqual({
     [person.id]: ['second'],
   });
-  await page.getByRole('button', { name: 'Documents', exact: true }).click();
-  await page.getByRole('button', { name: 'Generate Word document', exact: true }).click();
+  await page.getByRole('button', { name: 'Word documents', exact: true }).click();
+  await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });

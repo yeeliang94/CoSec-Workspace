@@ -21,7 +21,12 @@ type Draft = { shared: Answers; clauses: Record<string, Answers>; signers: Signe
 
 export function CaseQuestions({ api }: { api: CaseApi }) {
   const id = api.detail.case.id;
-  const load = useLoad(() => getJson<ClausesResponse>(`/api/resolution-cases/${id}/clauses`), [id]);
+  // On the single Prepare page the wording sits above; reload when its saved selection changes.
+  const selection = api.detail.case.selection;
+  const load = useLoad(
+    () => getJson<ClausesResponse>(`/api/resolution-cases/${id}/clauses`),
+    [id, selection?.revision ?? 0, selection?.assemblyVersionId ?? ''],
+  );
   if (!load.data)
     return (
       <LoadState
@@ -34,8 +39,8 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
   if (!load.data.selection || !load.data.form || !load.data.formInput)
     return (
       <section>
-        <h2>Questions</h2>
-        <p className="metadata">Choose an assembly and clauses first.</p>
+        <h2>3. Answers</h2>
+        <p className="metadata">Choose the wording in step 2 first.</p>
       </section>
     );
   return (
@@ -168,7 +173,7 @@ function QuestionForm({
       }}
     >
       <div className="page-header section-header">
-        <h2 id="case-questions">Questions</h2>
+        <h2 id="case-questions">3. Answers</h2>
         {editable ? (
           <div className="actions question-save">
             <span className="metadata" aria-live="polite">
@@ -245,7 +250,7 @@ function QuestionForm({
                 issuesFor={(field) => issuesFor(field, clause.key)}
               />
             ) : (
-              <p className="metadata">No questions for this clause.</p>
+              <p className="metadata">Nothing to answer for this paragraph.</p>
             )}
           </section>
         ))}

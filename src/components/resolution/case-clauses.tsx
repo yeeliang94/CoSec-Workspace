@@ -152,7 +152,7 @@ function ClauseSelection({
         model.form?.clauses.find((c) => c.key === entry.key)?.clauseName ||
         exact?.name ||
         any?.name ||
-        'Clause',
+        'Paragraph',
       category: exact?.category || any?.category || '',
       version: exact?.version || newer?.pinnedVersion || 0,
     };
@@ -249,7 +249,7 @@ function ClauseSelection({
 
   return (
     <section aria-labelledby="case-clauses">
-      <h2 id="case-clauses">Clauses</h2>
+      <h2 id="case-clauses">2. Wording</h2>
       <p className="sr-only" role="status" aria-live="polite">
         {announce}
       </p>
@@ -277,7 +277,7 @@ function ClauseSelection({
       ) : null}
       <div className="toolbar">
         <label className="wide-select">
-          Output type
+          Document type
           <select
             value={outputTypeId}
             disabled={!editable || action.pending}
@@ -295,13 +295,13 @@ function ClauseSelection({
           </select>
         </label>
         <label className="wide-select">
-          Assembly
+          Layout
           <select
             value={assemblyVersionId}
             disabled={!editable || action.pending}
             onChange={(event) => setAssemblyVersionId(event.target.value)}
           >
-            <option value="">{assemblies.length ? 'Select…' : 'No published assembly'}</option>
+            <option value="">{assemblies.length ? 'Select…' : 'No layout available'}</option>
             {assemblies.map((a) => (
               <option key={a.assemblyVersionId} value={a.assemblyVersionId}>
                 {a.name} · v{a.version}
@@ -318,15 +318,15 @@ function ClauseSelection({
               if (selection)
                 void save(
                   entries,
-                  'Output type and assembly changed. Each clause now uses its matching wording.',
+                  'Document type and layout changed. Each paragraph now uses its matching wording.',
                   {},
                   true,
                 );
               // An empty first selection starts from the assembly's starter clauses (server rule).
-              else void save([], `Started from ${chosenAssembly?.name || 'the assembly'}`);
+              else void save([], `Started from ${chosenAssembly?.name || 'the layout'}`);
             }}
           >
-            {selection ? 'Apply output type and assembly' : 'Use this assembly'}
+            {selection ? 'Apply document type and layout' : 'Use this layout'}
           </button>
         ) : null}
         {typeChanged ? (
@@ -343,18 +343,19 @@ function ClauseSelection({
         ) : null}
       </div>
       {!selection ? (
-        <p className="metadata">Choose an output type and a published assembly.</p>
+        <p className="metadata">Choose a document type and layout, then press “Use this layout”.</p>
       ) : (
         // Not inert while pending: that would blur the pressed control. Handlers ignore input
         // while a save is in flight instead.
         <div className="clause-picker" ref={listRef} aria-busy={busy}>
           <div className="clause-selected">
             <h3 id="selected-clauses" tabIndex={-1}>
-              Selected clauses ({entries.length})
+              Paragraphs in this resolution ({entries.length})
             </h3>
             {typeChanged ? (
               <p className="metadata">
-                Clause changes use the saved output type and assembly until you apply the new ones.
+                Paragraph changes use the saved document type and layout until you apply the new
+                ones.
               </p>
             ) : null}
             {entries.length ? (
@@ -511,18 +512,18 @@ function ClauseSelection({
                 })}
               </ol>
             ) : (
-              <p className="metadata">No clauses yet. Add clauses from the library.</p>
+              <p className="metadata">No paragraphs yet. Add them from standard wording.</p>
             )}
           </div>
           {editable ? (
             <div className="clause-library-panel">
-              <h3>Library</h3>
+              <h3>Standard wording</h3>
               <label className="search">
-                <span className="sr-only">Search clause library</span>
+                <span className="sr-only">Search standard wording</span>
                 <Icon kind="search" />
                 <input
                   type="search"
-                  placeholder="Search clauses"
+                  placeholder="Search standard wording"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -563,8 +564,8 @@ function ClauseSelection({
               ) : (
                 <p className="metadata">
                   {library.length
-                    ? 'No matching clauses'
-                    : 'No published clauses have wording for this output type.'}
+                    ? 'No matching paragraphs'
+                    : 'No standard wording exists for this document type yet.'}
                 </p>
               )}
             </div>

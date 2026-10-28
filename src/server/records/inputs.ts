@@ -47,7 +47,7 @@ export const relationshipInput = z.discriminatedUnion('action', [
     action: z.literal('add'),
     requestId,
     personId: recordId,
-    role: z.enum(['member', 'secretary', 'auditor', 'other']),
+    role: z.enum(['director', 'member', 'secretary', 'auditor', 'other']),
     capacity: z.string().trim().max(200).default(''),
     startDate: date.nullable(),
     evidenceIds: evidenceIds.default([]),
@@ -163,6 +163,14 @@ export const caseActionInput = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('cancel'), ...mutation, reason }),
   z.object({ action: z.literal('complete'), ...mutation }),
+  z.object({ action: z.literal('send_for_review'), ...mutation, reviewerId: recordId }),
+  z.object({
+    action: z.literal('review'),
+    ...mutation,
+    decision: z.enum(['Approved', 'Returned']),
+    comment: z.string().trim().max(4000).default(''),
+  }),
+  z.object({ action: z.literal('reopen'), ...mutation }),
   z.object({
     action: z.literal('set_custom'),
     ...mutation,

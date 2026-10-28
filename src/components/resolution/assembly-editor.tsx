@@ -45,7 +45,7 @@ export type Draft = {
 const SECTIONS = [
   ['content', 'Content'],
   ['signatures', 'Signatures and layout'],
-  ['starters', 'Starter clauses'],
+  ['starters', 'Starting paragraphs'],
   ['details', 'Details'],
   ['preview', 'Preview'],
   ['versions', 'Versions'],
@@ -679,7 +679,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                 <label className="wide-select">
                   Add from library
                   <select value={adding} onChange={(event) => setAdding(event.target.value)}>
-                    <option value="">Choose a clause…</option>
+                    <option value="">Choose a paragraph…</option>
                     {clauses
                       .filter((c) => !draft.starterClauseIds.includes(c.id))
                       .map((c) => (

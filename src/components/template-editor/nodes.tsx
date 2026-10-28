@@ -322,8 +322,8 @@ function ClauseSlotView({ node, getPos, selected }: NodeViewProps) {
           editLabel="Edit numbering"
         />
         <ol className={numbered ? '' : 'unnumbered'} aria-label="Sample clauses">
-          <li>Sample clause wording appears here in the preparer&apos;s order.</li>
-          <li>Each clause uses its wording for the chosen output type.</li>
+          <li>The chosen paragraphs appear here, in the preparer&apos;s order.</li>
+          <li>Each paragraph uses its wording for the chosen document type.</li>
         </ol>
       </div>
     </NodeViewWrapper>

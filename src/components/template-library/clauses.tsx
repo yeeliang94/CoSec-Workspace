@@ -85,7 +85,7 @@ export function ClauseLibrary({
           <Icon kind="search" />
           <input
             type="search"
-            placeholder="Search clauses"
+            placeholder="Search standard wording"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -149,7 +149,7 @@ export function ClauseLibrary({
                 <caption className="sr-only">{group.name} clauses</caption>
                 <thead>
                   <tr>
-                    <th>Clause</th>
+                    <th>Paragraph</th>
                     <th>Version</th>
                     <th>Act</th>
                     {canManage ? <th>Actions</th> : null}
@@ -266,7 +266,7 @@ export function ClauseLibrary({
                                         clause,
                                         {
                                           archived: true,
-                                          reason: 'Archived from the clause library',
+                                          reason: 'Archived from standard wording',
                                         },
                                         `${clause.name} archived`,
                                       );
@@ -305,7 +305,7 @@ export function ClauseLibrary({
         ))
       ) : (
         <Empty>
-          {filtered ? 'No matching clauses' : 'No clauses yet'}
+          {filtered ? 'No matching paragraphs' : 'No paragraphs yet'}
           {!filtered && canManage ? (
             <div>
               <button type="button" className="primary" onClick={() => onCreating(true)}>
@@ -369,7 +369,7 @@ function CreateClause({
   const [form, setForm] = useState(initialForm);
   return (
     <section className="new-resolution" aria-labelledby="new-clause">
-      <h2 id="new-clause">New clause</h2>
+      <h2 id="new-clause">New paragraph</h2>
       <form
         className="form-grid"
         data-dirty={JSON.stringify(form) !== JSON.stringify(initialForm) ? 'true' : 'false'}

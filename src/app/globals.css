@@ -76,8 +76,11 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.6;
+}
+[aria-busy='true'] button:disabled {
+  cursor: wait;
 }
 a {
   color: var(--primary);
@@ -209,10 +212,29 @@ input::placeholder,
 textarea::placeholder {
   color: #666f77;
 }
+select {
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23606972' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+select[multiple] {
+  padding-right: 10px;
+  background-image: none;
+}
 input:hover,
 select:hover,
 textarea:hover {
   border-color: #98a7b1;
+}
+/* Typing into a field shows a darker border rather than a ring around it. */
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--focus);
 }
 textarea {
   min-height: 94px;
@@ -2270,7 +2292,8 @@ dialog.drawer::backdrop {
 .template-toolbar select {
   width: 128px;
   min-height: 36px;
-  padding: 4px 6px;
+  padding: 4px 24px 4px 6px;
+  background-position: right 7px center;
   font-size: calc(12px * var(--scale));
 }
 .toolbar-group {
@@ -2643,4 +2666,92 @@ dialog.confirm-dialog .actions {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-sm);
+}
+
+/* New company: day-and-month year end and the people entered with it */
+.year-end {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 8px;
+}
+.year-end legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+.opening-people {
+  max-width: 760px;
+  margin: 20px 0 16px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.opening-person {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) auto;
+  gap: 10px;
+  align-items: end;
+  width: 100%;
+}
+@media (max-width: 650px) {
+  .opening-person {
+    grid-template-columns: 1fr 1fr;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--row-border, #e7eaed);
+  }
+  .opening-person label:first-child {
+    grid-column: 1/-1;
+  }
+  .opening-person > button {
+    justify-self: start;
+    padding-left: 0;
+  }
+  .opening-person .sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+    margin: 0;
+  }
+}
+.year-end label + label,
+.opening-person label + label {
+  margin-top: 0;
+}
+
+/* Resolution hand-off: where it stands and who acts next */
+.review-panel {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin: 16px 0 8px;
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+.review-panel.approved {
+  border-color: #b9d0c1;
+}
+.review-panel h2 {
+  font-size: calc(17px * var(--scale));
+}
+.send-review {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.send-review-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin: 12px 0 8px;
+}
+.send-review-form label {
+  min-width: 240px;
+}
+.cancel-link {
+  margin-top: 16px;
+  color: var(--danger, #a83230);
 }

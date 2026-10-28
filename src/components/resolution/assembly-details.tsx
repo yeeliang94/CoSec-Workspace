@@ -39,7 +39,7 @@ export function AssemblyDetails({
         </h2>
         <dl className="record-meta">
           <div>
-            <dt>Output type</dt>
+            <dt>Document type</dt>
             <dd>
               {page.state!.outputTypes.find((type) => type.id === template.outputTypeId)?.name ||
                 template.outputTypeId}

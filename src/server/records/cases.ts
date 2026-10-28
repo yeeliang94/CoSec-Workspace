@@ -25,6 +25,7 @@ import type {
 } from '../../domain/resolution/model';
 import {
   assertCompletable,
+  assertEditable,
   assertOpen,
   defaultSteps,
   emptyDecision,
@@ -224,6 +225,9 @@ export type CaseAction = Base &
       }
     | { action: 'cancel'; reason: string }
     | { action: 'complete' }
+    | { action: 'send_for_review'; reviewerId: string }
+    | { action: 'review'; decision: 'Approved' | 'Returned'; comment: string }
+    | { action: 'reopen' }
     | {
         action: 'set_custom';
         definitionId: string;
@@ -245,7 +249,7 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
       const now = new Date().toISOString();
       switch (input.action) {
         case 'link_job': {
-          assertOpen(c);
+          assertEditable(c);
           if (c.jobId) throw new DomainError('This case is already linked to a W04 job.');
           const job = await linkedJob(actor, c.companyId, c.kind, input.jobId, tx);
           c.jobId = job.id;
@@ -257,7 +261,7 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
           };
         }
         case 'update_details': {
-          assertOpen(c);
+          assertEditable(c);
           if (input.title !== undefined) c.title = input.title.trim();
           if (input.instructionDate !== undefined) c.instructionDate = input.instructionDate;
           if (input.resolutionDate !== undefined) c.resolutionDate = input.resolutionDate;
@@ -358,8 +362,50 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
           c.state = 'Complete';
           return { next: c, detail: 'Case completed.' };
         }
-        case 'set_custom': {
+        case 'send_for_review': {
+          assertEditable(c);
+          if (!c.selection) throw new DomainError('Choose the wording before sending for review.');
+          if (input.reviewerId === actor.id)
+            throw new DomainError('Choose someone else to review your work.');
+          await assertAssignable(input.reviewerId, c.companyId, tx);
+          c.review = {
+            status: 'With reviewer',
+            reviewerId: input.reviewerId,
+            sentBy: actor.id,
+            sentAt: now,
+            decidedAt: null,
+            comment: '',
+          };
+          return { next: c, detail: 'Sent for review.' };
+        }
+        case 'review': {
           assertOpen(c);
+          if (c.review?.status !== 'With reviewer')
+            throw new DomainError('This resolution is not waiting for review.');
+          if (c.review.reviewerId !== actor.id)
+            throw new DomainError('Only the chosen reviewer can review this.', 'FORBIDDEN', 403);
+          if (input.decision === 'Returned' && !input.comment)
+            throw new DomainError('Say what needs changing.');
+          c.review = {
+            ...c.review,
+            status: input.decision,
+            decidedAt: now,
+            comment: input.comment,
+          };
+          return {
+            next: c,
+            detail: input.decision === 'Approved' ? 'Approved.' : 'Returned for changes.',
+            reason: input.comment || undefined,
+          };
+        }
+        case 'reopen': {
+          assertOpen(c);
+          if (!c.review) throw new DomainError('This resolution is already a draft.');
+          c.review = null;
+          return { next: c, detail: 'Taken back for changes.' };
+        }
+        case 'set_custom': {
+          assertEditable(c);
           c.customValues = await appendCustomValue(actor, c.customValues, input, 'case', tx);
           return { next: c, detail: `Set ${input.definitionId}.`, reason: input.reason };
         }

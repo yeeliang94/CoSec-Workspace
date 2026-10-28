@@ -22,16 +22,16 @@ async function discard(page: Page, action: () => Promise<unknown>, accept: boole
 test('creation forms preserve meaningful edits until a confirmed discard', async ({ page }) => {
   await login(page);
   await page.goto('/templates');
-  await page.getByRole('button', { name: 'New clause', exact: true }).click();
-  const clause = page.getByRole('region', { name: 'New clause', exact: true });
+  await page.getByRole('button', { name: 'New paragraph', exact: true }).click();
+  const clause = page.getByRole('region', { name: 'New paragraph', exact: true });
   await clause.getByLabel('Description', { exact: true }).fill('Unsaved description only');
-  await discard(page, () => page.getByRole('button', { name: /^Assemblies/ }).click(), false);
+  await discard(page, () => page.getByRole('button', { name: /^Layouts/ }).click(), false);
   await expect(clause.getByLabel('Description', { exact: true })).toHaveValue(
     'Unsaved description only',
   );
   await discard(
     page,
-    () => page.getByRole('button', { name: 'New clause', exact: true }).click(),
+    () => page.getByRole('button', { name: 'New paragraph', exact: true }).click(),
     false,
   );
   await discard(
@@ -42,10 +42,10 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   await expect(clause.getByLabel('Description', { exact: true })).toHaveValue(
     'Unsaved description only',
   );
-  await discard(page, () => page.getByRole('button', { name: /^Assemblies/ }).click(), true);
+  await discard(page, () => page.getByRole('button', { name: /^Layouts/ }).click(), true);
   await expect(clause).toHaveCount(0);
-  await page.getByRole('button', { name: 'New assembly', exact: true }).click();
-  const assembly = page.getByRole('region', { name: 'New assembly', exact: true });
+  await page.getByRole('button', { name: 'New layout', exact: true }).click();
+  const assembly = page.getByRole('region', { name: 'New layout', exact: true });
   await assembly.getByLabel('Description', { exact: true }).fill('Unsaved assembly description');
   await discard(
     page,
@@ -84,7 +84,7 @@ test('supporting routes keep their parent navigation current', async ({ page }) 
   await login(page);
   for (const [route, parent] of [
     ['/templates', 'Resolutions'],
-    ['/people', 'Resolutions'],
+    ['/people', 'People'],
     ['/audit', 'Settings'],
   ]) {
     await page.goto(route);

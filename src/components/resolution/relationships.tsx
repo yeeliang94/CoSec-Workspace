@@ -15,17 +15,30 @@ import { ActionFeedback, useAction } from './use-action';
 type RelationshipView = CompanyRelationship & { personName: string };
 const ROLE_NAMES: Record<RelationshipRole, string> = {
   director: 'Director',
-  member: 'Member',
+  member: 'Shareholder',
   secretary: 'Secretary',
   auditor: 'Auditor',
   other: 'Other',
 };
 export const roleName = (role: RelationshipRole) => ROLE_NAMES[role] || role;
 
-/** Directors as at a date (from posted officer events) and other dated relationships. */
-export function CompanyRelationships({ companyId }: { companyId: string }) {
+const ROLE_ORDER: RelationshipRole[] = ['director', 'secretary', 'member', 'auditor', 'other'];
+
+/** Everyone linked to a company as at a date, with add and end actions. */
+export function CompanyRelationships({
+  companyId,
+  asAt: pageAsAt,
+  onAsAtChange,
+}: {
+  companyId: string;
+  /** The page's record-as-at date, when the page shares one date across its sections. */
+  asAt?: string;
+  onAsAtChange?: (asAt: string) => void;
+}) {
   const { data } = useWorkspace();
-  const [asAt, setAsAt] = useState(currentDate());
+  const [ownAsAt, setOwnAsAt] = useState(currentDate());
+  const asAt = pageAsAt ?? ownAsAt;
+  const setAsAt = onAsAtChange ?? setOwnAsAt;
   const load = useLoad(
     () =>
       getJson<{ relationships: RelationshipView[]; directorsAsAt: PersonSnapshot[] }>(
@@ -36,73 +49,54 @@ export function CompanyRelationships({ companyId }: { companyId: string }) {
   const canManage = Boolean(data?.actor.capabilities.includes('manage_people'));
   const active = (r: RelationshipView) =>
     (!r.startDate || r.startDate <= asAt) && (!r.endDate || r.endDate > asAt);
+  const sorted = [...(load.data?.relationships ?? [])].sort(
+    (a, b) =>
+      ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
+      a.personName.localeCompare(b.personName),
+  );
+  const ended = sorted.filter((r) => !active(r));
   return (
-    <div className="relationships">
+    <section className="section relationships" aria-labelledby="company-people">
       <div className="page-header section-header">
-        <h2>Relationships</h2>
+        <h2 id="company-people">People</h2>
         <label className="as-at">
           Record as at
-          <input type="date" value={asAt} onChange={(event) => setAsAt(event.target.value)} />
+          <input
+            type="date"
+            value={asAt}
+            onChange={(event) => event.target.value && setAsAt(event.target.value)}
+          />
         </label>
       </div>
       <LoadState
         loading={load.loading && !load.data}
         error={load.error}
         reload={() => void load.reload()}
-        label="relationships"
+        label="people"
       />
       {load.data ? (
         <>
-          <h3>Directors</h3>
-          {load.data.directorsAsAt.length ? (
-            <div className="table-wrap">
-              <table>
-                <caption className="sr-only">Directors as at {asAt}</caption>
-                <thead>
-                  <tr>
-                    <th>Director</th>
-                    <th>Capacity</th>
-                    <th>Appointed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {load.data.directorsAsAt.map((person) => (
-                    <tr key={person.id}>
-                      <td>{person.name}</td>
-                      <td>{person.capacity}</td>
-                      <td className="nowrap">{formatDate(person.appointedOn)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="metadata">No directors on record at this date.</p>
-          )}
-          <details className="advanced-filters">
-            <summary>Director record source</summary>
-            <p>From posted officer events. Record changes through a director change job.</p>
-          </details>
-          <h3 className="subsection">Other relationships</h3>
           <RelationshipTable
-            rows={load.data.relationships.filter((r) => r.role !== 'director' && active(r))}
+            rows={sorted.filter(active)}
             companyId={companyId}
-            canManage={canManage}
+            canManage={canManage && asAt === currentDate()}
             onChanged={load.reload}
           />
-          <details className="advanced-filters">
-            <summary>Show ended and future relationships</summary>
-            <RelationshipTable
-              rows={load.data.relationships.filter((r) => !active(r))}
-              companyId={companyId}
-              canManage={false}
-              onChanged={load.reload}
-            />
-          </details>
+          {ended.length ? (
+            <details className="advanced-filters">
+              <summary>Former and future ({ended.length})</summary>
+              <RelationshipTable
+                rows={ended}
+                companyId={companyId}
+                canManage={false}
+                onChanged={load.reload}
+              />
+            </details>
+          ) : null}
           {canManage ? <AddRelationship companyId={companyId} onAdded={load.reload} /> : null}
         </>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -121,7 +115,7 @@ function RelationshipTable({
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
   const action = useAction();
-  if (!rows.length) return <p className="metadata">None.</p>;
+  if (!rows.length) return <p className="metadata">No one on record at this date.</p>;
   return (
     <>
       <ActionFeedback
@@ -149,18 +143,13 @@ function RelationshipTable({
                 <td>
                   <Link href={`/people?person=${row.personId}`}>{row.personName}</Link>
                 </td>
-                <td>
-                  {roleName(row.role)}
-                  {row.projectedFrom ? (
-                    <div className="metadata">From posted officer events</div>
-                  ) : null}
-                </td>
+                <td>{roleName(row.role)}</td>
                 <td>{row.capacity || '—'}</td>
                 <td className="nowrap">{formatDate(row.startDate)}</td>
                 <td className="nowrap">{formatDate(row.endDate)}</td>
                 {canManage ? (
                   <td>
-                    {!row.projectedFrom && !row.endDate ? (
+                    {!row.endDate ? (
                       ending === row.id ? (
                         <form
                           className="form-stack inline-form"
@@ -249,7 +238,7 @@ function AddRelationship({
   const action = useAction();
   const [form, setForm] = useState({
     personId: '',
-    role: 'member' as Exclude<RelationshipRole, 'director'>,
+    role: 'director' as RelationshipRole,
     capacity: '',
     startDate: '',
     evidenceIds: [] as string[],
@@ -258,45 +247,64 @@ function AddRelationship({
   const dirty = Boolean(form.personId || form.capacity || form.startDate);
   return (
     <details className="disclosure">
-      <summary>Add a relationship</summary>
+      <summary>Add a person</summary>
       <form
         className="form-grid"
         data-dirty={dirty ? 'true' : 'false'}
         onSubmit={async (event) => {
           event.preventDefault();
+          const typed = form.personId.trim();
+          const match = (people.data?.people ?? []).find(
+            (p) => p.fullName.toLowerCase() === typed.toLowerCase(),
+          );
           const ok = await action.run(
-            () =>
+            async () =>
               postJson(`/api/companies/${companyId}/relationships`, {
                 action: 'add',
                 requestId: newRequestId(),
-                personId: form.personId,
+                personId:
+                  match?.id ??
+                  (
+                    await postJson<Person>('/api/people', {
+                      action: 'create',
+                      requestId: newRequestId(),
+                      fullName: typed,
+                    })
+                  ).id,
                 role: form.role,
                 capacity: form.capacity.trim(),
                 startDate: form.startDate || null,
                 evidenceIds: form.evidenceIds,
               }),
-            'Relationship added',
+            'Person added',
           );
           if (ok) {
-            setForm({ personId: '', role: 'member', capacity: '', startDate: '', evidenceIds: [] });
+            setForm({
+              personId: '',
+              role: 'director',
+              capacity: '',
+              startDate: '',
+              evidenceIds: [],
+            });
             await onAdded();
           }
         }}
       >
         <label>
-          Person
-          <select
+          Name
+          <input
             required
+            list={`people-${companyId}`}
+            autoComplete="off"
+            placeholder="Type a name"
             value={form.personId}
             onChange={(event) => setForm({ ...form, personId: event.target.value })}
-          >
-            <option value="">{people.loading ? 'Loading people…' : 'Select…'}</option>
+          />
+          <datalist id={`people-${companyId}`}>
             {(people.data?.people ?? []).map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.fullName}
-              </option>
+              <option key={person.id} value={person.fullName} />
             ))}
-          </select>
+          </datalist>
         </label>
         <label>
           Role
@@ -304,7 +312,8 @@ function AddRelationship({
             value={form.role}
             onChange={(event) => setForm({ ...form, role: event.target.value as typeof form.role })}
           >
-            <option value="member">Member</option>
+            <option value="director">Director</option>
+            <option value="member">Shareholder</option>
             <option value="secretary">Secretary</option>
             <option value="auditor">Auditor</option>
             <option value="other">Other</option>
@@ -351,8 +360,7 @@ function AddRelationship({
         <div className="full form-footer">
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
-            <button disabled={action.pending}>Add relationship</button>
-            <span className="metadata">Directors are added through a W04 director change.</span>
+            <button disabled={action.pending}>Add person</button>
           </div>
         </div>
       </form>

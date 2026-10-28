@@ -322,6 +322,15 @@ export type DecisionRecord = {
   actorId: string | null;
   note: string;
 };
+/** One hand-off of a prepared resolution to another user. */
+export type CaseReview = {
+  status: 'With reviewer' | 'Returned' | 'Approved';
+  reviewerId: string;
+  sentBy: string;
+  sentAt: string;
+  decidedAt: string | null;
+  comment: string;
+};
 export type ResolutionCase = {
   id: string;
   companyId: string;
@@ -343,6 +352,8 @@ export type ResolutionCase = {
   answers: { selectionRevision: number; shared: Answers; clauses: Record<string, Answers> };
   signers: SignerSelection;
   decision: DecisionRecord;
+  /** Absent while the preparer is still drafting. */
+  review?: CaseReview | null;
   families: { id: string; title: string; createdAt: string }[];
   history: { id: string; action: string; actorId: string; at: string; detail: string }[];
   createdBy: string;

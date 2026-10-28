@@ -1,6 +1,6 @@
 # CoSec Workspace
 
-The [resolution builder](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md) is implemented for fictional-data evaluation: an in-app clause library and assembly builder, people and dated company relationships, resolution cases with steps, generated question forms, native Word (.docx) generation with immutable history, and scoped before/after audit. Status per milestone, evidence and open gaps are in [docs/RESOLUTION_BUILDER_PROGRESS.md](docs/RESOLUTION_BUILDER_PROGRESS.md). Sample clause wording is fictional, not approved legal precedent.
+The [resolution builder](RESOLUTION_BUILDER_IMPLEMENTATION_PLAN.md) is implemented for fictional-data evaluation: in-app standard wording (clauses) and layouts (assemblies), people and dated company relationships, resolutions prepared on one page with optional colleague review and direct completion by the preparer, generated question forms, native Word (.docx) generation with immutable history, and scoped before/after audit. Status per milestone, evidence and open gaps are in [docs/RESOLUTION_BUILDER_PROGRESS.md](docs/RESOLUTION_BUILDER_PROGRESS.md). Sample clause wording is fictional, not approved legal precedent.
 
 The local first build now supports annual returns (W03), director appointments/cessations (W04), members/share capital/transfers (W05), restricted beneficial ownership records (W06), integrated follow-ups, company history, private evidence, exact-version review, external filing tracking and editable settings.
 
@@ -23,7 +23,7 @@ npm run worker
 
 Open [CoSec Workspace](http://127.0.0.1:4300). Generated fictional staff credentials are saved privately in `.local/ACCOUNTS.md`. See [local setup](docs/LOCAL_SETUP.md), [implementation plan](IMPLEMENTATION_PLAN.md), [recovery procedure](docs/RECOVERY.md) and [verification evidence](docs/VERIFICATION.md). No approved statutory rules or filing templates are bundled; this build is for fictional-data evaluation.
 
-[DESIGN.md](DESIGN.md) remains the approved Option A visual authority. [DESIGN_SPEC.md](DESIGN_SPEC.md) and the unchanged [original brief](references/product-brief.docx) define the broader product. The remaining W01–W12 workflows remain planned. BO access requires explicit `view_bo` assignment in Settings → Users; existing accounts are unchanged. See the [records scope](docs/COMPANY_RECORDS_PLAN.md).
+[DESIGN.md](DESIGN.md) remains the approved Option A visual authority. [DESIGN_SPEC.md](DESIGN_SPEC.md) and the unchanged [original brief](references/product-brief.docx) define the broader product. The remaining W01–W12 workflows remain planned. Accounts have one of two roles, Admin or User, set in Settings → Users; both can see beneficial ownership. See the [records scope](docs/COMPANY_RECORDS_PLAN.md).
 
 ## Design reference
 

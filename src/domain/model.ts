@@ -12,6 +12,32 @@ export type Capability =
   | 'generate_documents'
   | 'view_audit'
   | 'export_audit';
+/** Two roles. Capabilities stay as the server's fine-grained checks, set from the role. */
+export type Role = 'admin' | 'user';
+const USER_CAPABILITIES: Capability[] = [
+  'prepare_job',
+  'review_pack',
+  'confirm_record',
+  'record_filing',
+  'view_bo',
+  'manage_people',
+  'generate_documents',
+  'view_audit',
+];
+export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
+  admin: [
+    ...USER_CAPABILITIES,
+    'manage_catalogue',
+    'manage_users',
+    'manage_templates',
+    'export_audit',
+  ],
+  user: USER_CAPABILITIES,
+};
+export const ROLE_LABELS: Record<Role, string> = { admin: 'Admin', user: 'User' };
+export function roleOf(capabilities: Capability[]): Role {
+  return capabilities.includes('manage_users') ? 'admin' : 'user';
+}
 export type Actor = {
   id: string;
   name: string;
@@ -34,6 +60,8 @@ export type Company = {
   legalStatus: string;
   engagementStatus: string;
   address: string;
+  /** MSIC 2008 section letter; absent on records created before the industry list. */
+  industry?: string;
   activity: string;
   verification: 'Unverified' | 'Reviewed';
   sourceEvidenceId: string | null;

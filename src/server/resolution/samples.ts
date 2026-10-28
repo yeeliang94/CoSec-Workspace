@@ -588,7 +588,7 @@ export function sampleContext(asAt = '2026-10-26'): ResolutionContext {
       registrationNumber: '202601999999 (fictional)',
       address: '1 Example Road, 50000 Kuala Lumpur (fictional)',
       incorporationDate: '2019-03-01',
-      financialYearEnd: '2026-12-31',
+      financialYearEnd: '12-31',
       revision: 1,
       profileRevision: 1,
       citations: {
