@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { assertCapability, assertCompany, DomainError, today } from '../../domain/access';
 import type { Actor, Job } from '../../domain/model';
@@ -9,7 +9,7 @@ import type {
   GenerationRecord,
 } from '../../domain/resolution/model';
 import { dateString, plainText } from '../../domain/resolution/schema';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import { audit, getDocument, mutateJob, prior, remember, requestKey } from '../repository';
 import { appendVersion } from '../pack-versions';
 import { isFilingPreserved } from '../job-actions/shared';
@@ -23,14 +23,9 @@ import { generationRequirements } from './generation-signers';
 import { reviewedExecutionState } from './execution';
 
 // ---------------------------------------------------------------- reads, download, records
-async function readGeneration(
-  actor: Actor,
-  id: string,
-  tx: Transaction | typeof db = db,
-  lock = false,
-) {
+async function readGeneration(actor: Actor, id: string, tx: Transaction | typeof db = db) {
   const query = tx.select().from(s.documentGenerations).where(eq(s.documentGenerations.id, id));
-  const [row] = await (lock ? query.for('update') : query);
+  const [row] = await query;
   if (!row) throw new DomainError('Document access is unavailable.', 'NOT_FOUND', 404);
   assertCompany(actor, row.companyId);
   return row.data;
@@ -60,7 +55,7 @@ export async function downloadGeneration(actor: Actor, id: string) {
   const { document, bytes } = await readDownload(actor, generation.documentId, { audit: false });
   if (document.generationId !== generation.id || document.sha256 !== generation.sha256)
     throw new DomainError('The stored file failed its integrity check.', 'STORAGE', 503);
-  await db.transaction((tx) =>
+  await transaction((tx) =>
     auditChange(tx, actor, {
       companyId: generation.companyId,
       entityType: 'document_generation',
@@ -227,7 +222,7 @@ export async function attachGenerationToPack(actor: Actor, id: string, input: un
           and(
             eq(s.documentGenerations.familyId, generation.familyId),
             eq(s.documentGenerations.status, 'Ready'),
-            sql`${s.documentGenerations.createdAt} > ${new Date(generation.createdAt)}`,
+            gt(s.documentGenerations.createdAt, new Date(generation.createdAt)),
           ),
         )
         .limit(1);
@@ -269,10 +264,8 @@ export async function applyGenerationAction(actor: Actor, id: string, input: unk
   )
     throw new DomainError('You do not have permission for this action.', 'FORBIDDEN', 403);
   const key = requestKey(actor, `generation:${id}`, action.requestId);
-  const identity = await readGeneration(actor, id);
-  return db.transaction(async (tx) => {
-    await tx.select().from(s.companies).where(eq(s.companies.id, identity.companyId)).for('update');
-    const generation = await readGeneration(actor, id, tx, true);
+  return transaction(async (tx) => {
+    const generation = await readGeneration(actor, id, tx);
     const old = await prior(tx, key);
     if (old) return { ...generationView(generation), records: await recordsOf(id, tx) };
     if (generation.status !== 'Ready' || !generation.sha256)
@@ -365,7 +358,7 @@ const SIGNING_STATES = new Set([
 /** A reviewed pack holding this generation re-derives its signing state from the new evidence. */
 async function refreshPackState(actor: Actor, generation: DocumentGeneration, tx: Transaction) {
   if (!generation.jobId || !generation.documentId) return;
-  const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, generation.jobId)).for('update');
+  const [row] = await tx.select().from(s.jobs).where(eq(s.jobs.id, generation.jobId));
   if (!row) return;
   const job = structuredClone(row.data);
   const pack = currentPack(job);

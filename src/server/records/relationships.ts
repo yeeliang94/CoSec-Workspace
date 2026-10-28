@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { and, eq, inArray } from 'drizzle-orm';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { listOfficerEvents, prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
@@ -85,17 +85,15 @@ export async function syncDirectorProjection(
       updatedAt: now,
       revision: 1,
     };
-    // Another company's projection may insert the same id concurrently; the first insert wins.
-    // The no-op update keeps other errors (such as an over-long id) visible.
+    // Another company's projection may already have inserted the same id; the first insert wins.
     await tx
       .insert(s.people)
       .values({ id: personId, fullName: person.fullName, revision: 1, data: person })
-      .onDuplicateKeyUpdate({ set: { id: sql`id` } });
+      .onConflictDoNothing({ target: s.people.id });
     const [stored] = await tx
       .select({ fullName: s.people.fullName, data: s.people.data })
       .from(s.people)
-      .where(eq(s.people.id, personId))
-      .for('update');
+      .where(eq(s.people.id, personId));
     if (stored.data.createdBy !== systemActor.id || stored.data.createdAt !== now) {
       existingNames.set(personId, stored.fullName);
       continue;
@@ -176,7 +174,6 @@ export async function syncDirectorProjection(
             eq(s.companyRelationships.role, 'director'),
           ),
         )
-        .for('update')
     ).map((r) => [r.id, r.data]),
   );
   const evidenceByEvent = new Map(events.map((e) => [e.id, e.evidenceIds]));
@@ -349,7 +346,7 @@ export async function directorsAsAt(
  */
 export async function listCompanyRelationships(actor: Actor, companyId: string, asAt: string) {
   assertCompany(actor, companyId);
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     const relationships = await companyRelationships(companyId, tx);
     return {
       relationships,
@@ -397,7 +394,7 @@ export async function changeRelationship(
         'Director relationships come from posted officer events. Use a W04 director change.',
       );
     const key = requestKey(actor, `relationship:${companyId}`, input.requestId);
-    return db.transaction(async (tx) => {
+    return transaction(async (tx) => {
       await lockCompany(companyId, tx);
       const old = await prior(tx, key);
       if (old) return readRelationship(actor, old.id, tx);
@@ -442,13 +439,12 @@ export async function changeRelationship(
     });
   }
   const key = requestKey(actor, `relationship:${input.id}`, input.requestId);
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     await lockCompany(companyId, tx);
     const [row] = await tx
       .select()
       .from(s.companyRelationships)
-      .where(eq(s.companyRelationships.id, input.id))
-      .for('update');
+      .where(eq(s.companyRelationships.id, input.id));
     if (!row || row.companyId !== companyId)
       throw new DomainError('Relationship access is unavailable.', 'NOT_FOUND', 404);
     if (await prior(tx, key)) return row.data;

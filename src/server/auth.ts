@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { db } from './db';
+import { exclusive, writerDb } from './db';
 import * as schema from './schema';
 import { getActorById } from './repository';
 import { DomainError } from '../domain/access';
@@ -10,7 +10,8 @@ if (!secret || secret.length < 32)
 export const auth = betterAuth({
   secret,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3000',
-  database: drizzleAdapter(db, { provider: 'mysql', schema }),
+  // Better Auth writes sessions itself, so every call into it runs through `exclusive`.
+  database: drizzleAdapter(writerDb, { provider: 'sqlite', schema }),
   emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 12 },
   session: { expiresIn: 60 * 60 * 12, updateAge: 60 * 30, cookieCache: { enabled: false } },
   rateLimit: {
@@ -23,7 +24,7 @@ export const auth = betterAuth({
   telemetry: { enabled: false },
 });
 export async function requireActor(request: Request) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await exclusive(() => auth.api.getSession({ headers: request.headers }));
   if (!session) throw new DomainError('Sign in to continue.', 'UNAUTHENTICATED', 401);
   const actor = await getActorById(session.user.id);
   if (!actor) throw new DomainError('This account is unavailable.', 'UNAUTHENTICATED', 401);

@@ -5,7 +5,7 @@ import { mkdtemp, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { and, eq, inArray, like, or } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, transaction, writerDb } from '../src/server/db';
 import * as s from '../src/server/schema';
 import {
   defaultPreferences,
@@ -296,9 +296,9 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
   beforeAll(async () => {
     storageDirectory = await mkdtemp(path.join(os.tmpdir(), 'cosec-template-db-'));
     process.env.STORAGE_DIR = storageDirectory;
-    for (const id of [X, Y]) await db.insert(s.companies).values({ id, data: company(id) });
+    for (const id of [X, Y]) await writerDb.insert(s.companies).values({ id, data: company(id) });
     for (const u of users)
-      await db.insert(s.user).values({
+      await writerDb.insert(s.user).values({
         id: u.id,
         name: u.name,
         email: u.email,
@@ -312,11 +312,11 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       });
     for (const d of directors) {
       const e = event(d.id, d.name);
-      await db.insert(s.officerEvents).values({ id: e.id, companyId: X, data: e });
+      await writerDb.insert(s.officerEvents).values({ id: e.id, companyId: X, data: e });
     }
-    await db.insert(s.companyProfiles).values({ companyId: X, revision: 1, data: profile });
+    await writerDb.insert(s.companyProfiles).values({ companyId: X, revision: 1, data: profile });
     const created = new Date().toISOString();
-    await db.insert(s.people).values({
+    await writerDb.insert(s.people).values({
       id: yPersonId,
       fullName: `Y-only person ${tag} (fictional)`,
       revision: 1,
@@ -334,7 +334,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       },
     });
     const relationshipId = randomUUID();
-    await db.insert(s.companyRelationships).values({
+    await writerDb.insert(s.companyRelationships).values({
       id: relationshipId,
       companyId: Y,
       personId: yPersonId,
@@ -401,25 +401,27 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         .where(eq(s.documentGenerations.companyId, X))
     ).map((r) => r.id);
     if (generations.length)
-      await db
+      await writerDb
         .delete(s.generationRecords)
         .where(inArray(s.generationRecords.generationId, generations));
-    await db.delete(s.documentGenerations).where(eq(s.documentGenerations.companyId, X));
-    await db.delete(s.documents).where(inArray(s.documents.companyId, [X, Y]));
-    await db.delete(s.resolutionCases).where(inArray(s.resolutionCases.companyId, [X, Y]));
-    await db.delete(s.jobs).where(eq(s.jobs.id, jobId));
+    await writerDb.delete(s.documentGenerations).where(eq(s.documentGenerations.companyId, X));
+    await writerDb.delete(s.documents).where(inArray(s.documents.companyId, [X, Y]));
+    await writerDb.delete(s.resolutionCases).where(inArray(s.resolutionCases.companyId, [X, Y]));
+    await writerDb.delete(s.jobs).where(eq(s.jobs.id, jobId));
     for (const { kind, id } of templateIds)
       if (kind === 'clause') {
-        await db.delete(s.clauseTemplateVersions).where(eq(s.clauseTemplateVersions.clauseId, id));
-        await db.delete(s.clauseTemplates).where(eq(s.clauseTemplates.id, id));
+        await writerDb
+          .delete(s.clauseTemplateVersions)
+          .where(eq(s.clauseTemplateVersions.clauseId, id));
+        await writerDb.delete(s.clauseTemplates).where(eq(s.clauseTemplates.id, id));
       } else {
-        await db
+        await writerDb
           .delete(s.resolutionAssemblyVersions)
           .where(eq(s.resolutionAssemblyVersions.assemblyId, id));
-        await db.delete(s.resolutionAssemblies).where(eq(s.resolutionAssemblies.id, id));
+        await writerDb.delete(s.resolutionAssemblies).where(eq(s.resolutionAssemblies.id, id));
       }
-    await db.delete(s.outputTypes).where(eq(s.outputTypes.id, outputTypeId));
-    await db.delete(s.auditEvents).where(
+    await writerDb.delete(s.outputTypes).where(eq(s.outputTypes.id, outputTypeId));
+    await writerDb.delete(s.auditEvents).where(
       or(
         inArray(s.auditEvents.actorId, ids),
         inArray(s.auditEvents.companyId, [X, Y]),
@@ -432,21 +434,21 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         ),
       ),
     );
-    for (const id of ids) await db.delete(s.requests).where(like(s.requests.id, `${id}:%`));
-    await db
+    for (const id of ids) await writerDb.delete(s.requests).where(like(s.requests.id, `${id}:%`));
+    await writerDb
       .delete(s.companyRelationships)
       .where(inArray(s.companyRelationships.companyId, [X, Y]));
-    await db
+    await writerDb
       .delete(s.people)
       .where(inArray(s.people.id, [...directors.map((d) => d.id), yPersonId]));
-    await db.delete(s.companyProfiles).where(eq(s.companyProfiles.companyId, X));
-    await db.delete(s.officerEvents).where(eq(s.officerEvents.companyId, X));
-    await db.delete(s.companies).where(inArray(s.companies.id, [X, Y]));
-    await db.delete(s.user).where(inArray(s.user.id, ids));
+    await writerDb.delete(s.companyProfiles).where(eq(s.companyProfiles.companyId, X));
+    await writerDb.delete(s.officerEvents).where(eq(s.officerEvents.companyId, X));
+    await writerDb.delete(s.companies).where(inArray(s.companies.id, [X, Y]));
+    await writerDb.delete(s.user).where(inArray(s.user.id, ids));
     if (storageDirectory) await rm(storageDirectory, { recursive: true, force: true });
     if (previousStorage === undefined) delete process.env.STORAGE_DIR;
     else process.env.STORAGE_DIR = previousStorage;
-    await pool.end();
+    closeDatabase();
   });
 
   it('A08 requires an independent publisher, keeps returned drafts and blocks incomplete publication with locations', async () => {
@@ -721,7 +723,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         ],
       },
     };
-    await db
+    await writerDb
       .update(s.companyProfiles)
       .set({ revision: 2, data: updated })
       .where(eq(s.companyProfiles.companyId, X));
@@ -856,45 +858,42 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         directorAuthority: [citation('Updated authority after lock wait (fictional)')],
       },
     };
-    // Hold a real writer transaction until the reader is blocked on the company row. This
-    // catches a repeatable-read snapshot established before the writer commits.
+    // Hold a write transaction open while the reader starts. The reader must queue behind it and
+    // then see the committed change, not a state read before the writer finished.
     async function duringUpdate<T>(read: () => Promise<T>) {
-      const writer = await pool.getConnection();
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      let updated!: () => void;
+      const ready = new Promise<void>((resolve) => (updated = resolve));
+      const writing = transaction(async (tx) => {
+        await tx
+          .update(s.companyProfiles)
+          .set({ revision: changed.revision, data: changed })
+          .where(eq(s.companyProfiles.companyId, X));
+        updated();
+        await held;
+      });
       let reading: Promise<T> | undefined;
       try {
-        await writer.beginTransaction();
-        await writer.query('SELECT id FROM companies WHERE id = ? FOR UPDATE', [X]);
-        await writer.query(
-          'UPDATE company_profiles SET revision = ?, data = ? WHERE company_id = ?',
-          [changed.revision, JSON.stringify(changed), X],
-        );
+        await ready;
         reading = read();
-        // Attach a rejection handler immediately while we wait for the lock observation.
+        // Attach a rejection handler immediately while the writer is still open.
         void reading.catch(() => undefined);
-        let waiting = false;
-        const deadline = Date.now() + 5000;
-        while (Date.now() < deadline) {
-          const [rows] =
-            await pool.query<import('mysql2').RowDataPacket[]>('SHOW FULL PROCESSLIST');
-          if (
-            rows.some(
-              (row) =>
-                typeof row.Info === 'string' && /from `companies`.*for update/i.test(row.Info),
-            )
-          ) {
-            waiting = true;
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 20));
-        }
-        expect(waiting, 'reader reached the company lock before the writer committed').toBe(true);
-        await writer.commit();
+        let settled = false;
+        void reading.then(
+          () => (settled = true),
+          () => (settled = true),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(settled, 'reader waited for the open write before committing').toBe(false);
+        release();
+        await writing;
         return await reading;
       } finally {
-        await writer.rollback();
-        writer.release();
+        release();
+        await writing.catch(() => undefined);
         if (reading) await reading.catch(() => undefined);
-        await db
+        await writerDb
           .update(s.companyProfiles)
           .set({ revision: original.revision, data: original.data })
           .where(eq(s.companyProfiles.companyId, X));
@@ -990,7 +989,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       sha256: null,
       finalisedAt: null,
     };
-    await db.insert(s.documentGenerations).values({
+    await writerDb.insert(s.documentGenerations).values({
       id: stale.id,
       familyId: stale.familyId,
       caseId: stale.caseId,
@@ -1201,7 +1200,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       notes: [],
       history: [],
     } as unknown as Job;
-    await db
+    await writerDb
       .insert(s.jobs)
       .values({ id: jobId, companyId: X, periodKey: null, revision: 1, data: job });
     let rc = await newCase('director_appointment', { jobId });
@@ -1252,7 +1251,10 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         },
       ],
     };
-    await db.update(s.jobs).set({ data: job, revision: job.revision }).where(eq(s.jobs.id, jobId));
+    await writerDb
+      .update(s.jobs)
+      .set({ data: job, revision: job.revision })
+      .where(eq(s.jobs.id, jobId));
     let rc = await newCase('director_appointment', { jobId });
     rc = await select(rc, [], lib.appointmentAssembly.versionId);
     const appointment = rc.selection!.clauses.find(
@@ -1324,7 +1326,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       capabilities: [...reviewer.capabilities, 'confirm_record' as const],
     };
     const post = () =>
-      db.transaction(async (tx) =>
+      transaction(async (tx) =>
         reviewActions.post_record.run(
           {
             actor: poster,
@@ -1339,7 +1341,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
     expect((await errorOf(post())).message).toMatch(/signature evidence is missing for generation/);
     // The stored pack is reviewed before signing; each recorded signature refreshes its state.
     reviewedPack.state = 'Reviewed';
-    await db.update(s.jobs).set({ data: reviewed }).where(eq(s.jobs.id, jobId));
+    await writerDb.update(s.jobs).set({ data: reviewed }).where(eq(s.jobs.id, jobId));
     const storedState = async () =>
       (await db.select().from(s.jobs).where(eq(s.jobs.id, jobId)))[0]!.data.packs.at(-1)!.state;
     for (const [i, director] of directors.entries()) {
@@ -1352,30 +1354,30 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         signedDate: '2026-10-26',
         evidenceId: signedCopy.id,
       });
-      const status = await db.transaction((tx) => generatedExecutionStatus(poster, reviewed, tx));
+      const status = await transaction((tx) => generatedExecutionStatus(poster, reviewed, tx));
       expect(status).toMatchObject({ required: 3, signed: i + 1 });
       expect(status.blockers).toHaveLength(2 - i);
       if (i < 2) {
         expect((await errorOf(post())).message).toMatch(
           /signature evidence is missing for generation/,
         );
-        expect(await db.transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
+        expect(await transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
           'Partly signed',
         );
       }
       expect(await storedState()).toBe(i < 2 ? 'Partly signed' : 'Fully signed');
     }
-    await db
+    await writerDb
       .update(s.jobs)
       .set({ data: attached, revision: attached.revision })
       .where(eq(s.jobs.id, jobId));
-    expect(await db.transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
+    expect(await transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
       'Fully signed',
     );
     // Exercise actual posting, then roll its event/projection/audit back to preserve this fixture.
     const rollback = new Error('rollback verified posting');
     await expect(
-      db.transaction(async (tx) => {
+      transaction(async (tx) => {
         await reviewActions.post_record.run(
           {
             actor: poster,
@@ -1401,7 +1403,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
 
     // A later change to the proposed date makes this generation stale for the pack.
     const changed = { ...attached, effectiveDate: '2026-11-02', revision: attached.revision + 1 };
-    await db
+    await writerDb
       .update(s.jobs)
       .set({ data: changed, revision: changed.revision })
       .where(eq(s.jobs.id, jobId));
@@ -1457,7 +1459,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       const [jobRow] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
       const job = structuredClone(jobRow.data);
       job.packs.at(-1)!.documentIds = [generation.documentId!];
-      const status = () => db.transaction((tx) => generatedExecutionStatus(author, job, tx));
+      const status = () => transaction((tx) => generatedExecutionStatus(author, job, tx));
       const record = (signerRole: 'directors' | 'certifiers') =>
         applyGenerationAction(author, generation.id, {
           action: 'record_execution',
@@ -1477,7 +1479,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       // Existing immutable rows have no frozen requirements or explicit role on old evidence.
       const legacy = { ...generation };
       delete legacy.executionRequirements;
-      await db
+      await writerDb
         .update(s.documentGenerations)
         .set({ data: legacy })
         .where(eq(s.documentGenerations.id, generation.id));
@@ -1488,7 +1490,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       if (row.data.kind !== 'execution') throw new Error('Expected execution fixture');
       const oldRecord = { ...row.data };
       delete oldRecord.signerRole;
-      await db
+      await writerDb
         .update(s.generationRecords)
         .set({ data: oldRecord })
         .where(eq(s.generationRecords.id, row.id));
@@ -1517,7 +1519,10 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       state: 'Preparing',
       revision: row.revision + 1,
     };
-    await db.update(s.jobs).set({ data: job, revision: job.revision }).where(eq(s.jobs.id, jobId));
+    await writerDb
+      .update(s.jobs)
+      .set({ data: job, revision: job.revision })
+      .where(eq(s.jobs.id, jobId));
     const otherFamilyDocs = job.packs.at(-1)!.documentIds;
 
     let rc = await newCase('director_appointment', { jobId });
@@ -1569,7 +1574,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
 
     for (const state of ['Complete', 'Cancelled'] as const) {
       const closed = { ...job, state, revision: job.revision + 1 };
-      await db
+      await writerDb
         .update(s.jobs)
         .set({ data: closed, revision: closed.revision })
         .where(eq(s.jobs.id, jobId));

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, like, or } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, writerDb } from '../src/server/db';
 import * as tables from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { applyJobAction, createJob } from '../src/server/workflows';
@@ -102,9 +102,9 @@ async function prepare(job: Job, signers: string[] = []) {
   return job;
 }
 beforeAll(async () => {
-  await db.insert(tables.companies).values({ id: companyId, data: company });
+  await writerDb.insert(tables.companies).values({ id: companyId, data: company });
   for (const a of actors)
-    await db.insert(tables.user).values({
+    await writerDb.insert(tables.user).values({
       id: a.id,
       name: a.name,
       email: a.email,
@@ -134,44 +134,46 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   if (ready) {
-    await db.delete(tables.reminders).where(eq(tables.reminders.companyId, companyId));
+    await writerDb.delete(tables.reminders).where(eq(tables.reminders.companyId, companyId));
     // Posting projects director relationships and people; remove only this fixture's rows.
     const projected = await db
       .select({ personId: tables.companyRelationships.personId })
       .from(tables.companyRelationships)
       .where(eq(tables.companyRelationships.companyId, companyId));
-    await db
+    await writerDb
       .delete(tables.companyRelationships)
       .where(eq(tables.companyRelationships.companyId, companyId));
     if (projected.length)
-      await db.delete(tables.people).where(
+      await writerDb.delete(tables.people).where(
         inArray(
           tables.people.id,
           projected.map((p) => p.personId),
         ),
       );
-    await db.delete(tables.auditEvents).where(eq(tables.auditEvents.companyId, companyId));
-    await db.delete(tables.officerEvents).where(eq(tables.officerEvents.companyId, companyId));
-    await db.delete(tables.jobs).where(eq(tables.jobs.companyId, companyId));
-    await db.delete(tables.documents).where(eq(tables.documents.companyId, companyId));
-    await db.delete(tables.auditEvents).where(
+    await writerDb.delete(tables.auditEvents).where(eq(tables.auditEvents.companyId, companyId));
+    await writerDb
+      .delete(tables.officerEvents)
+      .where(eq(tables.officerEvents.companyId, companyId));
+    await writerDb.delete(tables.jobs).where(eq(tables.jobs.companyId, companyId));
+    await writerDb.delete(tables.documents).where(eq(tables.documents.companyId, companyId));
+    await writerDb.delete(tables.auditEvents).where(
       inArray(
         tables.auditEvents.actorId,
         actors.map((a) => a.id),
       ),
     );
-    await db
+    await writerDb
       .delete(tables.requests)
       .where(or(...actors.map((a) => like(tables.requests.id, `${a.id}:%`))));
-    await db.delete(tables.companies).where(eq(tables.companies.id, companyId));
-    await db.delete(tables.user).where(
+    await writerDb.delete(tables.companies).where(eq(tables.companies.id, companyId));
+    await writerDb.delete(tables.user).where(
       inArray(
         tables.user.id,
         actors.map((a) => a.id),
       ),
     );
   }
-  await pool.end();
+  closeDatabase();
 });
 describe('MySQL workflow integration', () => {
   it('commits full annual-return query/resubmission/outcome/closure with exact histories', async () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
@@ -96,7 +96,7 @@ export async function changePerson(actor: Actor, input: PersonInput): Promise<Pe
   assertCapability(actor, 'manage_people');
   if (input.action === 'create') {
     const key = requestKey(actor, 'person:create', input.requestId);
-    return db.transaction(async (tx) => {
+    return transaction(async (tx) => {
       const old = await prior(tx, key);
       if (old) {
         // A replay returns current data, so it needs the same access as a normal read.
@@ -137,8 +137,8 @@ export async function changePerson(actor: Actor, input: PersonInput): Promise<Pe
     });
   }
   const key = requestKey(actor, `person:${input.id}`, input.requestId);
-  return db.transaction(async (tx) => {
-    const [row] = await tx.select().from(s.people).where(eq(s.people.id, input.id)).for('update');
+  return transaction(async (tx) => {
+    const [row] = await tx.select().from(s.people).where(eq(s.people.id, input.id));
     if (!row || !(await visiblePersonIds(actor, { ids: [input.id] }, tx)).length)
       throw personUnavailable();
     if (await prior(tx, key)) return row.data;

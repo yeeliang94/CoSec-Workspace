@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, inArray, like, or } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, transaction, writerDb } from '../src/server/db';
 import * as s from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { changePerson, getPerson, listPeople } from '../src/server/records/people';
@@ -120,9 +120,9 @@ const events = [
 
 beforeAll(async () => {
   for (const [i, id] of [A, B, C].entries())
-    await db.insert(s.companies).values({ id, data: company(id, i + 1) });
+    await writerDb.insert(s.companies).values({ id, data: company(id, i + 1) });
   for (const actor of [admin, limited])
-    await db.insert(s.user).values({
+    await writerDb.insert(s.user).values({
       id: actor.id,
       name: actor.name,
       email: actor.email,
@@ -135,7 +135,7 @@ beforeAll(async () => {
       active: true,
     });
   for (const e of events)
-    await db.insert(s.officerEvents).values({ id: e.id, companyId: e.companyId, data: e });
+    await writerDb.insert(s.officerEvents).values({ id: e.id, companyId: e.companyId, data: e });
   // Reads do not project lazily; posting (and the people migration) project officer events.
   await project(A, B, C);
   await repo.insertDocument(admin, {
@@ -165,14 +165,14 @@ beforeAll(async () => {
     packs: [{ version: 1 }],
     revision: 1,
   } as unknown as Job;
-  await db.insert(s.jobs).values({ id: jobId, companyId: A, revision: 1, data: job });
+  await writerDb.insert(s.jobs).values({ id: jobId, companyId: A, revision: 1, data: job });
 });
 
 afterAll(async () => {
   const companies = [A, B, C];
   const people = [shared, backdated, onlyB, ...createdPeople];
   const users = [admin.id, limited.id];
-  await db
+  await writerDb
     .delete(s.auditEvents)
     .where(
       or(
@@ -181,27 +181,28 @@ afterAll(async () => {
         and(eq(s.auditEvents.actorId, 'system'), inArray(s.auditEvents.subjectId, people)),
       ),
     );
-  for (const user of users) await db.delete(s.requests).where(like(s.requests.id, `${user}:%`));
-  await db.delete(s.resolutionCases).where(inArray(s.resolutionCases.companyId, companies));
-  await db
+  for (const user of users)
+    await writerDb.delete(s.requests).where(like(s.requests.id, `${user}:%`));
+  await writerDb.delete(s.resolutionCases).where(inArray(s.resolutionCases.companyId, companies));
+  await writerDb
     .delete(s.companyRelationships)
     .where(inArray(s.companyRelationships.companyId, companies));
-  await db.delete(s.people).where(inArray(s.people.id, people));
-  await db.delete(s.companyProfiles).where(inArray(s.companyProfiles.companyId, companies));
-  await db.delete(s.recordFieldDefinitions).where(eq(s.recordFieldDefinitions.id, fieldId));
-  await db.delete(s.officerEvents).where(inArray(s.officerEvents.companyId, companies));
-  await db.delete(s.jobs).where(eq(s.jobs.id, jobId));
-  await db.delete(s.documents).where(inArray(s.documents.companyId, companies));
-  await db.delete(s.companies).where(inArray(s.companies.id, companies));
-  await db.delete(s.user).where(inArray(s.user.id, users));
-  await pool.end();
+  await writerDb.delete(s.people).where(inArray(s.people.id, people));
+  await writerDb.delete(s.companyProfiles).where(inArray(s.companyProfiles.companyId, companies));
+  await writerDb.delete(s.recordFieldDefinitions).where(eq(s.recordFieldDefinitions.id, fieldId));
+  await writerDb.delete(s.officerEvents).where(inArray(s.officerEvents.companyId, companies));
+  await writerDb.delete(s.jobs).where(eq(s.jobs.id, jobId));
+  await writerDb.delete(s.documents).where(inArray(s.documents.companyId, companies));
+  await writerDb.delete(s.companies).where(inArray(s.companies.id, companies));
+  await writerDb.delete(s.user).where(inArray(s.user.id, users));
+  closeDatabase();
 });
 
 async function project(...companyIds: string[]) {
   const results = [];
   for (const companyId of companyIds)
     results.push(
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await lockCompany(companyId, tx);
         return syncDirectorProjection(companyId, tx);
       }),
@@ -215,6 +216,26 @@ const auditCount = async (subjectId: string) =>
   (await db.select().from(s.auditEvents).where(eq(s.auditEvents.subjectId, subjectId))).length;
 
 describe('people and relationships', () => {
+  it.each(['_', '%', '\\'])(
+    'searches literal %s characters without expanding wildcards',
+    async (character) => {
+      const literalName = `Literal ${tag} A${character}B`;
+      const otherName = `Literal ${tag} AxB`;
+      for (const fullName of [literalName, otherName]) {
+        const person = await changePerson(limited, {
+          action: 'create',
+          requestId: randomUUID(),
+          fullName,
+        });
+        createdPeople.push(person.id);
+      }
+      expect((await people(limited, { q: literalName })).map((p) => p.fullName)).toEqual([
+        literalName,
+      ]);
+      expect(await people(admin, { q: literalName })).toEqual([]);
+    },
+  );
+
   it('A04: one person across three companies; a one-company actor sees only that link', async () => {
     const all = (await people(admin)).find((p) => p.id === shared)!;
     expect(all.fullName).toBe('Shared Director');
@@ -319,7 +340,9 @@ describe('people and relationships', () => {
       '2025-01-01',
       '2026-03-01T00:00:00.000Z',
     );
-    await db.insert(s.officerEvents).values({ id: impostor.id, companyId: C, data: impostor });
+    await writerDb
+      .insert(s.officerEvents)
+      .values({ id: impostor.id, companyId: C, data: impostor });
     const [first] = await project(C);
     expect(first.peopleSkipped).toEqual([onlyB]);
     expect(first.relationshipsCreated).toEqual([]);
@@ -702,7 +725,7 @@ describe('profile, context and cases', () => {
     ).rejects.toThrow('unavailable');
     const originalJob = await repo.getJob(admin, jobId);
     try {
-      await db
+      await writerDb
         .update(s.jobs)
         .set({ data: { ...originalJob, state: 'Cancelled' } })
         .where(eq(s.jobs.id, jobId));
@@ -714,7 +737,7 @@ describe('profile, context and cases', () => {
           requestId: randomUUID(),
         }),
       ).rejects.toThrow('cancelled');
-      await db
+      await writerDb
         .update(s.jobs)
         .set({ data: { ...originalJob, companyId: B }, companyId: B })
         .where(eq(s.jobs.id, jobId));
@@ -727,7 +750,7 @@ describe('profile, context and cases', () => {
         }),
       ).rejects.toThrow('same company');
     } finally {
-      await db
+      await writerDb
         .update(s.jobs)
         .set({ data: originalJob, companyId: originalJob.companyId })
         .where(eq(s.jobs.id, jobId));
@@ -781,7 +804,7 @@ describe('profile, context and cases', () => {
     ).rejects.toThrow('has not posted');
     const original = await repo.getJob(admin, jobId);
     try {
-      await db
+      await writerDb
         .update(s.jobs)
         .set({ data: { ...original, recordEventId: randomUUID() } })
         .where(eq(s.jobs.id, jobId));
@@ -799,7 +822,7 @@ describe('profile, context and cases', () => {
       });
       expect(c.state).toBe('Complete');
     } finally {
-      await db.update(s.jobs).set({ data: original }).where(eq(s.jobs.id, jobId));
+      await writerDb.update(s.jobs).set({ data: original }).where(eq(s.jobs.id, jobId));
     }
   });
 
@@ -854,7 +877,7 @@ describe('profile, context and cases', () => {
       }),
     ).rejects.toThrow('not applicable');
     const [jobRow] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-    await db
+    await writerDb
       .update(s.jobs)
       .set({ data: { ...jobRow.data, recordEventId: randomUUID() } })
       .where(eq(s.jobs.id, jobId));

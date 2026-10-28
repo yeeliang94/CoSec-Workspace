@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, like } from 'drizzle-orm';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, writerDb } from '../src/server/db';
 import * as tables from '../src/server/schema';
 import { defaultPreferences, type Actor, type Company } from '../src/domain/model';
 import { createJob } from '../src/server/workflows';
@@ -44,7 +44,7 @@ const input = (companyId: string) => ({
 describe.skipIf(!process.env.DATABASE_URL)('scope regression security against MySQL', () => {
   beforeAll(async () => {
     const now = new Date();
-    await db.insert(tables.user).values({
+    await writerDb.insert(tables.user).values({
       id: actor.id,
       name: actor.name,
       email: actor.email,
@@ -57,16 +57,16 @@ describe.skipIf(!process.env.DATABASE_URL)('scope regression security against My
       active: true,
     });
     for (const data of companyFixtures)
-      await db.insert(tables.companies).values({ id: data.id, data });
+      await writerDb.insert(tables.companies).values({ id: data.id, data });
   });
   afterAll(async () => {
-    await db.delete(tables.reminders).where(inArray(tables.reminders.companyId, companyIds));
-    await db.delete(tables.jobs).where(inArray(tables.jobs.companyId, companyIds));
-    await db.delete(tables.requests).where(like(tables.requests.id, `${actor.id}:%`));
-    await db.delete(tables.auditEvents).where(eq(tables.auditEvents.actorId, actor.id));
-    await db.delete(tables.companies).where(inArray(tables.companies.id, companyIds));
-    await db.delete(tables.user).where(eq(tables.user.id, actor.id));
-    await pool.end();
+    await writerDb.delete(tables.reminders).where(inArray(tables.reminders.companyId, companyIds));
+    await writerDb.delete(tables.jobs).where(inArray(tables.jobs.companyId, companyIds));
+    await writerDb.delete(tables.requests).where(like(tables.requests.id, `${actor.id}:%`));
+    await writerDb.delete(tables.auditEvents).where(eq(tables.auditEvents.actorId, actor.id));
+    await writerDb.delete(tables.companies).where(inArray(tables.companies.id, companyIds));
+    await writerDb.delete(tables.user).where(eq(tables.user.id, actor.id));
+    closeDatabase();
   });
   it('does not replay an out-of-scope company snapshot when a creation request id is reused', async () => {
     const requestId = randomUUID();
@@ -74,7 +74,7 @@ describe.skipIf(!process.env.DATABASE_URL)('scope regression security against My
     const replay = await createJob(actor, input(companyIds[0]), requestId);
     expect(replay.id).toBe(first.id);
     // Simulate the authoritative scope update, then establish the fresh actor used on every request.
-    await db
+    await writerDb
       .update(tables.user)
       .set({ companyIds: [companyIds[1]], updatedAt: new Date() })
       .where(eq(tables.user.id, actor.id));

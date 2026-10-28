@@ -211,7 +211,7 @@ export async function storeGenerated(
   };
   try {
     if (tx) await insert(tx);
-    else await (await import('./db')).db.transaction(insert);
+    else await (await import('./db')).transaction(insert);
   } catch (error) {
     await unlink(destination).catch(() => undefined);
     throw error;

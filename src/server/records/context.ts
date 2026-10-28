@@ -1,5 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
-import { db, type Transaction } from '../db';
+import { transaction, type Transaction } from '../db';
 import * as s from '../schema';
 import { getJob, getSettings } from '../repository';
 import { memberSnapshot } from '../record-store';
@@ -30,9 +30,8 @@ const PROPOSED_LIMIT = 1000;
 /**
  * The authorised as-at record view a resolution template may bind to. Directors come from posted
  * officer events; members from the capital register (never BO data). Director projections are
- * refreshed when W04 posts, so this read never syncs them. Without `tx` it is a plain read in one
- * snapshot transaction, with no locks. With `tx` the caller already holds the company row lock
- * (taken before the case lock, as `mutateCase` and generation do); re-reading it here adds none.
+ * refreshed when W04 posts, so this read never syncs them. Without `tx` it opens its own
+ * transaction so every read comes from one consistent state; with `tx` it reads in the caller's.
  */
 export async function loadResolutionContext(
   actor: Actor,
@@ -41,7 +40,7 @@ export async function loadResolutionContext(
   tx?: Transaction,
 ): Promise<ResolutionContext> {
   if (!isCalendarDate(asAt)) throw new DomainError('Choose a valid as-at date.');
-  if (!tx) return db.transaction((own) => readContext(actor, caseId, asAt, own, false));
+  if (!tx) return transaction((own) => readContext(actor, caseId, asAt, own, false));
   return readContext(actor, caseId, asAt, tx, true);
 }
 

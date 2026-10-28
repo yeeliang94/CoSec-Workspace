@@ -13,7 +13,8 @@ import type {
   SignerSelection,
 } from '../../domain/resolution/model';
 import { errorsOnly, IssuesError } from '../../domain/resolution/validate';
-import { db, type Transaction } from '../db';
+import { db, transaction, type Transaction } from '../db';
+import { isUniqueViolation } from '../db-errors';
 import { loadResolutionContext } from '../records/context';
 import { systemActor } from '../records/scope';
 import { requestKey } from '../repository';
@@ -37,12 +38,12 @@ export type GenerationDeps = {
 };
 const defaults: GenerationDeps = { render: (doc) => renderDocx(doc), store: storeGenerated };
 
-async function byRequestKey(tx: Transaction | typeof db, key: string, lock = false) {
+async function byRequestKey(tx: Transaction | typeof db, key: string) {
   const query = tx
     .select()
     .from(s.documentGenerations)
     .where(eq(s.documentGenerations.requestKey, key));
-  const [row] = await (lock ? query.for('update') : query);
+  const [row] = await query;
   return row;
 }
 function replay(
@@ -59,9 +60,6 @@ function replay(
     );
   return generationView(row.data);
 }
-const isDuplicate = (e: unknown) =>
-  (e as { code?: string }).code === 'ER_DUP_ENTRY' ||
-  (e as { cause?: { code?: string } }).cause?.code === 'ER_DUP_ENTRY';
 const safeName = (text: string) =>
   text
     .normalize('NFC')
@@ -211,20 +209,12 @@ export async function generateDocument(
   const existing = await byRequestKey(db, key);
   if (existing) return replay(actor, existing, requestHash);
   const early = await precompile(actor, request);
-  // Resolve immutable scope outside the transaction; its first consistent read must happen
-  // after the company lock, including when a writer commits while we wait for that lock.
-  const identity = await readCase(actor, request.caseId);
   let generation: DocumentGeneration;
   let replayed = false;
   try {
-    generation = await db.transaction(async (tx) => {
-      await tx
-        .select()
-        .from(s.companies)
-        .where(eq(s.companies.id, identity.companyId))
-        .for('update');
-      const rc = await readCase(actor, request.caseId, tx, true);
-      const again = await byRequestKey(tx, key, true);
+    generation = await transaction(async (tx) => {
+      const rc = await readCase(actor, request.caseId, tx);
+      const again = await byRequestKey(tx, key);
       if (again) {
         replayed = true;
         return replay(actor, again, requestHash);
@@ -355,7 +345,7 @@ export async function generateDocument(
       return next;
     });
   } catch (error) {
-    if (!isDuplicate(error)) throw error;
+    if (!isUniqueViolation(error)) throw error;
     const raced = await byRequestKey(db, key);
     if (!raced) throw error;
     return replay(actor, raced, requestHash);
@@ -427,12 +417,11 @@ async function finalise(actor: Actor, generation: DocumentGeneration, deps: Gene
   }
   const storageKey = `${randomUUID()}.docx`;
   try {
-    return await db.transaction(async (tx) => {
+    return await transaction(async (tx) => {
       const [row] = await tx
         .select()
         .from(s.documentGenerations)
-        .where(eq(s.documentGenerations.id, generation.id))
-        .for('update');
+        .where(eq(s.documentGenerations.id, generation.id));
       if (!row) throw new DomainError('Document access is unavailable.', 'NOT_FOUND', 404);
       if (row.data.status !== 'Pending') return row.data; // reconciled meanwhile
       const [caseRow] = await tx
@@ -499,12 +488,11 @@ function userReason(error: unknown) {
 }
 
 async function fail(actor: Actor, id: string, failure: string) {
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     const [row] = await tx
       .select()
       .from(s.documentGenerations)
-      .where(eq(s.documentGenerations.id, id))
-      .for('update');
+      .where(eq(s.documentGenerations.id, id));
     if (!row) throw new DomainError('Document access is unavailable.', 'NOT_FOUND', 404);
     if (row.data.status !== 'Pending') return row.data;
     const next: DocumentGeneration = {
@@ -555,10 +543,10 @@ export async function reconcilePendingGenerations(olderThanMs = 10 * 60_000) {
     (
       await db
         .select({
-          key: sql<string>`JSON_UNQUOTE(JSON_EXTRACT(${s.documents.data}, '$.storageKey'))`,
+          key: sql<string>`json_extract(${s.documents.data}, '$.storageKey')`,
         })
         .from(s.documents)
-        .where(sql`JSON_UNQUOTE(JSON_EXTRACT(${s.documents.data}, '$.storageKey')) LIKE '%.docx'`)
+        .where(sql`json_extract(${s.documents.data}, '$.storageKey') LIKE '%.docx'`)
     ).map((r) => r.key),
   );
   let removed = 0;

@@ -2,7 +2,10 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   agentRules: false,
   poweredByHeader: false,
-  serverExternalPackages: ['mysql2'],
+  serverExternalPackages: ['better-sqlite3'],
+  outputFileTracingExcludes: {
+    '/*': ['./.local/**/*', './private-storage/**/*'],
+  },
   async headers() {
     return [
       {

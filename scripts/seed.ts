@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { hashPassword } from 'better-auth/crypto';
-import { db, pool } from '../src/server/db';
+import { closeDatabase, db, transaction, writerDb } from '../src/server/db';
 import * as s from '../src/server/schema';
 import {
   defaultPreferences,
@@ -19,7 +19,7 @@ import { lockCompany } from '../src/server/records/scope';
 const existing = await db.select({ id: s.user.id }).from(s.user).limit(1);
 if (existing.length) {
   console.log('Existing data retained; seed skipped.');
-  await pool.end();
+  closeDatabase();
   process.exit(0);
 }
 const companyIds = Array.from({ length: 6 }, () => randomUUID());
@@ -62,7 +62,7 @@ for (const def of definitions) {
   const id = randomUUID(),
     email = `${def.key}@cosec.local`,
     password = randomBytes(16).toString('base64url');
-  await db.insert(s.user).values({
+  await writerDb.insert(s.user).values({
     id,
     name: def.name,
     email,
@@ -74,7 +74,7 @@ for (const def of definitions) {
     preferences: defaultPreferences,
     active: true,
   });
-  await db.insert(s.account).values({
+  await writerDb.insert(s.account).values({
     id: randomUUID(),
     userId: id,
     accountId: id,
@@ -85,7 +85,7 @@ for (const def of definitions) {
   });
   credentials.push({ key: def.key, email, password, id });
 }
-await db.insert(s.settings).values({
+await writerDb.insert(s.settings).values({
   id: 'firm',
   revision: 1,
   data: {
@@ -116,7 +116,7 @@ const companies: Company[] = names.map((name, i) => ({
   revision: 1,
 }));
 for (const company of companies)
-  await db.insert(s.companies).values({ id: company.id, data: company });
+  await writerDb.insert(s.companies).values({ id: company.id, data: company });
 const executive = credentials.find((c) => c.key === 'executive')!;
 const actor: Actor = {
   id: executive.id,
@@ -140,7 +140,7 @@ for (let i = 0; i < companies.length; i++) {
     ),
   });
   const openingId = randomUUID();
-  await db.insert(s.officerEvents).values({
+  await writerDb.insert(s.officerEvents).values({
     id: openingId,
     companyId: company.id,
     data: {
@@ -166,7 +166,7 @@ for (let i = 0; i < companies.length; i++) {
     },
   });
   // Reads no longer project lazily; posting and seeding refresh director relationships.
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await lockCompany(company.id, tx);
     await syncDirectorProjection(company.id, tx);
   });
@@ -220,4 +220,4 @@ await writeFile(
 console.log(
   'Seeded six fictional companies and six jobs. Credentials saved privately in .local/ACCOUNTS.md.',
 );
-await pool.end();
+closeDatabase();

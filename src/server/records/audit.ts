@@ -1,5 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { db } from '../db';
+import { db, transaction } from '../db';
 import { auditChange } from '../resolution/shared';
 import { assertCapability, assertCompany, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
@@ -18,11 +18,11 @@ export type AuditFilters = {
 export const AUDIT_PAGE_MAX = 100;
 export const AUDIT_EXPORT_MAX = 5000;
 
-/** Start of a Kuala Lumpur calendar day (UTC+8, no daylight saving) as a UTC SQL timestamp. */
+/** Start of a Kuala Lumpur calendar day (UTC+8, no daylight saving) in epoch milliseconds. */
 function klDayStart(date: string, addDays = 0) {
   const at = new Date(`${date}T00:00:00+08:00`);
   at.setUTCDate(at.getUTCDate() + addDays);
-  return at.toISOString().replace('T', ' ').replace('Z', '');
+  return at.getTime();
 }
 const list = (values: string[]) =>
   sql.join(
@@ -42,7 +42,7 @@ const TEMPLATE_ENTITIES = [
   'output_type',
   'record_field',
 ];
-const PERSON_CREATOR = sql`(SELECT JSON_UNQUOTE(JSON_EXTRACT(p.data, '$.createdBy')) FROM people p
+const PERSON_CREATOR = sql`(SELECT json_extract(p.data, '$.createdBy') FROM people p
   WHERE p.id = a.subject_id)`;
 
 /**
@@ -68,7 +68,7 @@ function firmLevel(actor: Actor): SQL {
     kinds.push(
       sql`(a.actor_id = ${actor.id} AND (a.action LIKE 'preferences.%' OR a.entity_type = 'audit'))`,
     );
-  return sql`(a.company_id IS NULL AND (a.scope_company_ids IS NULL OR JSON_LENGTH(a.scope_company_ids) = 0)
+  return sql`(a.company_id IS NULL AND (a.scope_company_ids IS NULL OR json_array_length(a.scope_company_ids) = 0)
     AND (${sql.join(kinds, sql` OR `)}))`;
 }
 
@@ -83,7 +83,7 @@ function visibility(actor: Actor): SQL {
   if (actor.companyIds.length) {
     scopes.push(sql`a.company_id IN (${list(actor.companyIds)})`);
     scopes.push(
-      sql`(a.scope_company_ids IS NOT NULL AND JSON_OVERLAPS(a.scope_company_ids, CAST(${JSON.stringify(actor.companyIds)} AS JSON)))`,
+      sql`EXISTS (SELECT 1 FROM json_each(a.scope_company_ids) WHERE value IN (${list(actor.companyIds)}))`,
     );
   }
   scopes.push(firmLevel(actor));
@@ -91,9 +91,9 @@ function visibility(actor: Actor): SQL {
   if (has('view_bo')) return scope;
   return sql`${scope} AND a.sensitivity <> 'BO' AND a.action NOT LIKE 'bo.%'
     AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = a.subject_id
-      AND JSON_UNQUOTE(JSON_EXTRACT(j.data, '$.activity')) = 'W06')
+      AND json_extract(j.data, '$.activity') = 'W06')
     AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = a.subject_id
-      AND JSON_UNQUOTE(JSON_EXTRACT(d.data, '$.classification')) = 'BO')`;
+      AND json_extract(d.data, '$.classification') = 'BO')`;
 }
 
 function where(actor: Actor, f: AuditFilters): SQL {
@@ -101,7 +101,7 @@ function where(actor: Actor, f: AuditFilters): SQL {
   if (f.companyId) {
     assertCompany(actor, f.companyId);
     parts.push(
-      sql`(a.company_id = ${f.companyId} OR JSON_CONTAINS(COALESCE(a.scope_company_ids, JSON_ARRAY()), JSON_QUOTE(${f.companyId})))`,
+      sql`(a.company_id = ${f.companyId} OR EXISTS (SELECT 1 FROM json_each(a.scope_company_ids) WHERE value = ${f.companyId}))`,
     );
   }
   if (f.entityType) parts.push(sql`a.entity_type = ${f.entityType}`);
@@ -117,7 +117,8 @@ function where(actor: Actor, f: AuditFilters): SQL {
 
 type Row = {
   id: string;
-  ts: string;
+  /** created_at in epoch milliseconds. */
+  ms: number;
   actorId: string;
   actorName: string | null;
   companyId: string | null;
@@ -162,7 +163,7 @@ function toView(actor: Actor, r: Row): AuditEntryView {
   const shown = Array.isArray(changes) ? changes : [];
   return {
     id: r.id,
-    at: `${r.ts.slice(0, 10)}T${r.ts.slice(11, 23)}Z`,
+    at: new Date(r.ms).toISOString(),
     actorId: r.actorId,
     actorName: r.actorName ?? (r.actorId === 'system' ? 'System' : 'Unknown user'),
     companyId: visibleCompany ? r.companyId : null,
@@ -178,18 +179,18 @@ function toView(actor: Actor, r: Row): AuditEntryView {
 }
 
 function encodeCursor(row: Row) {
-  return Buffer.from(JSON.stringify([row.ts, row.id])).toString('base64url');
+  return Buffer.from(JSON.stringify([row.ms, row.id])).toString('base64url');
 }
-function decodeCursor(cursor: string): [string, string] {
+function decodeCursor(cursor: string): [number, string] {
   try {
     const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (
       Array.isArray(value) &&
       value.length === 2 &&
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6}$/.test(value[0]) &&
+      Number.isSafeInteger(value[0]) &&
       typeof value[1] === 'string'
     )
-      return value as [string, string];
+      return value as [number, string];
   } catch {}
   throw new DomainError('This page link is no longer valid. Start from the first page.');
 }
@@ -197,30 +198,29 @@ function decodeCursor(cursor: string): [string, string] {
 async function select(actor: Actor, filters: AuditFilters, limit: number, cursor?: string) {
   const conditions = [where(actor, filters)];
   if (cursor) {
-    const [ts, id] = decodeCursor(cursor);
-    conditions.push(sql`(a.created_at < ${ts} OR (a.created_at = ${ts} AND a.id < ${id}))`);
+    const [ms, id] = decodeCursor(cursor);
+    conditions.push(sql`(a.created_at < ${ms} OR (a.created_at = ${ms} AND a.id < ${id}))`);
   }
-  const [rows] = (await db.execute(sql`
-    SELECT a.id, DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s.%f') AS ts, a.actor_id AS actorId,
+  return db.all<Row>(sql`
+    SELECT a.id, a.created_at AS ms, a.actor_id AS actorId,
       u.name AS actorName, a.company_id AS companyId,
-      JSON_UNQUOTE(JSON_EXTRACT(c.data, '$.name')) AS companyName, a.action,
+      json_extract(c.data, '$.name') AS companyName, a.action,
       a.entity_type AS entityType, a.subject_id AS subjectId, a.reason, a.request_id AS requestId,
       a.detail, a.scope_company_ids AS scopeCompanyIds,
       CASE WHEN a.entity_type = 'person' THEN ${PERSON_CREATOR} END AS personCreatedBy
     FROM audit_events a
-    LEFT JOIN \`user\` u ON u.id = a.actor_id
+    LEFT JOIN "user" u ON u.id = a.actor_id
     LEFT JOIN companies c ON c.id = a.company_id
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY a.created_at DESC, a.id DESC
-    LIMIT ${limit}`)) as unknown as [Row[]];
-  return rows;
+    LIMIT ${limit}`);
 }
 
 async function countAudit(actor: Actor, filters: AuditFilters) {
-  const [[{ total }]] = (await db.execute(
+  const row = db.get<{ total: number }>(
     sql`SELECT COUNT(*) AS total FROM audit_events a WHERE ${where(actor, filters)}`,
-  )) as unknown as [[{ total: number | string }]];
-  return Number(total);
+  );
+  return row.total;
 }
 
 export async function queryAudit(
@@ -288,7 +288,7 @@ export async function exportAudit(actor: Actor, filters: AuditFilters) {
       e.summary ?? '',
     ]),
   ].map((cells) => cells.map(csvCell).join(','));
-  await db.transaction((tx) =>
+  await transaction((tx) =>
     auditChange(tx, actor, {
       companyId: filters.companyId ?? null,
       scopeCompanyIds: filters.companyId ? [filters.companyId] : [],
