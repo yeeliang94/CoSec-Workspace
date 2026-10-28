@@ -7,7 +7,7 @@ vi.mock('@/server/storage', () => ({
 }));
 import { POST } from '../src/app/api/documents/route';
 
-const origin = new URL(process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:3000').origin;
+const origin = new URL(process.env.BETTER_AUTH_URL ?? 'http://127.0.0.1:4300').origin;
 function upload(contentLength: string | null) {
   const headers = new Headers({ origin });
   if (contentLength !== null) headers.set('content-length', contentLength);

@@ -1,7 +1,7 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import { passwordLogin } from './sign-in';
-const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300';
 async function credentials(key: string) {
   const items = JSON.parse(await readFile('.local/accounts.json', 'utf8')) as {
     key: string;

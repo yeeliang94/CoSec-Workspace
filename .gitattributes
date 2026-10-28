@@ -1,0 +1,3 @@
+# Windows runs .bat files with CRLF; shells need LF.
+*.bat text eol=crlf
+*.sh text eol=lf

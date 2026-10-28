@@ -5,7 +5,7 @@ import type { Job, Workspace } from '../../src/domain/model';
 import { createRecordFixture, removeRecordFixture, type RecordFixture } from './record-fixture';
 test.describe.configure({ mode: 'serial' });
 let fixture: RecordFixture;
-const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300';
 test.beforeAll(async () => {
   fixture = await createRecordFixture();
   await mkdir('.local/record-previews', { recursive: true });

@@ -8,8 +8,8 @@
         "run",
         "dev"
       ],
-      "port": 3000,
-      "url": "http://127.0.0.1:3000"
+      "port": 4300,
+      "url": "http://127.0.0.1:4300"
     },
     {
       "name": "cosec-prod",
@@ -18,8 +18,8 @@
         "-c",
         "npm run build && npm start"
       ],
-      "port": 3000,
-      "url": "http://127.0.0.1:3000"
+      "port": 4300,
+      "url": "http://127.0.0.1:4300"
     }
   ]
 }

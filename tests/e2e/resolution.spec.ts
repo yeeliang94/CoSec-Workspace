@@ -307,7 +307,7 @@ test('an unlinked director resolution can link its W04 job from Overview', async
   );
   expect(job, 'seeded appointment job').toBeTruthy();
   const response = await page.request.post('/api/resolution-cases', {
-    headers: { Origin: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000' },
+    headers: { Origin: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300' },
     data: {
       requestId: crypto.randomUUID(),
       companyId: job.companyId,

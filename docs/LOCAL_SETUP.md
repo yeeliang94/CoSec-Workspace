@@ -8,13 +8,15 @@ The database is `.local/cosec.db` (with its `-wal` and `-shm` companions while i
 
 The previous MySQL data, its document files and its account list are kept in `.local/backups/mysql-final-20261028/` for reference. The standalone MySQL runtime in `.local/mysql` is no longer used.
 
+Run `start.bat` (Windows) or `./start.sh` (macOS) to prepare and start everything in production mode; see the README. For development:
+
 ```sh
 npm run dev
 # In another terminal, while the host runs:
 npm run worker
 ```
 
-Open [local workspace](http://127.0.0.1:3000). Sign in with `owner@cosec.local` and its password from `.local/ACCOUNTS.md`. Owner has explicitly granted professional capabilities in this fictional fixture; independent review still prevents approving a version you prepared. Use Aina's executive account to prepare, Daniel's reviewer account to review/post and Mei's lodger account to record external filing evidence. Sign out and sign in normally for each identity. `admin` has account administration only; `limited` sees only one company.
+Open [local workspace](http://127.0.0.1:4300). Sign in with `owner@cosec.local` and its password from `.local/ACCOUNTS.md`. Owner has explicitly granted professional capabilities in this fictional fixture; independent review still prevents approving a version you prepared. Use Aina's executive account to prepare, Daniel's reviewer account to review/post and Mei's lodger account to record external filing evidence. Sign out and sign in normally for each identity. `admin` has account administration only; `limited` sees only one company.
 
 The owner account can create companies, then explicitly grant preparers/reviewers/lodgers company access in Settings → Users. New companies start Unverified. Existing fixture opening appointments are labelled fictional, with evidence; do not treat them as approved live data.
 
@@ -29,7 +31,7 @@ The owner account can create companies, then explicitly grant preparers/reviewer
 
 ## Verification
 
-`npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`. Integration tests create and migrate their own throwaway database at `.local/test/cosec-test.db` on every run; they never touch `.local/cosec.db`. Playwright uses the installed Google Chrome (`channel: chrome`) and the generated local account file, with app running at 127.0.0.1:3000. Test output/traces stay ignored and may contain fictional entered values.
+`npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`. Integration tests create and migrate their own throwaway database at `.local/test/cosec-test.db` on every run; they never touch `.local/cosec.db`. Playwright uses the installed Google Chrome (`channel: chrome`) and the generated local account file, with app running at 127.0.0.1:4300. Test output/traces stay ignored and may contain fictional entered values.
 
 ## Runtime and recovery
 

@@ -16,7 +16,7 @@ test('director review, execution, dated record, external submission and outcome 
     email: string;
     password: string;
   }[];
-  const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+  const origin = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300';
   async function signIn(key: string) {
     await authenticate(
       page,
