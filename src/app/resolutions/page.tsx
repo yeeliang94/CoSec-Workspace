@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { CaseKind, ResolutionCase } from '@/domain/resolution/model';
-import { routeMatches } from '@/domain/resolution/cases';
+import { caseStatus, routeMatches } from '@/domain/resolution/cases';
 import { Empty, formatDate, Icon, PageHeader, useWorkspace } from '@/components/workspace';
 import {
   CASE_KINDS,
@@ -57,15 +57,8 @@ export default function ResolutionsPage() {
       <PageHeader title="Resolutions">
         <div className="header-actions">
           <Link className="button" href="/templates">
-            Clause library
+            Templates
           </Link>
-          <details className="overflow-menu">
-            <summary className="button">More</summary>
-            <div className="overflow-menu-list">
-              <Link href="/people">People and relationships</Link>
-              {caps.includes('view_audit') ? <Link href="/audit">Audit log</Link> : null}
-            </div>
-          </details>
           {canCreate ? (
             <button
               type="button"
@@ -172,42 +165,33 @@ export default function ResolutionsPage() {
                 <tr>
                   <th>Resolution</th>
                   <th>Company</th>
-                  <th>Next step</th>
+                  <th>Status</th>
                   <th>Owner</th>
                   <th>Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((item) => {
-                  const next = item.steps.find(
-                    (step) => step.state !== 'Complete' && step.state !== 'Not applicable',
-                  );
+                  const waitingOnMe =
+                    item.state === 'Open' &&
+                    item.review?.status === 'With reviewer' &&
+                    item.review.reviewerId === data.actor.id;
                   return (
                     <tr key={item.id}>
                       <td>
                         <Link href={'/resolutions/' + item.id}>{item.title}</Link>
-                        <div className="state">
-                          {kindLabel(item.kind)} · {item.state}
-                        </div>
+                        <div className="state">{kindLabel(item.kind)}</div>
                       </td>
                       <td data-label="Company">
                         <Link href={'/companies/' + item.companyId}>
                           {data.companies.find((c) => c.id === item.companyId)?.name || 'Company'}
                         </Link>
                       </td>
-                      <td data-label="Next">
-                        {item.state !== 'Open' ? (
-                          <span className="muted">{item.state}</span>
-                        ) : next ? (
-                          <>
-                            {next.label}
-                            <div className="state">
-                              {next.state}
-                              {next.dueDate ? ` · due ${formatDate(next.dueDate)}` : ''}
-                            </div>
-                          </>
+                      <td data-label="Status">
+                        {waitingOnMe ? (
+                          <strong>Waiting for your review</strong>
                         ) : (
-                          <span className="muted">All steps done</span>
+                          caseStatus(item, userName)
                         )}
                       </td>
                       <td data-label="Owner">{userName(item.ownerId)}</td>

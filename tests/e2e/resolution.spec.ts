@@ -84,7 +84,7 @@ test('author writes a clause with a bound value, reused question and two wording
   await as(page, 'owner');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/templates');
-  await page.getByRole('button', { name: 'New clause' }).click();
+  await page.getByRole('button', { name: 'New paragraph' }).click();
   const form = page.locator('.new-resolution');
   await form.getByLabel('Name').fill(clauseName);
   await form.getByLabel('Category').selectOption('Dividend');
@@ -153,9 +153,10 @@ test('author writes a clause with a bound value, reused question and two wording
   await expect(page.getByText('Waiting for review by a different person.')).toBeVisible();
 });
 
-test('a different reviewer publishes the clause', async ({ page }) => {
+test('a different admin publishes the clause', async ({ page }) => {
   test.skip(!clauseUrl, 'Clause not created');
-  await as(page, 'reviewer');
+  // Templates are Admin-only; the second admin account publishes the owner's draft.
+  await as(page, 'admin');
   await page.goto(clauseUrl);
   await page.getByRole('button', { name: 'Review and publish v1' }).click();
   await expect(page.locator('.diff-summary')).toContainText('First version');
@@ -178,25 +179,25 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.waitForURL(/\/resolutions\/[^/]+$/);
   await expect(page.getByRole('heading', { name: caseTitle })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Clauses', exact: true }).click();
-  await page.getByLabel('Output type').selectOption({ label: "Directors' written resolution" });
-  const assembly = page.getByLabel('Assembly');
+  // Everything is prepared on one page: details, wording, answers and preview.
+  await page.getByLabel('Document type').selectOption({ label: "Directors' written resolution" });
+  const assembly = page.getByLabel('Layout');
   const option = await assembly
     .locator('option', { hasText: /^Directors' written resolution · v/ })
     .first()
     .getAttribute('value');
   await assembly.selectOption(option!);
-  await page.getByRole('button', { name: 'Use this assembly' }).click();
-  await expect(page.getByRole('heading', { name: /Selected clauses/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Use this layout' }).click();
+  await expect(page.getByRole('heading', { name: /Paragraphs in this resolution/ })).toBeVisible();
 
   const selected = page.locator('.selected-clause-list > li');
   for (const name of [clauseName, 'Appointment of auditors', 'General business']) {
     const before = await selected.count();
-    await page.getByLabel('Search clause library').fill(name);
+    await page.getByLabel('Search standard wording').fill(name);
     await page.getByRole('button', { name: `Add ${name}`, exact: true }).click();
     await expect(selected).toHaveCount(before + 1);
   }
-  await page.getByLabel('Search clause library').fill('');
+  await page.getByLabel('Search standard wording').fill('');
   const names = () => selected.locator('.clause-meta strong').allTextContents();
   const order = await names();
   expect(order.slice(-3)).toEqual([clauseName, 'Appointment of auditors', 'General business']);
@@ -205,8 +206,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
     .poll(async () => (await names()).slice(-3))
     .toEqual([clauseName, 'General business', 'Appointment of auditors']);
 
-  // Questions: the reused fee question is asked once; the bound company name is read only.
-  await page.getByRole('button', { name: 'Questions', exact: true }).click();
+  // Answers: the reused fee question is asked once; the bound company name is read only.
   const questions = page.locator('.question-form');
   const ours = questions.locator('.question-section', { hasText: clauseName });
   await expect(ours.getByLabel(/Fee amount/)).toHaveCount(1);
@@ -233,7 +233,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await questions.getByRole('button', { name: 'Save answers' }).first().click();
   await expect(questions.locator('.question-save [aria-live]')).toHaveText('Answers saved');
 
-  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh preview' }).click();
   await expect(page.locator('.document-page')).toContainText('approves a fee of');
   await expect(page.locator('.document-page')).toContainText('Payable: No');
   await page.getByText('Preview details', { exact: true }).click();
@@ -241,8 +241,8 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
     page.getByRole('definition').filter({ hasText: 'Final page breaks are set by Word' }),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Documents', exact: true }).click();
-  await page.getByRole('button', { name: 'Generate Word document' }).click();
+  await page.getByRole('button', { name: 'Word documents', exact: true }).click();
+  await page.getByRole('button', { name: 'Create Word document' }).click();
   const link = page.getByRole('link', { name: 'Download version 1' });
   await expect(link).toBeVisible({ timeout: 45000 });
   const response = await page.request.get((await link.getAttribute('href'))!);
@@ -252,23 +252,36 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   );
   expect((await response.body()).length).toBeGreaterThan(1000);
 
-  // Switch output type: each clause now uses its members' wording.
-  await page.getByRole('button', { name: 'Clauses', exact: true }).click();
-  await page.getByLabel('Output type').selectOption({ label: "Members' written resolution" });
-  await page.getByRole('button', { name: 'Apply output type and assembly' }).click();
-  await expect(page.getByRole('button', { name: 'Apply output type and assembly' })).toHaveCount(0);
+  // Switch document type: each paragraph now uses its members' wording.
+  await page.getByRole('button', { name: 'Prepare', exact: true }).click();
+  await page.getByLabel('Document type').selectOption({ label: "Members' written resolution" });
+  await page.getByRole('button', { name: 'Apply document type and layout' }).click();
+  await expect(page.getByRole('button', { name: 'Apply document type and layout' })).toHaveCount(0);
   await expect(page.locator('.clause-picker [role=alert], section > .feedback.error')).toHaveCount(
     0,
   );
-  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh preview' }).click();
   await expect(page.locator('.document-page')).toContainText('The members note a fee of');
 
-  for (const section of ['Clauses', 'Questions', 'Documents']) {
+  for (const section of ['Prepare', 'Word documents']) {
     await page.getByRole('button', { name: section, exact: true }).click();
     await noOverflow(page, 768);
     await noOverflow(page, 390);
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
+
+  // Hand-off: drafting pauses with the reviewer, who approves it.
+  await page.getByRole('button', { name: 'Prepare', exact: true }).click();
+  await page.getByLabel('Reviewer').selectOption({ label: 'Daniel Tan' });
+  await page.getByRole('button', { name: 'Send for review', exact: true }).click();
+  await expect(page.locator('.record-heading')).toContainText('With Daniel Tan for review');
+  await expect(page.getByRole('button', { name: 'Send for review', exact: true })).toHaveCount(0);
+  // Without the #section part, so the reviewer's visit is a full page load.
+  const url = page.url().split('#')[0];
+  await as(page, 'reviewer');
+  await page.goto(url);
+  await page.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(page.locator('.record-heading')).toContainText('Approved by Daniel Tan');
 });
 
 test('version-history links preserve a dirty draft when discard is cancelled', async ({ page }) => {
@@ -298,7 +311,7 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await expect(canvas).not.toContainText('Unsaved version-history regression.');
 });
 
-test('an unlinked director resolution can link its W04 job from Overview', async ({ page }) => {
+test('an unlinked director resolution can link its W04 job from Prepare', async ({ page }) => {
   await as(page, 'owner');
   const workspace = await (await page.request.get('/api/workspace')).json();
   const job = workspace.jobs.find(

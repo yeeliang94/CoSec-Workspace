@@ -18,7 +18,7 @@ export function CasePreview({ api }: { api: CaseApi }) {
   return (
     <section aria-labelledby="case-preview">
       <div className="page-header section-header">
-        <h2 id="case-preview">Preview</h2>
+        <h2 id="case-preview">4. Preview</h2>
         <button type="button" onClick={() => void load.reload()} disabled={load.loading}>
           {load.loading ? 'Refreshing…' : 'Refresh preview'}
         </button>

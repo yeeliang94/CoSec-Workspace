@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db, readSnapshot, transaction, type Transaction } from '../db';
 import * as s from '../schema';
-import { listOfficerEvents, prior, remember, requestKey } from '../repository';
+import { insertOfficerEvent, listOfficerEvents, prior, remember, requestKey } from '../repository';
 import { auditChange } from '../resolution/shared';
 import {
   assertPersonVisible,
@@ -12,9 +12,9 @@ import {
   systemActor,
   visiblePersonIds,
 } from './scope';
-import { assertCompany, DomainError } from '../../domain/access';
+import { assertCompany, DomainError, today } from '../../domain/access';
 import { officersAt } from '../../domain/workflows';
-import type { Actor } from '../../domain/model';
+import type { Actor, OfficerEvent } from '../../domain/model';
 import type {
   CompanyRelationship,
   Person,
@@ -360,7 +360,7 @@ type RelationshipInput =
       action: 'add';
       requestId: string;
       personId: string;
-      role: Exclude<RelationshipRole, 'director'>;
+      role: RelationshipRole;
       capacity: string;
       startDate: string | null;
       evidenceIds: string[];
@@ -389,10 +389,6 @@ export async function changeRelationship(
 ): Promise<CompanyRelationship> {
   assertCompany(actor, companyId, 'manage_people');
   if (input.action === 'add') {
-    if ((input.role as string) === 'director')
-      throw new DomainError(
-        'Director relationships come from posted officer events. Use a W04 director change.',
-      );
     const key = requestKey(actor, `relationship:${companyId}`, input.requestId);
     return transaction(async (tx) => {
       await lockCompany(companyId, tx);
@@ -400,6 +396,11 @@ export async function changeRelationship(
       if (old) return readRelationship(actor, old.id, tx);
       // Checked under the company lock so a concurrent change cannot slip between check and write.
       await assertPersonVisible(actor, input.personId, tx);
+      if (input.role === 'director') {
+        const relationship = await addDirector(actor, companyId, input, tx);
+        await remember(tx, key, { id: relationship.id, revision: relationship.revision });
+        return relationship;
+      }
       const evidenceIds = await companyEvidence(actor, companyId, input.evidenceIds, tx);
       const now = new Date().toISOString();
       const relationship: CompanyRelationship = {
@@ -453,13 +454,26 @@ export async function changeRelationship(
     const before = row.data;
     const next = structuredClone(before);
     if (input.action === 'end') {
-      if (before.projectedFrom || before.role === 'director')
-        throw new DomainError(
-          'A director relationship ends only through a posted W04 cessation event.',
-        );
       if (before.endDate) throw new DomainError('This relationship has already ended.');
       if (before.startDate && input.endDate < before.startDate)
         throw new DomainError('The end date cannot be before the start date.');
+      if (before.role === 'director') {
+        // A director's dates come from officer events, so ending one records a cessation event.
+        await postDirectorEvent(
+          actor,
+          companyId,
+          before.personId,
+          'other_cessation',
+          { effectiveDate: input.endDate, reason: input.reason },
+          tx,
+        );
+        const [ended] = await tx
+          .select()
+          .from(s.companyRelationships)
+          .where(eq(s.companyRelationships.id, before.id));
+        await remember(tx, key, { id: before.id, revision: ended.revision });
+        return ended.data;
+      }
       next.endDate = input.endDate;
     } else {
       next.capacity = input.capacity.trim();
@@ -485,6 +499,210 @@ export async function changeRelationship(
     return next;
   });
 }
+
+/** Records a director appointment as an officer event; the relationship follows from it. */
+async function addDirector(
+  actor: Actor,
+  companyId: string,
+  input: {
+    personId: string;
+    capacity: string;
+    startDate: string | null;
+    reason?: string;
+    evidenceIds?: string[];
+  },
+  tx: Transaction,
+) {
+  const event = await postDirectorEvent(
+    actor,
+    companyId,
+    input.personId,
+    'appointment',
+    {
+      effectiveDate: input.startDate ?? today(),
+      reason: input.reason ?? 'Added on the company record',
+      evidenceIds: input.evidenceIds ?? [],
+    },
+    tx,
+  );
+  const id = directorRelationshipId(event.id);
+  const [row] = await tx
+    .select()
+    .from(s.companyRelationships)
+    .where(eq(s.companyRelationships.id, id));
+  if (!row) throw new DomainError('This person could not be added as a director.');
+  if (!input.capacity.trim()) return row.data;
+  const next = { ...row.data, capacity: input.capacity.trim(), revision: row.revision + 1 };
+  await tx
+    .update(s.companyRelationships)
+    .set({ revision: next.revision, data: next })
+    .where(eq(s.companyRelationships.id, id));
+  return next;
+}
+
+/**
+ * A new appointment starts after the person's earlier terms; a cessation ends the open term.
+ * Back-dating into or before an existing term would reshape it and leave a duplicate director row.
+ */
+function assertDirectorEventFits(
+  terms: ReturnType<typeof directorIntervals>,
+  route: OfficerEvent['route'],
+  effectiveDate: string,
+) {
+  const open = terms.find((t) => !t.endDate);
+  if (route === 'appointment') {
+    if (open) throw new DomainError('This person is already a director of this company.');
+    const lastEnd = terms
+      .map((t) => t.endDate!)
+      .sort()
+      .at(-1);
+    if (lastEnd && effectiveDate < lastEnd)
+      throw new DomainError(
+        'The appointment date cannot be before this person’s previous term ended.',
+      );
+    return;
+  }
+  if (!open) throw new DomainError('This person is not currently a director of this company.');
+  if (effectiveDate < open.startDate)
+    throw new DomainError('The end date cannot be before the appointment date.');
+}
+
+async function postDirectorEvent(
+  actor: Actor,
+  companyId: string,
+  personId: string,
+  route: OfficerEvent['route'],
+  input: { effectiveDate: string; reason: string; evidenceIds?: string[] },
+  tx: Transaction,
+) {
+  const [person] = await tx
+    .select({ fullName: s.people.fullName })
+    .from(s.people)
+    .where(eq(s.people.id, personId));
+  if (!person) throw personUnavailable();
+  assertDirectorEventFits(
+    directorIntervals(await listOfficerEvents(companyId, tx)).filter(
+      (t) => t.personId === personId,
+    ),
+    route,
+    input.effectiveDate,
+  );
+  const event: OfficerEvent = {
+    id: randomUUID(),
+    companyId,
+    jobId: '',
+    personId,
+    personName: person.fullName,
+    route,
+    effectiveDate: input.effectiveDate,
+    recordedAt: new Date().toISOString(),
+    evidenceIds: await companyEvidence(actor, companyId, input.evidenceIds ?? [], tx),
+    basis: input.reason,
+    reviewerId: actor.id,
+    predecessorId: null,
+  };
+  await insertOfficerEvent(event, tx);
+  await syncDirectorProjection(companyId, tx);
+  await auditChange(tx, actor, {
+    companyId,
+    entityType: 'person',
+    entityId: personId,
+    action: route === 'appointment' ? 'director.added' : 'director.ended',
+    detail: { officerEventId: event.id, effectiveDate: event.effectiveDate },
+    reason: input.reason,
+  });
+  return event;
+}
+
+/** Adds the people entered with a new company, inside its creating transaction. */
+export async function addOpeningPeople(
+  actor: Actor,
+  companyId: string,
+  entries: OpeningPerson[],
+  tx: Transaction,
+) {
+  const now = new Date().toISOString();
+  for (const entry of entries) {
+    let personId = entry.personId;
+    if (!personId) {
+      const person: Person = {
+        id: randomUUID(),
+        fullName: entry.fullName!.trim(),
+        nameHistory: [],
+        email: null,
+        notes: '',
+        customValues: {},
+        createdBy: actor.id,
+        createdAt: now,
+        updatedAt: now,
+        revision: 1,
+      };
+      await tx
+        .insert(s.people)
+        .values({ id: person.id, fullName: person.fullName, revision: 1, data: person });
+      await auditChange(tx, actor, {
+        companyId,
+        entityType: 'person',
+        entityId: person.id,
+        action: 'person.created',
+        before: null,
+        after: person,
+      });
+      personId = person.id;
+    } else await assertPersonVisible(actor, personId, tx);
+    if (entry.role === 'director') {
+      await addDirector(
+        actor,
+        companyId,
+        {
+          personId,
+          capacity: '',
+          startDate: entry.startDate,
+          reason: 'Entered with the new company',
+        },
+        tx,
+      );
+      continue;
+    }
+    const relationship: CompanyRelationship = {
+      id: randomUUID(),
+      companyId,
+      personId,
+      role: entry.role,
+      capacity: '',
+      startDate: entry.startDate,
+      endDate: null,
+      projectedFrom: null,
+      evidenceIds: [],
+      createdBy: actor.id,
+      createdAt: now,
+      revision: 1,
+    };
+    await tx.insert(s.companyRelationships).values({
+      id: relationship.id,
+      companyId,
+      personId,
+      role: relationship.role,
+      revision: 1,
+      data: relationship,
+    });
+    await auditChange(tx, actor, {
+      companyId,
+      entityType: 'company_relationship',
+      entityId: relationship.id,
+      action: 'relationship.added',
+      before: null,
+      after: relationship,
+      detail: { personId },
+    });
+  }
+}
+export type OpeningPerson = {
+  personId?: string;
+  fullName?: string;
+  role: RelationshipRole;
+  startDate: string | null;
+};
 
 async function readRelationship(actor: Actor, id: string, tx: Transaction) {
   const [row] = await tx

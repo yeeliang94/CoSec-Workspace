@@ -52,7 +52,7 @@ export default function TemplatesPage() {
         <Icon kind="back" />
         Resolutions
       </Link>
-      <PageHeader title="Clause library">
+      <PageHeader title="Resolution templates">
         {canManage && tab !== 'outputs' ? (
           <button
             type="button"
@@ -63,16 +63,16 @@ export default function TemplatesPage() {
               setCreating(!creating);
             }}
           >
-            {tab === 'clauses' ? 'New clause' : 'New assembly'}
+            {tab === 'clauses' ? 'New paragraph' : 'New layout'}
           </button>
         ) : null}
       </PageHeader>
       <div className="filters" role="group" aria-label="Library sections">
         {(
           [
-            ['clauses', 'Clauses', load.data?.clauses.filter((c) => !c.archived).length],
-            ['assemblies', 'Assemblies', load.data?.assemblies.filter((a) => !a.archived).length],
-            ...(canManage ? [['outputs', 'Output types', load.data?.outputTypes.length]] : []),
+            ['clauses', 'Standard wording', load.data?.clauses.filter((c) => !c.archived).length],
+            ['assemblies', 'Layouts', load.data?.assemblies.filter((a) => !a.archived).length],
+            ...(canManage ? [['outputs', 'Document types', load.data?.outputTypes.length]] : []),
           ] as [Tab, string, number | undefined][]
         ).map(([key, label, count]) => (
           <button

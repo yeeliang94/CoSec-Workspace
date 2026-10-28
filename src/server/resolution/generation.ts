@@ -226,7 +226,7 @@ export async function generateDocument(
           'STALE',
           409,
         );
-      if (!rc.selection) throw new DomainError('Choose an assembly and clauses first.');
+      if (!rc.selection) throw new DomainError('Choose the layout and wording first.');
       if (
         rc.selection.revision !== request.selectionRevision ||
         rc.answers.selectionRevision !== rc.selection.revision

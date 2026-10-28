@@ -101,15 +101,12 @@ test('API role, company scope, private download and CSRF boundaries', async () =
   expect((await executive.get('/api/users')).status()).toBe(403);
   expect((await admin.get('/api/users')).status()).toBe(200);
   const job = full.jobs[0];
+  // Two roles: a User cannot reach Admin-only settings or publish templates.
+  expect((await lodger.get('/api/users')).status()).toBe(403);
   expect(
     (
-      await lodger.post(`/api/jobs/${job.id}`, {
-        data: {
-          action: 'note',
-          html: 'no',
-          expectedRevision: job.revision,
-          requestId: crypto.randomUUID(),
-        },
+      await lodger.post('/api/clause-templates', {
+        data: { requestId: crypto.randomUUID(), name: 'No', category: 'Other' },
       })
     ).status(),
   ).toBe(403);

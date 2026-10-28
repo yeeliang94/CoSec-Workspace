@@ -52,6 +52,7 @@ export async function request<T = unknown>(
 const navigation = [
   ['/work', 'My work', 'work'],
   ['/companies', 'Companies', 'company'],
+  ['/people', 'People', 'people'],
   ['/reviews', 'Reviews', 'review'],
   ['/calendar', 'Calendar', 'calendar'],
   ['/documents', 'Documents', 'document'],
@@ -105,6 +106,12 @@ export function Icon({ kind }: { kind: string }) {
         <path d="M6 2h12v20H6zM9 7h6M9 11h6M9 15h3M13 18l1.5 1.5L18 16" />
       </>
     ),
+    people: (
+      <>
+        <circle cx="9" cy="8" r="3.5" />
+        <path d="M2.5 20c.5-3.6 3.1-6 6.5-6s6 2.4 6.5 6M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.5c1.7.9 2.8 2.9 3 5.5" />
+      </>
+    ),
     plus: <path d="M12 5v14M5 12h14" />,
     back: <path d="m14 5-7 7 7 7M7 12h14" />,
     search: (
@@ -135,7 +142,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const pathname = usePathname();
-  const navigationPath = /^\/(templates|people)(\/|$)/.test(pathname)
+  const navigationPath = /^\/templates(\/|$)/.test(pathname)
     ? '/resolutions'
     : /^\/audit(\/|$)/.test(pathname)
       ? '/settings'

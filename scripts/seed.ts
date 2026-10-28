@@ -12,7 +12,7 @@ import {
   type Actor,
 } from '../src/domain/model';
 import { createJob, applyJobAction } from '../src/server/workflows';
-import { mappedResolutionCapabilities } from '../src/domain/resolution/records';
+import { ROLE_CAPABILITIES } from '../src/domain/model';
 import { storeUpload } from '../src/server/storage';
 import { syncDirectorProjection } from '../src/server/records/relationships';
 import { lockCompany } from '../src/server/records/scope';
@@ -28,36 +28,26 @@ const definitions: { key: string; name: string; capabilities: Capability[]; scop
   {
     key: 'owner',
     name: 'Owner administrator',
-    capabilities: [
-      'prepare_job',
-      'review_pack',
-      'confirm_record',
-      'record_filing',
-      'manage_catalogue',
-      'manage_users',
-    ],
+    capabilities: ROLE_CAPABILITIES.admin,
     scope: companyIds,
   },
-  { key: 'executive', name: 'Aina Rahman', capabilities: ['prepare_job'], scope: companyIds },
   {
-    key: 'reviewer',
-    name: 'Daniel Tan',
-    capabilities: ['review_pack', 'confirm_record', 'manage_catalogue'],
+    key: 'executive',
+    name: 'Aina Rahman',
+    capabilities: ROLE_CAPABILITIES.user,
     scope: companyIds,
   },
-  { key: 'lodger', name: 'Mei Lim', capabilities: ['record_filing'], scope: companyIds },
-  { key: 'admin', name: 'Account administrator', capabilities: ['manage_users'], scope: [] },
+  { key: 'reviewer', name: 'Daniel Tan', capabilities: ROLE_CAPABILITIES.user, scope: companyIds },
+  { key: 'lodger', name: 'Mei Lim', capabilities: ROLE_CAPABILITIES.user, scope: companyIds },
+  { key: 'admin', name: 'Account administrator', capabilities: ROLE_CAPABILITIES.admin, scope: [] },
   {
     key: 'limited',
     name: 'Scoped executive',
-    capabilities: ['prepare_job'],
+    capabilities: ROLE_CAPABILITIES.user,
     scope: [companyIds[0]],
   },
 ];
 const credentials: { key: string; email: string; password: string; id: string }[] = [];
-// Fresh installs get the same explicit mapping as scripts/grant-resolution-capabilities.ts.
-for (const def of definitions)
-  def.capabilities = [...def.capabilities, ...mappedResolutionCapabilities(def.capabilities)];
 for (const def of definitions) {
   const id = randomUUID(),
     email = `${def.key}@cosec.local`,
@@ -106,10 +96,11 @@ const companies: Company[] = names.map((name, i) => ({
   name,
   registrationNumber: `2020${String(i + 1).padStart(8, '0')}`,
   incorporationDate: `2020-${String(9 + (i % 3)).padStart(2, '0')}-15`,
-  financialYearEnd: '2026-12-31',
+  financialYearEnd: '12-31',
   legalStatus: 'Existing',
   engagementStatus: 'Active',
   address: `${12 + i} Jalan Contoh, Kuala Lumpur`,
+  industry: 'M',
   activity: 'Fictional evaluation company',
   verification: 'Unverified',
   sourceEvidenceId: null,

@@ -18,6 +18,7 @@ import { officersAt } from '../domain/workflows';
 import { defaultSettings } from '../domain/model';
 import { beneficialOwnersAt } from '../domain/records';
 import { deriveReminders } from '../domain/reminders';
+import { addOpeningPeople, type OpeningPerson } from './records/relationships';
 import {
   assertCapability,
   assertCompany,
@@ -392,8 +393,8 @@ export async function reconcileCompanyReminders(
       .values([...wanted.values()].map((item) => ({ id: item.id, companyId, data: item })));
   return openCount;
 }
-export async function createCompany(actor: Actor, company: Company) {
-  assertCapability(actor, 'manage_users');
+export async function createCompany(actor: Actor, people: OpeningPerson[], company: Company) {
+  assertCapability(actor, 'prepare_job');
   await transaction(async (tx) => {
     const [u] = await tx.select().from(s.user).where(eq(s.user.id, actor.id));
     await tx.insert(s.companies).values({ id: company.id, data: company });
@@ -402,6 +403,12 @@ export async function createCompany(actor: Actor, company: Company) {
       .set({ companyIds: [...(u?.companyIds ?? []), company.id], updatedAt: new Date() })
       .where(eq(s.user.id, actor.id));
     await audit(actor, company.id, 'company.created', company.id, { name: company.name }, tx);
+    await addOpeningPeople(
+      { ...actor, companyIds: [...actor.companyIds, company.id] },
+      company.id,
+      people,
+      tx,
+    );
   });
   return company;
 }

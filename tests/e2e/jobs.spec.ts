@@ -77,7 +77,7 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   const items = page.locator('.checklist-item');
   for (let index = 0; index < (await items.count()); index++) {
     const item = items.nth(index);
-    await item.locator('[name=evidenceIds]').selectOption([doc.id]);
+    await item.locator('[name=evidenceIds][required]').selectOption([doc.id]);
     await item.getByRole('button', { name: 'Link evidence', exact: true }).click();
     await expect(item.getByText('Saved', { exact: true })).toBeVisible();
   }

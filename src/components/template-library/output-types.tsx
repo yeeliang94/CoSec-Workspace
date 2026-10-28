@@ -26,7 +26,7 @@ export function OutputTypes({
           <caption className="sr-only">Output types</caption>
           <thead>
             <tr>
-              <th>Output type</th>
+              <th>Document type</th>
               <th>Body</th>
               <th>ID</th>
               <th>State</th>
@@ -70,7 +70,7 @@ export function OutputTypes({
         </table>
       </div>
       <details className="disclosure">
-        <summary>Add an output type</summary>
+        <summary>Add a document type</summary>
         <form
           className="form-grid"
           data-dirty={name ? 'true' : 'false'}
@@ -124,7 +124,7 @@ export function OutputTypes({
             </p>
           ) : null}
           <div className="actions">
-            <button disabled={action.pending}>Add output type</button>
+            <button disabled={action.pending}>Add document type</button>
           </div>
         </form>
       </details>

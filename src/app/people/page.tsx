@@ -14,7 +14,7 @@ import {
 } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from '@/components/resolution/api';
 import { Drawer } from '@/components/resolution/drawer';
-import { CompanyRelationships, roleName } from '@/components/resolution/relationships';
+import { roleName } from '@/components/resolution/relationships';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
 import { ActionFeedback, useAction } from '@/components/resolution/use-action';
 import { CustomValueInput } from '@/components/resolution/custom-value';
@@ -35,7 +35,6 @@ function PeopleDirectory() {
   const router = useRouter();
   // Read reactively so same-route `?person=` links (relationship rows) open the person.
   const personParam = useSearchParams().get('person');
-  const [view, setView] = useState<'people' | 'relationships'>('people');
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [companyId, setCompanyId] = useState('');
@@ -57,15 +56,10 @@ function PeopleDirectory() {
   if (!data) return null;
   const canManage = data.actor.capabilities.includes('manage_people');
   const companyName = (id: string) => data.companies.find((c) => c.id === id)?.name || 'Company';
-  const relationshipCompany = companyId || data.companies[0]?.id || '';
   return (
     <>
-      <Link href="/resolutions" className="back-link">
-        <Icon kind="back" />
-        Resolutions
-      </Link>
       <PageHeader title="People">
-        {canManage && view === 'people' ? (
+        {canManage ? (
           <button
             type="button"
             className="primary"
@@ -79,31 +73,7 @@ function PeopleDirectory() {
           </button>
         ) : null}
       </PageHeader>
-      <div className="filters" role="group" aria-label="People views">
-        <button
-          type="button"
-          className={'filter' + (view === 'people' ? ' active' : '')}
-          aria-pressed={view === 'people'}
-          onClick={async () => {
-            if (view !== 'people' && !(await canLeaveEditing())) return;
-            setView('people');
-          }}
-        >
-          Directory
-        </button>
-        <button
-          type="button"
-          className={'filter' + (view === 'relationships' ? ' active' : '')}
-          aria-pressed={view === 'relationships'}
-          onClick={async () => {
-            if (view !== 'relationships' && !(await canLeaveEditing())) return;
-            setView('relationships');
-          }}
-        >
-          Company relationships
-        </button>
-      </div>
-      {creating && view === 'people' ? (
+      {creating ? (
         <NewPerson
           onDone={async (id) => {
             setCreating(false);
@@ -113,20 +83,18 @@ function PeopleDirectory() {
         />
       ) : null}
       <div className="toolbar">
-        {view === 'people' ? (
-          <label className="search">
-            <span className="sr-only">Search people</span>
-            <Icon kind="search" />
-            <input
-              type="search"
-              placeholder="Search by name"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-        ) : null}
-        <label className={view === 'relationships' ? 'wide-select' : undefined}>
-          <span className={view === 'relationships' ? undefined : 'sr-only'}>Company</span>
+        <label className="search">
+          <span className="sr-only">Search people</span>
+          <Icon kind="search" />
+          <input
+            type="search"
+            placeholder="Search by name"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <label>
+          <span className="sr-only">Company</span>
           <select
             value={companyId}
             onChange={async (event) => {
@@ -134,7 +102,7 @@ function PeopleDirectory() {
               if (await canLeaveEditing()) setCompanyId(next);
             }}
           >
-            {view === 'people' ? <option value="">All companies</option> : null}
+            <option value="">All companies</option>
             {data.companies.map((company) => (
               <option key={company.id} value={company.id}>
                 {company.name}
@@ -143,73 +111,65 @@ function PeopleDirectory() {
           </select>
         </label>
       </div>
-      {view === 'relationships' ? (
-        relationshipCompany ? (
-          <CompanyRelationships key={relationshipCompany} companyId={relationshipCompany} />
-        ) : (
-          <Empty>No companies available</Empty>
-        )
-      ) : (
-        <>
-          <LoadState
-            loading={people.loading && !people.data}
-            error={people.error}
-            reload={() => void people.reload()}
-            label="people"
-          />
-          {people.data ? (
-            people.data.people.length ? (
-              <div className="table-wrap">
-                <table className="people-table stack-table">
-                  <caption className="sr-only">People you can see</caption>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Relationships</th>
-                      <th>Email</th>
+      <>
+        <LoadState
+          loading={people.loading && !people.data}
+          error={people.error}
+          reload={() => void people.reload()}
+          label="people"
+        />
+        {people.data ? (
+          people.data.people.length ? (
+            <div className="table-wrap">
+              <table className="people-table stack-table">
+                <caption className="sr-only">People you can see</caption>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Relationships</th>
+                    <th>Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {people.data.people.map((person) => (
+                    <tr key={person.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="text-button record-button"
+                          onClick={() => setOpen(person.id)}
+                        >
+                          {person.fullName}
+                        </button>
+                        {person.migrationNote ? (
+                          <div className="metadata">Needs identity review</div>
+                        ) : null}
+                      </td>
+                      <td data-label="Relationships">
+                        {person.relationships.length ? (
+                          <ul className="compact-list">
+                            {person.relationships.map((r) => (
+                              <li key={r.id}>
+                                {companyName(r.companyId)} · {roleName(r.role)}
+                                {r.endDate ? ` · ended ${formatDate(r.endDate)}` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="muted">Not linked yet</span>
+                        )}
+                      </td>
+                      <td data-label="Email">{person.email || '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {people.data.people.map((person) => (
-                      <tr key={person.id}>
-                        <td>
-                          <button
-                            type="button"
-                            className="text-button record-button"
-                            onClick={() => setOpen(person.id)}
-                          >
-                            {person.fullName}
-                          </button>
-                          {person.migrationNote ? (
-                            <div className="metadata">Needs identity review</div>
-                          ) : null}
-                        </td>
-                        <td data-label="Relationships">
-                          {person.relationships.length ? (
-                            <ul className="compact-list">
-                              {person.relationships.map((r) => (
-                                <li key={r.id}>
-                                  {companyName(r.companyId)} · {roleName(r.role)}
-                                  {r.endDate ? ` · ended ${formatDate(r.endDate)}` : ''}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span className="muted">Not linked yet</span>
-                          )}
-                        </td>
-                        <td data-label="Email">{person.email || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <Empty>{search || companyId ? 'No matching people' : 'No people yet'}</Empty>
-            )
-          ) : null}
-        </>
-      )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>{search || companyId ? 'No matching people' : 'No people yet'}</Empty>
+          )
+        ) : null}
+      </>
       {open ? (
         <PersonDrawer
           id={open}

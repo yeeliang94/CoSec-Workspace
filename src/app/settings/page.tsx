@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Capability, CatalogueVersion, Company, Preferences } from '@/domain/model';
+import { ROLE_LABELS, roleOf } from '@/domain/model';
 import { useWorkspace, PageHeader, request, formatDate } from '@/components/workspace';
 import { ActionForm, canLeaveEditing } from '@/components/forms';
 function Personal() {
@@ -354,20 +355,6 @@ type AdminUser = {
   active: boolean;
   updatedAt: string;
 };
-const capabilities: Capability[] = [
-  'prepare_job',
-  'review_pack',
-  'confirm_record',
-  'record_filing',
-  'manage_catalogue',
-  'manage_users',
-  'view_bo',
-  'manage_people',
-  'manage_templates',
-  'generate_documents',
-  'view_audit',
-  'export_audit',
-];
 function Users() {
   const { data } = useWorkspace();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -417,7 +404,7 @@ function Users() {
           <thead>
             <tr>
               <th>Staff member</th>
-              <th>Capabilities</th>
+              <th>Role</th>
               <th>Companies</th>
               <th>Status</th>
               <th>Access</th>
@@ -430,7 +417,7 @@ function Users() {
                   {user.name}
                   <div className="metadata">{user.email}</div>
                 </td>
-                <td>{user.capabilities.map((c) => c.replaceAll('_', ' ')).join(', ') || 'None'}</td>
+                <td>{ROLE_LABELS[roleOf(user.capabilities)]}</td>
                 <td>{user.companyIds.length}</td>
                 <td>{user.active ? 'Active' : 'Inactive'}</td>
                 <td>
@@ -472,7 +459,7 @@ function Users() {
               const body: Record<string, unknown> = {
                 action: selected ? 'update' : 'create',
                 name: form.get('name'),
-                capabilities: form.getAll('capabilities'),
+                role: form.get('role'),
                 companyIds: form.getAll('companyIds'),
                 requestId: crypto.randomUUID(),
               };
@@ -521,18 +508,25 @@ function Users() {
                 />
               </label>
               <fieldset>
-                <legend>Capabilities</legend>
-                {capabilities.map((capability) => (
-                  <label className="inline" key={capability}>
-                    <input
-                      type="checkbox"
-                      name="capabilities"
-                      value={capability}
-                      defaultChecked={selected?.capabilities.includes(capability)}
-                    />
-                    {capability.replaceAll('_', ' ')}
-                  </label>
-                ))}
+                <legend>Role</legend>
+                <label className="inline">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="user"
+                    defaultChecked={!selected || roleOf(selected.capabilities) === 'user'}
+                  />
+                  User — prepares and reviews work
+                </label>
+                <label className="inline">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="admin"
+                    defaultChecked={selected ? roleOf(selected.capabilities) === 'admin' : false}
+                  />
+                  Admin — also manages users, settings and templates
+                </label>
               </fieldset>
               <fieldset>
                 <legend>Company access</legend>

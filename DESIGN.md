@@ -175,7 +175,7 @@ Preserve full legal names where practical. Allow wrapping in record links and lo
 
 The desktop reference has a fixed 208px left rail, a 58px top bar and a content width capped at 1540px. The main content inset is 30px above and 32px at the sides. At widths up to 1100px the rail reduces to 184px and the side inset to 24px. At widths up to 900px, replace the rail with labelled compact navigation. At widths up to 650px, use 16px side insets and stacked working regions.
 
-Use one page heading and one primary action in a working region. Align headings, filters, search and record content to the same left edge. The existing navigation order is My work, Companies, Reviews, Calendar, Documents and Billing. Administration and future screens must retain the shell rather than introduce a new visual world.
+Use one page heading and one primary action in a working region. Align headings, filters, search and record content to the same left edge. The navigation order is My work, Companies, People, Reviews, Calendar, Documents, Resolutions and Billing. Administration and future screens must retain the shell rather than introduce a new visual world.
 
 ### Lists and records
 
@@ -237,7 +237,7 @@ Use plain-text state labels. Reserve red for blockers and overdue work and green
 
 The owner prefers a concise interface without routine explanatory microcopy or persistent helper text. Use clear labels, familiar controls and direct action names. Reveal optional guidance on request or at the point it becomes relevant. Retain field labels, actionable validation, save state, material blockers and consequential-action information needed to complete work correctly.
 
-Inputs use a white surface, input-border token, control radius and shared padding. Search may use a smaller 35px control within the desktop toolbar. Labels remain visible; placeholders provide examples only. Use the shared focus colour with a 2px outline and 3px offset, as observed in A.
+Inputs use a white surface, input-border token, control radius and shared padding. Search may use a smaller 35px control within the desktop toolbar. Labels remain visible; placeholders provide examples only. Text fields, selects and text areas show focus by changing their border to the focus colour, with no surrounding ring (owner decision, 28 October 2026). Buttons, links and other controls keep the focus-colour 2px outline with a 3px offset. Selects use a custom chevron inset 12px from the right edge so it never touches the border.
 
 Place actionable errors near the field and provide a linked error summary for a long form. Preserve entered values, identify what needs correcting and prevent duplicate consequential submissions. The prototype's required fields and toasts are examples, not the full production validation contract.
 

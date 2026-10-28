@@ -43,7 +43,7 @@ export function CaseDocuments({ api }: { api: CaseApi }) {
 
   if (!data) return null;
   const caps = data.actor.capabilities;
-  const canGenerate = api.canEdit && caps.includes('generate_documents');
+  const canGenerate = item.state === 'Open' && caps.includes('generate_documents');
   const families = new Map<string, DocumentGeneration[]>();
   for (const generation of [...generations].sort((a, b) => a.createdAt.localeCompare(b.createdAt)))
     families.set(generation.familyId, [...(families.get(generation.familyId) ?? []), generation]);
@@ -52,7 +52,7 @@ export function CaseDocuments({ api }: { api: CaseApi }) {
 
   return (
     <section aria-labelledby="case-documents">
-      <h2 id="case-documents">Documents</h2>
+      <h2 id="case-documents">Word documents</h2>
       {canGenerate ? (
         <form
           className="generate-form"
@@ -114,10 +114,10 @@ export function CaseDocuments({ api }: { api: CaseApi }) {
           ) : null}
           <div className="actions">
             <button className="primary" disabled={generate.pending || !item.selection || pending}>
-              {generate.pending ? 'Generating…' : 'Generate Word document'}
+              {generate.pending ? 'Generating…' : 'Create Word document'}
             </button>
             {!item.selection ? (
-              <span className="metadata">Choose clauses before generating.</span>
+              <span className="metadata">Choose the wording before creating the document.</span>
             ) : null}
             {polling ? <span className="metadata">Waiting for the document to finish…</span> : null}
           </div>
@@ -439,7 +439,7 @@ function Generation({
           <dd>{name(generation.createdBy)}</dd>
           <dt>Created</dt>
           <dd>{formatDate(generation.createdAt)}</dd>
-          <dt>Clauses</dt>
+          <dt>Paragraphs</dt>
           <dd>{generation.clauseVersionIds.length}</dd>
           <dt>Selection revision</dt>
           <dd>{generation.selectionRevision}</dd>
@@ -451,17 +451,17 @@ function Generation({
               </dd>
             </>
           ) : null}
-          <dt>Assembly version</dt>
+          <dt>Layout version</dt>
           <dd>
             <code>{generation.assemblyVersionId}</code>
           </dd>
-          <dt>Clause versions (in order)</dt>
+          <dt>Paragraph versions (in order)</dt>
           <dd>
             {generation.clauseVersionIds.map((id) => (
               <code key={id}>{id}</code>
             ))}
           </dd>
-          <dt>Output type</dt>
+          <dt>Document type</dt>
           <dd>{generation.outputTypeId}</dd>
           <dt>Records as at</dt>
           <dd>{formatDate(generation.snapshot?.asAt)}</dd>

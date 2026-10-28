@@ -1,15 +1,13 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useWorkspace, PageHeader, Icon, formatDate, Empty, request } from '@/components/workspace';
-import { FormFields } from '@/components/forms';
+import { useWorkspace, PageHeader, Icon, formatDate, Empty } from '@/components/workspace';
+import { NewCompany } from '@/components/new-company';
 import { canLeaveEditing } from '@/components/edit-guard';
 export default function Companies() {
   const { data, refresh } = useWorkspace();
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
   if (!data) return null;
   const companies = data.companies.filter((c) =>
     [c.name, c.registrationNumber].join(' ').toLowerCase().includes(query.toLowerCase()),
@@ -18,10 +16,7 @@ export default function Companies() {
     <>
       <PageHeader title="Companies">
         <div className="header-actions">
-          <Link className="button" href="/people">
-            People
-          </Link>
-          {data.actor.capabilities.includes('manage_users') ? (
+          {data.actor.capabilities.includes('prepare_job') ? (
             <button
               className="primary"
               onClick={async () => {
@@ -29,71 +24,19 @@ export default function Companies() {
                 setAdding(!adding);
               }}
             >
-              <Icon kind="plus" />
+              {adding ? null : <Icon kind="plus" />}
               {adding ? 'Close form' : 'New company'}
             </button>
           ) : null}
         </div>
       </PageHeader>
       {adding ? (
-        <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>
-          <h2>Opening company record</h2>
-          <form
-            inert={pending}
-            aria-busy={pending}
-            onChange={(event) => {
-              event.currentTarget.dataset.dirty = 'true';
-            }}
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setError('');
-              setPending(true);
-              const values = Object.fromEntries(new FormData(e.currentTarget));
-              const form = e.currentTarget;
-              try {
-                await request('/api/companies', { ...values, requestId: crypto.randomUUID() });
-                form.dataset.dirty = 'false';
-                await refresh();
-                setAdding(false);
-              } catch (e) {
-                setError(e instanceof Error ? e.message : 'Company could not be created');
-              } finally {
-                setPending(false);
-              }
-            }}
-          >
-            <FormFields
-              fields={[
-                { name: 'name', label: 'Legal name', required: true },
-                { name: 'registrationNumber', label: 'Registration number', required: true },
-                {
-                  name: 'incorporationDate',
-                  label: 'Incorporation date',
-                  type: 'date',
-                  required: true,
-                },
-                {
-                  name: 'financialYearEnd',
-                  label: 'Financial year end',
-                  type: 'date',
-                  required: true,
-                },
-                { name: 'address', label: 'Registered address', type: 'textarea', required: true },
-                { name: 'activity', label: 'Business activity', required: true },
-              ]}
-            />
-            {error ? (
-              <div className="feedback error" role="alert">
-                {error}
-              </div>
-            ) : null}
-            <div className="actions">
-              <button className="primary" disabled={pending}>
-                {pending ? 'Saving…' : 'Save opening record'}
-              </button>
-            </div>
-          </form>
-        </section>
+        <NewCompany
+          onSaved={async () => {
+            await refresh();
+            setAdding(false);
+          }}
+        />
       ) : null}
       <div className="toolbar">
         <label className="search">

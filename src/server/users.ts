@@ -6,30 +6,14 @@ import { db, transaction } from './db';
 import { user, account, session, companies } from './schema';
 import { audit } from './repository';
 import { assertCapability, DomainError } from '../domain/access';
-import { defaultPreferences, type Actor } from '../domain/model';
-const capabilities = z
-  .array(
-    z.enum([
-      'prepare_job',
-      'review_pack',
-      'confirm_record',
-      'record_filing',
-      'manage_catalogue',
-      'manage_users',
-      'view_bo',
-      'manage_people',
-      'manage_templates',
-      'generate_documents',
-      'view_audit',
-      'export_audit',
-    ]),
-  )
-  .max(12);
-const fields = z.object({
-  name: z.string().trim().min(2).max(200),
-  capabilities,
-  companyIds: z.array(z.string().min(1).max(36)).max(200),
-});
+import { defaultPreferences, ROLE_CAPABILITIES, type Actor } from '../domain/model';
+const fields = z
+  .object({
+    name: z.string().trim().min(2).max(200),
+    role: z.enum(['admin', 'user']),
+    companyIds: z.array(z.string().min(1).max(36)).max(200),
+  })
+  .transform(({ role, ...rest }) => ({ ...rest, capabilities: ROLE_CAPABILITIES[role] }));
 export async function readUsers(actor: Actor) {
   assertCapability(actor, 'manage_users');
   const [users, records] = await Promise.all([
@@ -105,7 +89,7 @@ export async function changeUser(actor: Actor, input: unknown) {
     .parse(input);
   if (extra.id === actor.id && (!extra.active || !data.capabilities.includes('manage_users')))
     throw new DomainError(
-      'Keep your administrator access active. Use another administrator to change it.',
+      'Keep your own Admin role and account active. Ask another admin to change it.',
     );
   const password = extra.password ? await hashPassword(extra.password) : null;
   await transaction(async (tx) => {

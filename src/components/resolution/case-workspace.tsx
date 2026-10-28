@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { ResolutionCase, StepState } from '@/domain/resolution/model';
-import { routeMatches } from '@/domain/resolution/cases';
-import { canLeaveEditing } from '@/components/edit-guard';
+import type { ResolutionCase } from '@/domain/resolution/model';
+import { caseStatus, isEditable, routeMatches } from '@/domain/resolution/cases';
+import { canLeaveEditing, hasUnsavedEdits } from '@/components/edit-guard';
 import { Empty, formatDate, Icon, useWorkspace } from '@/components/workspace';
 import { getJson, kindLabel, newRequestId, postJson, type CaseDetail } from './api';
 import { LoadState, useLoad } from './use-load';
@@ -22,24 +22,26 @@ export type CaseApi = {
 };
 
 const SECTIONS = [
-  ['overview', 'Overview'],
-  ['steps', 'Steps'],
-  ['clauses', 'Clauses'],
-  ['questions', 'Questions'],
-  ['preview', 'Preview'],
-  ['documents', 'Documents'],
+  ['prepare', 'Prepare'],
+  ['documents', 'Word documents'],
   ['history', 'History'],
 ] as const;
 type Section = (typeof SECTIONS)[number][0];
+/** Links to the old separate tabs land on the matching part of the single Prepare page. */
+const OLD_SECTIONS = ['overview', 'steps', 'clauses', 'questions', 'preview'];
 
 export function CaseWorkspace({ id }: { id: string }) {
   const { data } = useWorkspace();
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<Section>('prepare');
   const load = useLoad(() => getJson<CaseDetail>('/api/resolution-cases/' + id), [id]);
   useEffect(() => {
     const read = () => {
       const hash = window.location.hash.slice(1);
       if (SECTIONS.some(([key]) => key === hash)) setSection(hash as Section);
+      else if (OLD_SECTIONS.includes(hash)) {
+        setSection('prepare');
+        requestAnimationFrame(() => document.getElementById('prepare-' + hash)?.scrollIntoView());
+      }
     };
     read();
     window.addEventListener('hashchange', read);
@@ -67,13 +69,16 @@ export function CaseWorkspace({ id }: { id: string }) {
   const job = item.jobId ? data.jobs.find((j) => j.id === item.jobId) : null;
   const caps = data.actor.capabilities;
   const canEdit =
-    item.state === 'Open' && (caps.includes('generate_documents') || caps.includes('prepare_job'));
+    isEditable(item) && (caps.includes('generate_documents') || caps.includes('prepare_job'));
+  const userName = (userId: string) => data.users.find((u) => u.id === userId)?.name || userId;
   const api: CaseApi = {
     detail,
     canEdit,
     reload: load.reload,
     setCase: (next) => load.setData((current) => (current ? { ...current, case: next } : current)),
     act: async (action, payload = {}) => {
+      if ((action === 'send_for_review' || action === 'complete') && hasUnsavedEdits())
+        throw new Error('Save your changes before sending for review or marking complete.');
       const next = await postJson<ResolutionCase>('/api/resolution-cases/' + id, {
         action,
         expectedRevision: item.revision,
@@ -100,7 +105,7 @@ export function CaseWorkspace({ id }: { id: string }) {
           <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>
           <span className="metadata">·</span>
           <Link href={'/resolutions/companies/' + item.companyId} className="metadata-link">
-            Company resolution settings
+            Company details used in resolutions
           </Link>
         </div>
         <h1>{item.title}</h1>
@@ -110,8 +115,8 @@ export function CaseWorkspace({ id }: { id: string }) {
             <dd>{kindLabel(item.kind)}</dd>
           </div>
           <div>
-            <dt>State</dt>
-            <dd>{item.state}</dd>
+            <dt>Status</dt>
+            <dd>{caseStatus(item, userName)}</dd>
           </div>
           {job ? (
             <div>
@@ -123,6 +128,8 @@ export function CaseWorkspace({ id }: { id: string }) {
           ) : null}
         </dl>
       </header>
+      <ReviewPanel api={api} />
+      <CompleteResolution api={api} />
       <nav className="section-nav" aria-label="Resolution sections">
         {SECTIONS.map(([key, label]) => (
           <button
@@ -137,18 +144,13 @@ export function CaseWorkspace({ id }: { id: string }) {
         ))}
       </nav>
       <div className="section-content">
-        {section === 'overview' ? (
-          <Overview api={api} />
-        ) : section === 'steps' ? (
-          <Steps api={api} />
-        ) : section === 'clauses' ? (
-          <CaseClauses api={api} />
-        ) : section === 'questions' ? (
-          <CaseQuestions api={api} />
-        ) : section === 'preview' ? (
-          <CasePreview api={api} />
+        {section === 'prepare' ? (
+          <Prepare api={api} />
         ) : section === 'documents' ? (
-          <CaseDocuments api={api} />
+          <>
+            <CaseDocuments api={api} />
+            <DecisionRecord api={api} />
+          </>
         ) : (
           <section aria-labelledby="case-history">
             <h2 id="case-history">History</h2>
@@ -181,12 +183,251 @@ export function CaseWorkspace({ id }: { id: string }) {
   );
 }
 
-function Overview({ api }: { api: CaseApi }) {
+/** Everything the preparer fills in, on one page, ending with the hand-off to a reviewer. */
+function Prepare({ api }: { api: CaseApi }) {
+  return (
+    <>
+      <div id="prepare-overview">
+        <Details api={api} />
+      </div>
+      <div id="prepare-clauses" className="section">
+        <CaseClauses api={api} />
+      </div>
+      <div id="prepare-questions" className="section">
+        <CaseQuestions api={api} />
+      </div>
+      <div id="prepare-preview" className="section">
+        <CasePreview api={api} />
+      </div>
+      <SendForReview api={api} />
+    </>
+  );
+}
+
+function SendForReview({ api }: { api: CaseApi }) {
+  const { data } = useWorkspace();
+  const item = api.detail.case;
+  const send = useAction();
+  const closing = useAction();
+  const [reviewerId, setReviewerId] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [reason, setReason] = useState('');
+  if (!data || !api.canEdit) return null;
+  const reviewers = data.users.filter((user) => user.id !== data.actor.id);
+  return (
+    <section className="section send-review" aria-labelledby="case-send">
+      <h2 id="case-send">5. Send for review (optional)</h2>
+      <form
+        className="send-review-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send.run(() => api.act('send_for_review', { reviewerId }), 'Sent for review');
+        }}
+      >
+        <label>
+          Reviewer
+          <select required value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
+            <option value="">Choose a colleague…</option>
+            {reviewers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="primary" disabled={send.pending || !item.selection}>
+          {send.pending ? 'Sending…' : 'Send for review'}
+        </button>
+      </form>
+      {!item.selection ? <p className="metadata">Choose the wording in step 2 first.</p> : null}
+      <ActionFeedback
+        error={send.error || closing.error}
+        status={send.status || closing.status}
+        conflict={send.conflict || closing.conflict}
+        onReload={() => void api.reload()}
+      />
+      {cancelling ? (
+        <form
+          className="confirmation form-stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void closing.run(() => api.act('cancel', { reason }), 'Resolution cancelled');
+          }}
+        >
+          <label>
+            Reason for cancelling
+            <textarea required value={reason} onChange={(event) => setReason(event.target.value)} />
+          </label>
+          <div className="actions">
+            <button className="danger" disabled={closing.pending || !reason.trim()}>
+              Cancel resolution
+            </button>
+            <button type="button" onClick={() => setCancelling(false)}>
+              Keep it
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="quiet cancel-link" onClick={() => setCancelling(true)}>
+          Cancel this resolution…
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** Where the resolution stands, and the one thing to do next for whoever is looking. */
+function ReviewPanel({ api }: { api: CaseApi }) {
+  const { data } = useWorkspace();
+  const item = api.detail.case;
+  const action = useAction();
+  const [comment, setComment] = useState('');
+  if (!data) return null;
+  const review = item.review;
+  const name = (id: string) => data.users.find((u) => u.id === id)?.name || id;
+  const me = data.actor.id;
+  const canTakeBack = me === review?.sentBy || me === review?.reviewerId;
+  if (item.state !== 'Open')
+    return item.cancellationReason ? (
+      <div className="review-panel">Cancelled: {item.cancellationReason}</div>
+    ) : null;
+  if (!review) return null;
+  const feedback = (
+    <ActionFeedback
+      error={action.error}
+      status={action.status}
+      conflict={action.conflict}
+      onReload={() => void api.reload()}
+    />
+  );
+  if (review.status === 'Returned')
+    return (
+      <div className="review-panel warning" role="status">
+        <strong>Returned by {name(review.reviewerId)}</strong>
+        <p>{review.comment}</p>
+        <p className="metadata">
+          Make the changes below, then send it for review again or mark it complete.
+        </p>
+      </div>
+    );
+  if (review.status === 'With reviewer' && review.reviewerId === me)
+    return (
+      <section className="review-panel" aria-labelledby="your-review">
+        <h2 id="your-review">Your review</h2>
+        <p>
+          {name(review.sentBy)} sent this on {formatDate(review.sentAt)}. Check the preview below,
+          then approve it or send it back.
+        </p>
+        <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
+          <label>
+            Comment (needed if you send it back)
+            <textarea value={comment} onChange={(event) => setComment(event.target.value)} />
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={action.pending}
+              onClick={() =>
+                void action.run(
+                  () => api.act('review', { decision: 'Approved', comment }),
+                  'Approved',
+                )
+              }
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={action.pending || !comment.trim()}
+              onClick={() =>
+                void action.run(
+                  () => api.act('review', { decision: 'Returned', comment }),
+                  'Sent back for changes',
+                )
+              }
+            >
+              Send back for changes
+            </button>
+          </div>
+        </form>
+        {feedback}
+      </section>
+    );
+  if (review.status === 'With reviewer')
+    return (
+      <div className="review-panel" role="status">
+        <strong>With {name(review.reviewerId)} for review</strong>
+        <p className="metadata">Sent {formatDate(review.sentAt)}. Editing is paused meanwhile.</p>
+        {canTakeBack ? (
+          <div className="actions">
+            <button
+              type="button"
+              disabled={action.pending}
+              onClick={() => void action.run(() => api.act('reopen'), 'Taken back')}
+            >
+              Take back to edit
+            </button>
+          </div>
+        ) : null}
+        {feedback}
+      </div>
+    );
+  return (
+    <div className="review-panel approved" role="status">
+      <strong>Approved by {name(review.reviewerId)}</strong>
+      {review.comment ? <p>{review.comment}</p> : null}
+      <p className="metadata">Create the Word document under Word documents when needed.</p>
+      {canTakeBack ? (
+        <div className="actions">
+          <button
+            type="button"
+            disabled={action.pending}
+            onClick={() => void action.run(() => api.act('reopen'), 'Reopened for changes')}
+          >
+            Reopen for changes
+          </button>
+        </div>
+      ) : null}
+      {feedback}
+    </div>
+  );
+}
+
+function CompleteResolution({ api }: { api: CaseApi }) {
+  const { data } = useWorkspace();
+  const action = useAction();
+  if (
+    api.detail.case.state !== 'Open' ||
+    api.detail.case.review?.status === 'With reviewer' ||
+    !data?.actor.capabilities.some((cap) => cap === 'prepare_job' || cap === 'generate_documents')
+  )
+    return null;
+  return (
+    <div className="form-footer">
+      <div className="actions">
+        <button
+          type="button"
+          disabled={action.pending}
+          onClick={() => void action.run(() => api.act('complete'), 'Resolution completed')}
+        >
+          {action.pending ? 'Completing…' : 'Mark complete'}
+        </button>
+      </div>
+      <ActionFeedback
+        error={action.error}
+        status={action.status}
+        conflict={action.conflict}
+        onReload={() => void api.reload()}
+      />
+    </div>
+  );
+}
+
+function Details({ api }: { api: CaseApi }) {
   const { data } = useWorkspace();
   const item = api.detail.case;
   const details = useAction();
-  const decision = useAction();
-  const closing = useAction();
   const saved = {
     title: item.title,
     ownerId: item.ownerId,
@@ -208,84 +449,18 @@ function Overview({ api }: { api: CaseApi }) {
       return next;
     });
   }
-  const [record, setRecord] = useState({
-    status: item.decision.status,
-    date: item.decision.date || '',
-    note: item.decision.note,
-    evidenceIds: item.decision.evidenceIds,
-  });
-  const [cancelling, setCancelling] = useState(false);
-  const [reason, setReason] = useState('');
   if (!data) return null;
-  const evidence = data.documents.filter((d) => d.companyId === item.companyId);
   const dirty =
     form.title !== item.title ||
     form.ownerId !== item.ownerId ||
     form.instructionDate !== (item.instructionDate || '') ||
     form.resolutionDate !== (item.resolutionDate || '') ||
     form.effectiveDate !== (item.effectiveDate || '');
-  const decisionDirty =
-    record.status !== item.decision.status ||
-    record.date !== (item.decision.date || '') ||
-    record.note !== item.decision.note ||
-    record.evidenceIds.join() !== item.decision.evidenceIds.join();
-  const open = item.steps.filter((s) => s.state !== 'Complete' && s.state !== 'Not applicable');
-  const name = (id: string | null) => data.users.find((u) => u.id === id)?.name || id || '—';
   return (
     <>
-      <section className="section" aria-labelledby="case-next">
-        <h2 id="case-next">Next action</h2>
-        <div className="next-action">
-          {item.state !== 'Open' ? (
-            <strong>
-              {item.state}
-              {item.cancellationReason ? `: ${item.cancellationReason}` : ''}
-            </strong>
-          ) : open[0] ? (
-            <>
-              <strong>{open[0].label}</strong>
-              <dl className="record-meta">
-                <div>
-                  <dt>Step state</dt>
-                  <dd>{open[0].state}</dd>
-                </div>
-                <div>
-                  <dt>Assigned to</dt>
-                  <dd>{name(open[0].ownerId)}</dd>
-                </div>
-                {open[0].dueDate ? (
-                  <div>
-                    <dt>Due</dt>
-                    <dd>{formatDate(open[0].dueDate)}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            </>
-          ) : (
-            <strong>All steps are complete or not applicable</strong>
-          )}
-        </div>
-        <dl className="facts">
-          <div>
-            <dt>Owner</dt>
-            <dd>{name(item.ownerId)}</dd>
-          </div>
-          <div>
-            <dt>Resolution date</dt>
-            <dd>{formatDate(item.resolutionDate)}</dd>
-          </div>
-          <div>
-            <dt>Decision</dt>
-            <dd>
-              {item.decision.status}
-              {item.decision.date ? ` · ${formatDate(item.decision.date)}` : ''}
-            </dd>
-          </div>
-        </dl>
-      </section>
       {!item.jobId && item.kind !== 'board' && api.canEdit ? <LinkDirectorJob api={api} /> : null}
       <section className="section" aria-labelledby="case-details">
-        <h2 id="case-details">Details</h2>
+        <h2 id="case-details">1. Details</h2>
         <form
           className="form-grid"
           data-dirty={dirty ? 'true' : 'false'}
@@ -371,158 +546,125 @@ function Overview({ api }: { api: CaseApi }) {
           ) : null}
         </form>
       </section>
-      <section className="section" aria-labelledby="case-decision">
-        <h2 id="case-decision">Decision record</h2>
-
-        <form
-          className="form-grid"
-          data-dirty={decisionDirty ? 'true' : 'false'}
-          inert={decision.pending}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void decision.run(
-              () =>
-                api.act('record_decision', {
-                  status: record.status,
-                  date: record.date || null,
-                  note: record.note,
-                  evidenceIds: record.evidenceIds,
-                }),
-              'Decision recorded',
-            );
-          }}
-        >
-          <fieldset className="plain-fieldset full form-grid" disabled={!api.canEdit}>
-            <label>
-              Outcome
-              <select
-                value={record.status}
-                onChange={(event) =>
-                  setRecord({
-                    ...record,
-                    status: event.target.value as typeof record.status,
-                  })
-                }
-              >
-                <option>Not recorded</option>
-                <option>Passed</option>
-                <option>Not passed</option>
-              </select>
-            </label>
-            <label>
-              Decision date
-              <input
-                type="date"
-                value={record.date}
-                onChange={(event) => setRecord({ ...record, date: event.target.value })}
-              />
-            </label>
-            <label className="full">
-              Note
-              <textarea
-                value={record.note}
-                maxLength={4000}
-                onChange={(event) => setRecord({ ...record, note: event.target.value })}
-              />
-            </label>
-            <fieldset className="full">
-              <legend>Evidence</legend>
-              {evidence.length ? (
-                evidence.map((doc) => (
-                  <label className="inline" key={doc.id}>
-                    <input
-                      type="checkbox"
-                      checked={record.evidenceIds.includes(doc.id)}
-                      onChange={(event) =>
-                        setRecord({
-                          ...record,
-                          evidenceIds: event.target.checked
-                            ? [...record.evidenceIds, doc.id]
-                            : record.evidenceIds.filter((value) => value !== doc.id),
-                        })
-                      }
-                    />
-                    {doc.title}
-                  </label>
-                ))
-              ) : (
-                <p className="metadata">No company evidence uploaded.</p>
-              )}
-            </fieldset>
-          </fieldset>
-          {api.canEdit ? (
-            <div className="full form-footer">
-              <ActionFeedback
-                error={decision.error}
-                status={decision.status}
-                conflict={decision.conflict}
-                onReload={() => void api.reload()}
-              />
-              <div className="actions">
-                <button disabled={decision.pending || !decisionDirty}>
-                  {decision.pending ? 'Saving…' : 'Record decision'}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </form>
-      </section>
-      {api.canEdit ? (
-        <section className="section" aria-labelledby="case-close">
-          <h2 id="case-close">Close resolution</h2>
-          <ActionFeedback
-            error={closing.error}
-            status={closing.status}
-            conflict={closing.conflict}
-            onReload={() => void api.reload()}
-          />
-          {cancelling ? (
-            <form
-              className="confirmation form-stack"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void closing.run(() => api.act('cancel', { reason }), 'Resolution cancelled');
-              }}
-            >
-              <label>
-                Reason for cancelling
-                <textarea
-                  required
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                />
-              </label>
-              <div className="actions">
-                <button className="primary" disabled={closing.pending || !reason.trim()}>
-                  Cancel resolution
-                </button>
-                <button type="button" onClick={() => setCancelling(false)}>
-                  Keep open
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="actions">
-              <button
-                type="button"
-                disabled={closing.pending || open.length > 0}
-                onClick={() => void closing.run(() => api.act('complete'), 'Resolution completed')}
-              >
-                Complete resolution
-              </button>
-              <button type="button" className="danger" onClick={() => setCancelling(true)}>
-                Cancel resolution…
-              </button>
-              {open.length ? (
-                <span className="metadata">
-                  Complete or mark not applicable: {open.map((s) => s.label).join(', ')}
-                </span>
-              ) : null}
-            </div>
-          )}
-        </section>
-      ) : null}
     </>
+  );
+}
+
+function DecisionRecord({ api }: { api: CaseApi }) {
+  const { data } = useWorkspace();
+  const item = api.detail.case;
+  const decision = useAction();
+  const [record, setRecord] = useState({
+    status: item.decision.status,
+    date: item.decision.date || '',
+    note: item.decision.note,
+    evidenceIds: item.decision.evidenceIds,
+  });
+  if (!data) return null;
+  const evidence = data.documents.filter((d) => d.companyId === item.companyId);
+  const decisionDirty =
+    record.status !== item.decision.status ||
+    record.date !== (item.decision.date || '') ||
+    record.note !== item.decision.note ||
+    record.evidenceIds.join() !== item.decision.evidenceIds.join();
+  const canRecord = item.state === 'Open';
+  return (
+    <section className="section" aria-labelledby="case-decision">
+      <h2 id="case-decision">Signed copy and outcome (optional)</h2>
+
+      <form
+        className="form-grid"
+        data-dirty={decisionDirty ? 'true' : 'false'}
+        inert={decision.pending}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void decision.run(
+            () =>
+              api.act('record_decision', {
+                status: record.status,
+                date: record.date || null,
+                note: record.note,
+                evidenceIds: record.evidenceIds,
+              }),
+            'Decision recorded',
+          );
+        }}
+      >
+        <fieldset className="plain-fieldset full form-grid" disabled={!canRecord}>
+          <label>
+            Outcome
+            <select
+              value={record.status}
+              onChange={(event) =>
+                setRecord({
+                  ...record,
+                  status: event.target.value as typeof record.status,
+                })
+              }
+            >
+              <option>Not recorded</option>
+              <option>Passed</option>
+              <option>Not passed</option>
+            </select>
+          </label>
+          <label>
+            Decision date
+            <input
+              type="date"
+              value={record.date}
+              onChange={(event) => setRecord({ ...record, date: event.target.value })}
+            />
+          </label>
+          <label className="full">
+            Note
+            <textarea
+              value={record.note}
+              maxLength={4000}
+              onChange={(event) => setRecord({ ...record, note: event.target.value })}
+            />
+          </label>
+          <fieldset className="full">
+            <legend>Evidence</legend>
+            {evidence.length ? (
+              evidence.map((doc) => (
+                <label className="inline" key={doc.id}>
+                  <input
+                    type="checkbox"
+                    checked={record.evidenceIds.includes(doc.id)}
+                    onChange={(event) =>
+                      setRecord({
+                        ...record,
+                        evidenceIds: event.target.checked
+                          ? [...record.evidenceIds, doc.id]
+                          : record.evidenceIds.filter((value) => value !== doc.id),
+                      })
+                    }
+                  />
+                  {doc.title}
+                </label>
+              ))
+            ) : (
+              <p className="metadata">No company evidence uploaded.</p>
+            )}
+          </fieldset>
+        </fieldset>
+        {canRecord ? (
+          <div className="full form-footer">
+            <ActionFeedback
+              error={decision.error}
+              status={decision.status}
+              conflict={decision.conflict}
+              onReload={() => void api.reload()}
+            />
+            <div className="actions">
+              <button disabled={decision.pending || !decisionDirty}>
+                {decision.pending ? 'Saving…' : 'Save outcome'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </form>
+    </section>
   );
 }
 
@@ -580,265 +722,5 @@ function LinkDirectorJob({ api }: { api: CaseApi }) {
         </div>
       </form>
     </section>
-  );
-}
-
-function Steps({ api }: { api: CaseApi }) {
-  const { data } = useWorkspace();
-  const item = api.detail.case;
-  const action = useAction();
-  const [label, setLabel] = useState('');
-  const [ownerId, setOwnerId] = useState(data?.actor.id || '');
-  const [dueDate, setDueDate] = useState('');
-  const [dependsOn, setDependsOn] = useState<string[]>([]);
-  const [naFor, setNaFor] = useState('');
-  const [reason, setReason] = useState('');
-  if (!data) return null;
-  const name = (id: string) => data.users.find((u) => u.id === id)?.name || id;
-  const done = (state: StepState) => state === 'Complete' || state === 'Not applicable';
-  const update = (stepId: string, patch: Record<string, unknown>, message: string) =>
-    action.run(() => api.act('update_step', { stepId, ...patch }), message);
-  return (
-    <section aria-labelledby="case-steps">
-      <h2 id="case-steps">Steps</h2>
-      <ActionFeedback
-        error={action.error}
-        status={action.status}
-        conflict={action.conflict}
-        onReload={() => void api.reload()}
-      />
-      <ol className="list-plain step-list">
-        {item.steps.map((step) => {
-          const blockers = step.dependsOn
-            .map((dep) => item.steps.find((s) => s.id === dep))
-            .filter((dep) => dep && !done(dep.state));
-          return (
-            <li key={step.id}>
-              <div className="step-row">
-                <div>
-                  <h3>{step.label}</h3>
-                  <p className="metadata">
-                    <span className={step.state === 'Complete' ? 'success' : undefined}>
-                      {step.state}
-                    </span>{' '}
-                    · {name(step.ownerId)}
-                    {step.dueDate ? ` · due ${formatDate(step.dueDate)}` : ''}
-                    {step.completedAt ? ` · completed ${formatDate(step.completedAt)}` : ''}
-                  </p>
-                  {step.reason ? <p className="metadata">Reason: {step.reason}</p> : null}
-                  {blockers.length && !done(step.state) ? (
-                    <p className="danger step-blocker">
-                      Waiting for {blockers.map((b) => b!.label).join(', ')} to finish first
-                    </p>
-                  ) : null}
-                </div>
-                {api.canEdit && !done(step.state) ? (
-                  <div className="actions step-actions">
-                    {step.state === 'Pending' ? (
-                      <button
-                        type="button"
-                        disabled={action.pending}
-                        onClick={() =>
-                          void update(step.id, { state: 'In progress' }, `${step.label} started`)
-                        }
-                      >
-                        Start
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={action.pending || blockers.length > 0}
-                      aria-label={`Mark ${step.label} complete`}
-                      onClick={() =>
-                        void update(step.id, { state: 'Complete' }, `${step.label} completed`)
-                      }
-                    >
-                      Mark complete
-                    </button>
-                    <button
-                      type="button"
-                      className="quiet"
-                      aria-label={`Mark ${step.label} not applicable`}
-                      onClick={() => {
-                        setNaFor(step.id);
-                        setReason('');
-                      }}
-                    >
-                      Not applicable…
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              {naFor === step.id ? (
-                <form
-                  className="confirmation form-stack"
-                  onSubmit={async (event) => {
-                    event.preventDefault();
-                    const ok = await update(
-                      step.id,
-                      { state: 'Not applicable', reason },
-                      `${step.label} marked not applicable`,
-                    );
-                    if (ok) setNaFor('');
-                  }}
-                >
-                  <label>
-                    Why is {step.label} not applicable?
-                    <textarea
-                      required
-                      value={reason}
-                      onChange={(event) => setReason(event.target.value)}
-                    />
-                  </label>
-                  <div className="actions">
-                    <button className="primary" disabled={!reason.trim() || action.pending}>
-                      Mark not applicable
-                    </button>
-                    <button type="button" onClick={() => setNaFor('')}>
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-              {api.canEdit && !done(step.state) ? (
-                <StepEdit
-                  step={step}
-                  users={data.users}
-                  pending={action.pending}
-                  onSave={(patch) => update(step.id, patch, `${step.label} updated`)}
-                />
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
-      {api.canEdit ? (
-        <details className="disclosure">
-          <summary>Add a step</summary>
-          <form
-            className="form-grid"
-            data-dirty={label ? 'true' : 'false'}
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const ok = await action.run(
-                () =>
-                  api.act('add_step', {
-                    kind: 'custom',
-                    label: label.trim(),
-                    ownerId,
-                    dueDate: dueDate || null,
-                    dependsOn,
-                  }),
-                `Added ${label.trim()}`,
-              );
-              if (ok) {
-                setLabel('');
-                setDueDate('');
-                setDependsOn([]);
-              }
-            }}
-          >
-            <label className="full">
-              Step
-              <input
-                required
-                maxLength={200}
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-              />
-            </label>
-            <label>
-              Owner
-              <select value={ownerId} onChange={(event) => setOwnerId(event.target.value)}>
-                {data.users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Due date
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-              />
-            </label>
-            {item.steps.length ? (
-              <fieldset className="full">
-                <legend>Finish first</legend>
-                {item.steps.map((step) => (
-                  <label className="inline" key={step.id}>
-                    <input
-                      type="checkbox"
-                      checked={dependsOn.includes(step.id)}
-                      onChange={(event) =>
-                        setDependsOn(
-                          event.target.checked
-                            ? [...dependsOn, step.id]
-                            : dependsOn.filter((value) => value !== step.id),
-                        )
-                      }
-                    />
-                    {step.label}
-                  </label>
-                ))}
-              </fieldset>
-            ) : null}
-            <div className="actions">
-              <button disabled={action.pending || !label.trim()}>Add step</button>
-            </div>
-          </form>
-        </details>
-      ) : null}
-    </section>
-  );
-}
-
-function StepEdit({
-  step,
-  users,
-  pending,
-  onSave,
-}: {
-  step: ResolutionCase['steps'][number];
-  users: { id: string; name: string }[];
-  pending: boolean;
-  onSave: (patch: Record<string, unknown>) => Promise<unknown>;
-}) {
-  const [ownerId, setOwnerId] = useState(step.ownerId);
-  const [dueDate, setDueDate] = useState(step.dueDate || '');
-  const dirty = ownerId !== step.ownerId || dueDate !== (step.dueDate || '');
-  return (
-    <details className="advanced-filters step-edit">
-      <summary>Change owner or due date</summary>
-      <form
-        className="toolbar"
-        data-dirty={dirty ? 'true' : 'false'}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onSave({ ownerId, dueDate: dueDate || null });
-        }}
-      >
-        <label>
-          Owner
-          <select value={ownerId} onChange={(event) => setOwnerId(event.target.value)}>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Due date
-          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-        </label>
-        <button disabled={pending || !dirty} aria-label={`Save ${step.label} owner and due date`}>
-          Save
-        </button>
-      </form>
-    </details>
   );
 }

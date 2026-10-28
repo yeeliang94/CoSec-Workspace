@@ -1,3 +1,4 @@
+import { nextYearEnd } from '../company';
 import type { PersonSnapshot, RecordProperty, ResolutionContext } from './model';
 
 export type BindingType = 'text' | 'date' | 'any';
@@ -93,7 +94,10 @@ export function resolveBinding(
     case 'company.incorporationDate':
       return ctx.company.incorporationDate;
     case 'company.financialYearEnd':
-      return ctx.company.financialYearEnd;
+      // The year end that closes the financial year in progress on the record date.
+      return ctx.company.financialYearEnd
+        ? nextYearEnd(ctx.company.financialYearEnd, ctx.asAt)
+        : null;
     case 'company.citation.directorAuthority':
       return ctx.company.citations.directorAuthority ?? null;
     case 'company.citation.memberAuthority':

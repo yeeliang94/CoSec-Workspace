@@ -151,11 +151,42 @@ export function assertOpen(resolutionCase: ResolutionCase) {
 
 export function assertCompletable(resolutionCase: ResolutionCase) {
   assertOpen(resolutionCase);
-  const open = resolutionCase.steps.filter((s) => !isDone(s));
-  if (open.length)
+  if (resolutionCase.review?.status === 'With reviewer')
     throw new DomainError(
-      `Complete or mark not applicable: ${open.map((s) => `"${s.label}"`).join(', ')}.`,
+      'This resolution is with a reviewer. Take it back or wait for the review before completing it.',
+      'CONFLICT',
+      409,
     );
+}
+
+/** Drafting is paused while a reviewer has the resolution, and after approval. */
+export function isEditable(resolutionCase: ResolutionCase) {
+  return (
+    resolutionCase.state === 'Open' &&
+    resolutionCase.review?.status !== 'With reviewer' &&
+    resolutionCase.review?.status !== 'Approved'
+  );
+}
+export function assertEditable(resolutionCase: ResolutionCase) {
+  assertOpen(resolutionCase);
+  if (!isEditable(resolutionCase))
+    throw new DomainError(
+      resolutionCase.review?.status === 'Approved'
+        ? 'This resolution is approved. Reopen it to make changes.'
+        : 'This resolution is with a reviewer. Take it back to make changes.',
+      'CONFLICT',
+      409,
+    );
+}
+
+/** Plain status for lists and headings. */
+export function caseStatus(resolutionCase: ResolutionCase, userName: (id: string) => string) {
+  if (resolutionCase.state !== 'Open') return resolutionCase.state;
+  const review = resolutionCase.review;
+  if (!review) return 'Draft';
+  if (review.status === 'With reviewer') return `With ${userName(review.reviewerId)} for review`;
+  if (review.status === 'Returned') return `Returned by ${userName(review.reviewerId)}`;
+  return `Approved by ${userName(review.reviewerId)}`;
 }
 
 /** Route of the W04 job a case kind may link to; a board case may link to any W04 job. */
