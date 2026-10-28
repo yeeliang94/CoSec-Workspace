@@ -343,9 +343,7 @@ function ClauseSelection({
         ) : null}
       </div>
       {!selection ? (
-        <p className="metadata">
-          Choose an output type and a published assembly. Its starter clauses are added for you.
-        </p>
+        <p className="metadata">Choose an output type and a published assembly.</p>
       ) : (
         // Not inert while pending: that would blur the pressed control. Handlers ignore input
         // while a save is in flight instead.
@@ -515,9 +513,6 @@ function ClauseSelection({
             ) : (
               <p className="metadata">No clauses yet. Add clauses from the library.</p>
             )}
-            {editable && entries.length > 1 ? (
-              <p className="metadata">Drag clauses or use the arrow buttons to reorder.</p>
-            ) : null}
           </div>
           {editable ? (
             <div className="clause-library-panel">

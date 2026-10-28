@@ -22,9 +22,9 @@ export function Drawer({
       if (opener.current instanceof HTMLElement) opener.current.focus({ preventScroll: true });
     };
   }, []);
-  const close = () => {
+  const close = async () => {
     const dirty = ref.current?.querySelector('[data-dirty="true"]');
-    if (dirty && !canLeaveEditing()) return;
+    if (dirty && !(await canLeaveEditing())) return;
     onClose();
   };
   return (

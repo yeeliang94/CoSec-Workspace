@@ -1,9 +1,9 @@
 import { requireActor } from '@/server/auth';
+import { endpoint } from '@/server/http';
 import { generateDocument } from '@/server/resolution/generation';
-import { respond } from '@/server/resolution/templates';
 
 export async function POST(request: Request) {
-  return respond(request, async () =>
+  return endpoint(request, async () =>
     generateDocument(await requireActor(request), await request.json()),
   );
 }

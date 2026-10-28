@@ -32,9 +32,9 @@ import { db, type Transaction } from '../db';
 import { getJob } from '../repository';
 import { loadResolutionContext } from '../records/context';
 import * as s from '../schema';
-import { inForce, mutateCase, readCase, type Lifecycle } from './shared';
+import { inForce, mutateCase, readCase, requestId, type Lifecycle } from './shared';
 export { inForce };
-import { listOutputTypes } from './templates';
+import { listOutputTypes } from './output-types';
 
 type Reader = Transaction | typeof db;
 const WRITERS = ['generate_documents', 'prepare_job'];
@@ -259,7 +259,13 @@ export async function getCaseClauses(actor: Actor, caseId: string) {
   const lib = await library(db);
   const outputTypes = (await listOutputTypes()).filter((t) => t.active);
   if (!rc.selection)
-    return { selection: null, outputTypes, available: available(lib, rc, null), form: null };
+    return {
+      selection: null,
+      outputTypes,
+      available: available(lib, rc, null),
+      form: null,
+      formInput: null,
+    };
   const template = await loadCaseTemplate(db, rc.selection);
   const ctx = await loadResolutionContext(actor, caseId, caseAsAt(rc));
   const input: CaseInput = { ...template, ctx, answers: rc.answers, signers: rc.signers };
@@ -270,11 +276,11 @@ export async function getCaseClauses(actor: Actor, caseId: string) {
     outputTypes,
     available: available(lib, rc, rc.selection.outputTypeId),
     form: buildForm(input),
+    formInput: input,
     issues: validateAnswers(input, true),
   };
 }
 
-const requestId = z.string().min(8).max(80);
 const entryKey = z.string().regex(/^[a-z0-9_-]{2,40}$/);
 const answersSchema = z
   .record(

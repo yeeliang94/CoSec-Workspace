@@ -25,6 +25,7 @@ import {
 import { MAX_RUNS } from '../src/domain/resolution/compile';
 import { DomainError } from '../src/domain/access';
 import { bindingInfo, resolveBinding } from '../src/domain/resolution/bindings';
+import { isCalendarDate } from '../src/domain/resolution/records';
 import {
   sharedFieldConflicts,
   validateAssembly,
@@ -95,6 +96,12 @@ const errors = <T extends { severity?: string }>(issues: T[]) =>
   issues.filter((i) => i.severity !== 'warning');
 
 describe('exact values', () => {
+  it('rejects invalid calendar dates without throwing', () => {
+    for (const value of ['2026-13-01', '2026-00-00', '2026-02-30', 'invalid'])
+      expect(isCalendarDate(value)).toBe(false);
+    expect(isCalendarDate('2028-02-29')).toBe(true);
+  });
+
   it('keeps preparation date separate from the records as-at date', () => {
     const context = { ...sampleContext('2020-01-01'), preparedOn: '2026-10-27' };
     expect(resolveBinding('today', context, () => null)).toBe('2026-10-27');
@@ -117,6 +124,95 @@ describe('exact values', () => {
 });
 
 describe('template schema and validation', () => {
+  it('enforces checkbox confirmations only for active fields at final validation', () => {
+    const part: ClausePart = {
+      key: 'confirmations',
+      name: 'Confirmations',
+      version: {
+        id: 'v-confirmations',
+        fields: [
+          {
+            id: 'show_confirmation',
+            label: 'Show',
+            valueType: 'boolean',
+            scope: 'clause',
+            source: { kind: 'question' },
+          },
+          {
+            id: 'confirmation',
+            label: 'Confirm',
+            valueType: 'boolean',
+            scope: 'clause',
+            source: { kind: 'question' },
+            validation: { mustBeChecked: true },
+          },
+        ],
+        wordings: {
+          directors_written: [
+            {
+              type: 'condition',
+              when: { op: 'isTrue', fieldId: 'show_confirmation' },
+              content: [p(f('confirmation'))],
+            },
+          ],
+        },
+      },
+    };
+    const input = caseInput(
+      'directors',
+      [part],
+      { resolution_date: '2026-10-26' },
+      { confirmations: { show_confirmation: false, confirmation: false } },
+    );
+    expect(validateAnswers(input, false)).toEqual([]);
+    expect(validateAnswers(input, true)).toEqual([]);
+    input.answers.clauses.confirmations.show_confirmation = true;
+    expect(validateAnswers(input, false)).toEqual([]);
+    expect(validateAnswers(input, true)).toContainEqual(
+      expect.objectContaining({ message: 'This box must be checked.' }),
+    );
+  });
+  it('rejects shared fields with different requirements, constraints or sources in either order', () => {
+    const base: FieldDefinition = {
+      id: 'shared_date',
+      label: 'Date',
+      valueType: 'date',
+      scope: 'case',
+      source: { kind: 'question' },
+      required: false,
+    };
+    for (const other of [
+      { ...base, required: true },
+      { ...base, validation: { min: '2026-01-01' } },
+      { ...base, source: { kind: 'binding' as const, path: 'today' } },
+    ]) {
+      for (const fields of [
+        [base, other],
+        [other, base],
+      ]) {
+        expect(
+          sharedFieldConflicts(
+            fields.map((field, i) => ({ name: `Clause ${i}`, fields: [field] })),
+          ),
+        ).toHaveLength(1);
+        const clauses = fields.map((field, i): ClausePart => ({
+          key: `shared-${i}`,
+          name: `Clause ${i}`,
+          version: {
+            id: `shared-v${i}`,
+            fields: [field],
+            wordings: { directors_written: [p(f(field.id))] },
+          },
+        }));
+        const input = caseInput('directors', clauses, { resolution_date: '2026-10-26' });
+        expect(
+          errors(compileDocument(input, 'final').issues).some((issue) =>
+            issue.message.includes('defined differently'),
+          ),
+        ).toBe(true);
+      }
+    }
+  });
   it('allows page breaks in clauses but not clause slots, signature blocks or unknown nodes', () => {
     expect(clauseFragmentSchema.safeParse([{ type: 'pageBreak' }]).success).toBe(true);
     expect(
@@ -665,6 +761,17 @@ describe('compiler', () => {
         .filter((i) => i.fieldId === 'fee')
         .map((i) => i.itemId),
     ).toEqual(['sample-d1']);
+
+    // A confirmation applies only to rows reached by the condition, and may be saved unchecked.
+    fields[2].valueType = 'boolean';
+    fields[2].validation = { mustBeChecked: true };
+    input.answers.clauses.rows.fee = { 'sample-d1': true, 'sample-d2': false };
+    expect(validateAnswers(input, true)).toEqual([]);
+    input.answers.clauses.rows.fee = { 'sample-d1': false, 'sample-d2': false };
+    expect(validateAnswers(input, false)).toEqual([]);
+    expect(validateAnswers(input, true).filter((issue) => issue.fieldId === 'fee')).toEqual([
+      expect.objectContaining({ itemId: 'sample-d1', message: 'This box must be checked.' }),
+    ]);
   });
 
   it('totals a per-director fee table exactly and keeps item scope', () => {
@@ -803,6 +910,43 @@ describe('compiler', () => {
       'final',
     );
     expect(errors(none.issues).map((i) => i.location)).toContain('signers › Directors signing');
+  });
+
+  it('freezes only rendered signer roles and preserves a person signing in two roles', () => {
+    const input = caseInput(
+      'directors',
+      [clause('general')],
+      { resolution_date: '2026-10-26' },
+      { general: { business_title: 'Bank', business_text: 'Open account' } },
+      { directors: ['sample-d1'], members: ['sample-m1'], certifiers: ['sample-d1'] },
+    );
+    expect(compileDocument(input, 'final').executionRequirements).toEqual([
+      { personId: 'sample-d1', role: 'directors' },
+    ]);
+    input.assembly.version.closing.push({ type: 'signatureBlock', role: 'certifiers' });
+    expect(compileDocument(input, 'final').executionRequirements).toEqual([
+      { personId: 'sample-d1', role: 'directors' },
+      { personId: 'sample-d1', role: 'certifiers' },
+    ]);
+    input.assembly.version.closing.pop();
+    input.assembly.version.fields.push({
+      id: 'certify_copy',
+      label: 'Certify a copy',
+      valueType: 'boolean',
+      scope: 'case',
+      source: { kind: 'question' },
+    });
+    input.assembly.version.closing.push({
+      type: 'condition',
+      when: { op: 'isTrue', fieldId: 'certify_copy' },
+      content: [{ type: 'signatureBlock', role: 'certifiers' }],
+    });
+    input.answers.shared.certify_copy = false;
+    expect(compileDocument(input, 'final').executionRequirements).toEqual([
+      { personId: 'sample-d1', role: 'directors' },
+    ]);
+    input.answers.shared.certify_copy = true;
+    expect(compileDocument(input, 'final').executionRequirements).toHaveLength(2);
   });
 
   it('A27 numbers clauses from two categories in case order; reordering renumbers', () => {

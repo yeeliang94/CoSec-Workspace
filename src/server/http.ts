@@ -13,7 +13,10 @@ export async function endpoint<T>(request: Request, fn: () => Promise<T>) {
     return Response.json(await fn(), { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (error instanceof DomainError)
-      return Response.json({ error: error.message, code: error.code }, { status: error.status });
+      return Response.json(
+        { error: error.message, code: error.code, ...(error.issues && { issues: error.issues }) },
+        { status: error.status },
+      );
     if (error instanceof ZodError)
       return Response.json(
         {

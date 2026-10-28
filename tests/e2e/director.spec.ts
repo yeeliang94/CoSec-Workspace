@@ -30,9 +30,17 @@ test('director review, execution, dated record, external submission and outcome 
   }
   await signIn('executive');
   const data: Workspace = await (await page.request.get('/api/workspace')).json();
-  const company = data.companies[0],
-    // A generated resolution needs its own named signers, so use an ordinary document.
-    evidence = data.documents.find((d) => d.companyId === company.id && !d.generationId)!;
+  const company = data.companies[0];
+  // This case exercises ordinary pack execution. A generated resolution has its own
+  // immutable signer/hash requirements and cannot stand in for the uploaded source.
+  const evidence = data.documents.find(
+    (document) =>
+      document.companyId === company.id &&
+      document.classification === 'General' &&
+      !document.jobId &&
+      !document.generationId,
+  );
+  if (!evidence) throw new Error('The director test needs an unlinked uploaded source fixture.');
   const date = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kuala_Lumpur',
     year: 'numeric',
@@ -103,7 +111,7 @@ test('director review, execution, dated record, external submission and outcome 
   ).toBeVisible();
   await page.getByRole('button', { name: 'Filing', exact: true }).click();
   await page.getByRole('button', { name: /Authorise filing readiness for v/ }).click();
-  await expect(page.getByRole('heading', { name: 'Filing · Ready', exact: true })).toBeVisible();
+  await expect(page.locator('.track-facts').getByText('Ready', { exact: true })).toBeVisible();
   await signIn('lodger');
   await page.goto('/jobs/' + job.id);
   await page.getByRole('button', { name: 'Filing', exact: true }).click();
@@ -115,9 +123,7 @@ test('director review, execution, dated record, external submission and outcome 
   await submit.locator('[name=evidenceId]').selectOption(evidence.id);
   await submit.locator('[name=documentIds]').selectOption(evidence.id);
   await submit.getByRole('button', { name: 'Record external submission', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Filing · Submitted', exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.track-facts').getByText('Submitted', { exact: true })).toBeVisible();
   await expect(page.getByText('Outcome confirmation outstanding', { exact: true })).toBeVisible();
   const outcome = page
     .locator('form')
@@ -127,7 +133,7 @@ test('director review, execution, dated record, external submission and outcome 
   await outcome.getByRole('button', { name: 'Confirm filing outcome', exact: true }).click();
   await outcome.getByRole('button', { name: 'Confirm filing outcome', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Filing · Outcome confirmed', exact: true }),
+    page.locator('.track-facts').getByText('Outcome confirmed', { exact: true }),
   ).toBeVisible();
   expect(
     (await (await page.request.get('/api/workspace')).json()).jobs.find((j: Job) => j.id === job.id)

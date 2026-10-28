@@ -14,6 +14,7 @@ import {
   postJson,
 } from '@/components/resolution/api';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
+import { canLeaveEditing } from '@/components/edit-guard';
 
 export default function ResolutionsPage() {
   const { data } = useWorkspace();
@@ -70,14 +71,23 @@ export default function ResolutionsPage() {
               type="button"
               className="primary"
               aria-expanded={creating}
-              onClick={() => setCreating(!creating)}
+              onClick={async () => {
+                if (creating && !(await canLeaveEditing())) return;
+                setCreating(!creating);
+              }}
             >
               New resolution
             </button>
           ) : null}
         </div>
       </PageHeader>
-      {creating ? <NewResolution onCancel={() => setCreating(false)} /> : null}
+      {creating ? (
+        <NewResolution
+          onCancel={async () => {
+            if (await canLeaveEditing()) setCreating(false);
+          }}
+        />
+      ) : null}
       <div className="toolbar">
         <label className="search">
           <span className="sr-only">Search resolutions</span>
@@ -273,12 +283,23 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
       <h2 id="new-resolution-title">New resolution</h2>
       <form
         className="form-grid"
-        data-dirty={companyId || title ? 'true' : 'false'}
+        data-dirty={
+          companyId ||
+          title ||
+          kind !== 'board' ||
+          jobId ||
+          instructionDate ||
+          resolutionDate ||
+          effectiveDate
+            ? 'true'
+            : 'false'
+        }
         inert={pending}
         aria-busy={pending}
         onChange={() => setRequestId(newRequestId())}
         onSubmit={async (event) => {
           event.preventDefault();
+          const formElement = event.currentTarget;
           setPending(true);
           setError('');
           try {
@@ -294,6 +315,7 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
               resolutionDate: resolutionDate || null,
               effectiveDate: effectiveDate || (director && job?.effectiveDate) || null,
             });
+            formElement.setAttribute('data-dirty', 'false');
             router.push('/resolutions/' + created.id);
           } catch (e) {
             setError(errorText(e));

@@ -216,6 +216,13 @@ async function select(actor: Actor, filters: AuditFilters, limit: number, cursor
   return rows;
 }
 
+async function countAudit(actor: Actor, filters: AuditFilters) {
+  const [[{ total }]] = (await db.execute(
+    sql`SELECT COUNT(*) AS total FROM audit_events a WHERE ${where(actor, filters)}`,
+  )) as unknown as [[{ total: number | string }]];
+  return Number(total);
+}
+
 export async function queryAudit(
   actor: Actor,
   filters: AuditFilters,
@@ -224,14 +231,12 @@ export async function queryAudit(
   assertCapability(actor, 'view_audit');
   const limit = Math.min(Math.max(page.limit ?? 50, 1), AUDIT_PAGE_MAX);
   const rows = await select(actor, filters, limit + 1, page.cursor);
-  const [[{ total }]] = (await db.execute(
-    sql`SELECT COUNT(*) AS total FROM audit_events a WHERE ${where(actor, filters)}`,
-  )) as unknown as [[{ total: number | string }]];
   const pageRows = rows.slice(0, limit);
   return {
     entries: pageRows.map((r) => toView(actor, r)),
     nextCursor: rows.length > limit ? encodeCursor(pageRows[pageRows.length - 1]) : null,
-    total: Number(total),
+    // Counted once per search; later pages keep the first page's total.
+    total: page.cursor ? undefined : await countAudit(actor, filters),
   };
 }
 

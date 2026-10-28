@@ -259,7 +259,6 @@ export function checkValue(
   switch (def.valueType) {
     case 'boolean':
       if (typeof value !== 'boolean') return 'Choose yes or no.';
-      if (def.validation?.mustBeChecked && value !== true) return 'This box must be checked.';
       return null;
     case 'text':
     case 'multiline': {
@@ -382,15 +381,24 @@ export function validateAnswers(
               location: `${where} › row "${item.name}"`,
             });
         }
-        if (complete && isActive && def.required)
+        if (complete && isActive)
           for (const item of items)
-            if (activeRows.get(name)?.has(item.id) && isEmptyValue((rows as RowValues)[item.id]))
-              issues.push({
-                ...base,
-                itemId: item.id,
-                message: 'Enter a value.',
-                location: `${where} › row "${item.name}"`,
-              });
+            if (activeRows.get(name)?.has(item.id)) {
+              const value = (rows as RowValues)[item.id];
+              const message =
+                def.required && isEmptyValue(value)
+                  ? 'Enter a value.'
+                  : def.validation?.mustBeChecked && value !== true
+                    ? 'This box must be checked.'
+                    : null;
+              if (message)
+                issues.push({
+                  ...base,
+                  itemId: item.id,
+                  message,
+                  location: `${where} › row "${item.name}"`,
+                });
+            }
         continue;
       }
       const value = raw === undefined ? (def.defaultValue ?? null) : raw;

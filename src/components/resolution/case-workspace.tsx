@@ -84,8 +84,8 @@ export function CaseWorkspace({ id }: { id: string }) {
       return next;
     },
   };
-  const choose = (key: Section) => {
-    if (key === section || !canLeaveEditing()) return;
+  const choose = async (key: Section) => {
+    if (key === section || !(await canLeaveEditing())) return;
     setSection(key);
     window.history.replaceState(window.history.state, '', '#' + key);
   };
@@ -104,16 +104,24 @@ export function CaseWorkspace({ id }: { id: string }) {
           </Link>
         </div>
         <h1>{item.title}</h1>
-        <p className="metadata">
-          {kindLabel(item.kind)} · {item.state}
+        <dl className="record-meta">
+          <div>
+            <dt>Kind</dt>
+            <dd>{kindLabel(item.kind)}</dd>
+          </div>
+          <div>
+            <dt>State</dt>
+            <dd>{item.state}</dd>
+          </div>
           {job ? (
-            <>
-              {' '}
-              · linked to <Link href={'/jobs/' + job.id}>{job.title}</Link>
-            </>
-          ) : null}{' '}
-          · revision {item.revision}
-        </p>
+            <div>
+              <dt>Linked job</dt>
+              <dd>
+                <Link href={'/jobs/' + job.id}>{job.title}</Link>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
       </header>
       <nav className="section-nav" aria-label="Resolution sections">
         {SECTIONS.map(([key, label]) => (
@@ -144,6 +152,12 @@ export function CaseWorkspace({ id }: { id: string }) {
         ) : (
           <section aria-labelledby="case-history">
             <h2 id="case-history">History</h2>
+            <dl className="record-meta">
+              <div>
+                <dt>Current revision</dt>
+                <dd>{item.revision}</dd>
+              </div>
+            </dl>
             {item.history.length ? (
               <ul className="list-plain">
                 {[...item.history].reverse().map((event) => (
@@ -230,10 +244,22 @@ function Overview({ api }: { api: CaseApi }) {
           ) : open[0] ? (
             <>
               <strong>{open[0].label}</strong>
-              <p className="metadata">
-                {open[0].state} · {name(open[0].ownerId)}
-                {open[0].dueDate ? ` · due ${formatDate(open[0].dueDate)}` : ''}
-              </p>
+              <dl className="record-meta">
+                <div>
+                  <dt>Step state</dt>
+                  <dd>{open[0].state}</dd>
+                </div>
+                <div>
+                  <dt>Assigned to</dt>
+                  <dd>{name(open[0].ownerId)}</dd>
+                </div>
+                {open[0].dueDate ? (
+                  <div>
+                    <dt>Due</dt>
+                    <dd>{formatDate(open[0].dueDate)}</dd>
+                  </div>
+                ) : null}
+              </dl>
             </>
           ) : (
             <strong>All steps are complete or not applicable</strong>
@@ -347,10 +373,7 @@ function Overview({ api }: { api: CaseApi }) {
       </section>
       <section className="section" aria-labelledby="case-decision">
         <h2 id="case-decision">Decision record</h2>
-        <p className="metadata section-intro">
-          Record the actual outcome and its evidence. A generated document does not record a
-          decision by itself.
-        </p>
+
         <form
           className="form-grid"
           data-dirty={decisionDirty ? 'true' : 'false'}

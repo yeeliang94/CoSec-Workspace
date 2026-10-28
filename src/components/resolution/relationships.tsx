@@ -53,10 +53,7 @@ export function CompanyRelationships({ companyId }: { companyId: string }) {
       />
       {load.data ? (
         <>
-          <h3>Directors as at {formatDate(asAt)}</h3>
-          <p className="metadata section-intro">
-            From posted officer events. Change them through a W04 job.
-          </p>
+          <h3>Directors</h3>
           {load.data.directorsAsAt.length ? (
             <div className="table-wrap">
               <table>
@@ -82,6 +79,10 @@ export function CompanyRelationships({ companyId }: { companyId: string }) {
           ) : (
             <p className="metadata">No directors on record at this date.</p>
           )}
+          <details className="advanced-filters">
+            <summary>Director record source</summary>
+            <p>From posted officer events. Record changes through a director change job.</p>
+          </details>
           <h3 className="subsection">Other relationships</h3>
           <RelationshipTable
             rows={load.data.relationships.filter((r) => r.role !== 'director' && active(r))}

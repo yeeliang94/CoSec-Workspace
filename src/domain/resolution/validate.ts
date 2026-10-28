@@ -444,17 +444,19 @@ export function sharedFieldConflicts(
 ): Issue[] {
   const first = new Map<string, { name: string; kind: string; def: FieldDefinition }>();
   const issues: Issue[] = [];
+  const ordered = (value: object | undefined) =>
+    Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b));
   const signature = (f: FieldDefinition) =>
     JSON.stringify([
       f.valueType,
       (f.options ?? []).map((o) => o.id).sort(),
       f.record?.context ?? null,
       f.repeatScope ?? null,
-      f.source,
       f.required ?? false,
-      f.validation ?? null,
+      ordered(f.validation),
+      ordered(f.source),
       f.defaultValue ?? null,
-      f.format ?? null,
+      ordered(f.format),
     ]);
   for (const unit of units)
     for (const def of unit.fields) {

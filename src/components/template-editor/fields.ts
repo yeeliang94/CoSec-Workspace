@@ -4,6 +4,7 @@ import type {
   FieldDefinition,
   InlineNode,
   Predicate,
+  RecordContext,
   ValueType,
 } from '@/domain/resolution/model';
 
@@ -210,4 +211,17 @@ export function newField(label: string, existing: FieldDefinition[]): FieldDefin
     scope: 'clause',
     required: true,
   };
+}
+
+export const RECORD_CONTEXTS: { value: RecordContext; label: string }[] = [
+  { value: 'currentDirectors', label: 'Current directors' },
+  { value: 'currentMembers', label: 'Current members' },
+  { value: 'companyPeople', label: 'People linked to the company' },
+  { value: 'proposedPerson', label: 'Any person (for a proposed appointee)' },
+];
+export const isRecord = (type: ValueType) => type === 'recordReference' || type === 'recordList';
+
+export function optionId(label: string, existing: string[]) {
+  const id = slugId(label, existing).replace(/^field_/, '');
+  return /^[a-z0-9]/.test(id) && !existing.includes(id) ? id : slugId('option ' + label, existing);
 }

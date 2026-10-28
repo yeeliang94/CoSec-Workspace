@@ -22,23 +22,22 @@ import type {
 import { changeCase, createCase } from '../src/server/records/cases';
 import { mutateCase, readCase } from '../src/server/resolution/shared';
 import {
-  applyOutputTypeAction,
   applyVersionAction,
   getVersion,
   listTemplates,
-  previewTemplate,
   templateAction,
   type Kind,
 } from '../src/server/resolution/templates';
+import { applyOutputTypeAction } from '../src/server/resolution/output-types';
+import { previewTemplate } from '../src/server/resolution/template-preview';
 import { applyClauseAction, getCaseClauses, previewCase } from '../src/server/resolution/selection';
+import { generateDocument, reconcilePendingGenerations } from '../src/server/resolution/generation';
 import {
   applyGenerationAction,
   attachGenerationToPack,
   downloadGeneration,
-  generateDocument,
   getGeneration,
-  reconcilePendingGenerations,
-} from '../src/server/resolution/generation';
+} from '../src/server/resolution/generation-records';
 import { readZip } from '../src/server/resolution/render-docx';
 import { canonical, sha256 } from '../src/server/resolution/templates';
 import { loadResolutionContext } from '../src/server/records/context';
@@ -819,6 +818,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       action: 'record_execution',
       requestId: rid(),
       signerPersonId: directors[0].id,
+      signerRole: 'directors',
       capacity: 'Director',
       signedDate: '2026-10-26',
       evidenceId,
@@ -832,6 +832,7 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
             action: 'record_execution',
             requestId: rid(),
             signerPersonId: 'stranger',
+            signerRole: 'directors',
             capacity: 'Director',
             signedDate: '2026-10-26',
             evidenceId,
@@ -938,7 +939,8 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       },
     );
     expect(failed).toMatchObject({ status: 'Failed', documentId: null, sha256: null });
-    expect(failed.failure).toMatch(/renderer crashed/);
+    expect(failed.failure).toMatch(/could not be produced/);
+    expect(failed.failure).not.toMatch(/renderer crashed/);
     expect(await errorOf(downloadGeneration(author, failed.id))).toMatchObject({
       code: 'NOT_READY',
     });
@@ -1335,11 +1337,17 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
         ),
       );
     expect((await errorOf(post())).message).toMatch(/signature evidence is missing for generation/);
+    // The stored pack is reviewed before signing; each recorded signature refreshes its state.
+    reviewedPack.state = 'Reviewed';
+    await db.update(s.jobs).set({ data: reviewed }).where(eq(s.jobs.id, jobId));
+    const storedState = async () =>
+      (await db.select().from(s.jobs).where(eq(s.jobs.id, jobId)))[0]!.data.packs.at(-1)!.state;
     for (const [i, director] of directors.entries()) {
       await applyGenerationAction(author, generation.id, {
         action: 'record_execution',
         requestId: rid(),
         signerPersonId: director.id,
+        signerRole: 'directors',
         capacity: 'Director',
         signedDate: '2026-10-26',
         evidenceId: signedCopy.id,
@@ -1355,7 +1363,12 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
           'Partly signed',
         );
       }
+      expect(await storedState()).toBe(i < 2 ? 'Partly signed' : 'Fully signed');
     }
+    await db
+      .update(s.jobs)
+      .set({ data: attached, revision: attached.revision })
+      .where(eq(s.jobs.id, jobId));
     expect(await db.transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
       'Fully signed',
     );
@@ -1400,6 +1413,98 @@ describe.skipIf(!enabled)('resolution templates, selection and generation agains
       }),
     );
     expect(stale.code).toBe('STALE');
+  });
+
+  it('execution follows rendered roles, requires each capacity, and handles legacy generations safely', async () => {
+    const base = assemblyContent('directors');
+    const dual = await publish(
+      'assembly',
+      {
+        name: `Two signing roles (${tag})`,
+        outputTypeId: 'directors_written',
+        usageContexts: ['board'],
+      },
+      { ...base, closing: [...base.closing, { type: 'signatureBlock', role: 'certifiers' }] },
+    );
+    for (const twoRoles of [false, true]) {
+      let rc = await select(
+        await newCase(),
+        [pin('general')],
+        twoRoles ? dual.versionId : directorsAssembly.versionId,
+      );
+      rc = await applyClauseAction(author, rc.id, {
+        action: 'save_answers',
+        requestId: rid(),
+        expectedRevision: rc.revision,
+        selectionRevision: rc.selection!.revision,
+        shared: { resolution_date: '2026-10-26' },
+        clauses: { [rc.selection!.clauses[0].key]: answers.general },
+        signers: {
+          directors: [directors[0].id],
+          members: [],
+          certifiers: [directors[twoRoles ? 0 : 1].id],
+        },
+      });
+      const generation = await generate(rc);
+      const downloaded = await downloadGeneration(author, generation.id);
+      const signedCopy = {
+        ...downloaded.document,
+        id: rid(),
+        generationId: undefined,
+        title: 'Signed roles (fictional)',
+      };
+      await insertDocument(author, signedCopy);
+      const [jobRow] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
+      const job = structuredClone(jobRow.data);
+      job.packs.at(-1)!.documentIds = [generation.documentId!];
+      const status = () => db.transaction((tx) => generatedExecutionStatus(author, job, tx));
+      const record = (signerRole: 'directors' | 'certifiers') =>
+        applyGenerationAction(author, generation.id, {
+          action: 'record_execution',
+          requestId: rid(),
+          signerPersonId: directors[0].id,
+          signerRole,
+          capacity: signerRole === 'directors' ? 'Director' : 'Certified true copy signer',
+          signedDate: '2026-10-26',
+          evidenceId: signedCopy.id,
+        });
+      await record('directors');
+      expect(await status()).toMatchObject({ required: twoRoles ? 2 : 1, signed: 1 });
+      if (!twoRoles) {
+        expect((await status()).blockers).toEqual([]);
+        await expect(record('certifiers')).rejects.toMatchObject({ status: 400 });
+      } else expect((await status()).blockers).toHaveLength(1);
+      // Existing immutable rows have no frozen requirements or explicit role on old evidence.
+      const legacy = { ...generation };
+      delete legacy.executionRequirements;
+      await db
+        .update(s.documentGenerations)
+        .set({ data: legacy })
+        .where(eq(s.documentGenerations.id, generation.id));
+      const [row] = await db
+        .select()
+        .from(s.generationRecords)
+        .where(eq(s.generationRecords.generationId, generation.id));
+      if (row.data.kind !== 'execution') throw new Error('Expected execution fixture');
+      const oldRecord = { ...row.data };
+      delete oldRecord.signerRole;
+      await db
+        .update(s.generationRecords)
+        .set({ data: oldRecord })
+        .where(eq(s.generationRecords.id, row.id));
+      expect((await getGeneration(author, generation.id)).executionRequirements).toHaveLength(
+        twoRoles ? 2 : 1,
+      );
+      expect(await status()).toMatchObject({
+        required: twoRoles ? 2 : 1,
+        signed: twoRoles ? 0 : 1,
+      });
+      if (twoRoles) {
+        await record('directors');
+        await record('certifiers');
+        expect(await status()).toMatchObject({ required: 2, signed: 2, blockers: [] });
+      }
+    }
   });
 
   it('attach rejects director answers that differ from the job, replaces earlier family versions and never reopens a closed job', async () => {

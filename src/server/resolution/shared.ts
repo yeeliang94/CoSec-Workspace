@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { db, type Transaction } from '../db';
 import * as s from '../schema';
 import { assertCompany, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
 import type { ClauseVersion, ResolutionCase } from '../../domain/resolution/model';
 import { prior, remember, requestKey } from '../repository';
+import { omit } from '../../domain/objects';
+
+/** Client-chosen idempotency key carried by every resolution write. */
+export const requestId = z.string().min(8).max(80);
 
 export type Change = { path: string; before: unknown; after: unknown };
 const MAX_CHANGES = 200;
@@ -136,10 +141,8 @@ export async function mutateCase(
       .update(s.resolutionCases)
       .set({ data: next, revision: next.revision, jobId: next.jobId })
       .where(eq(s.resolutionCases.id, id));
-    const { history: _before, ...beforeRest } = current;
-    const { history: _after, ...afterRest } = next;
-    void _before;
-    void _after;
+    const beforeRest = omit(current, 'history');
+    const afterRest = omit(next, 'history');
     await auditChange(tx, actor, {
       companyId: next.companyId,
       entityType: 'resolution_case',

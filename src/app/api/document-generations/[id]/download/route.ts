@@ -1,6 +1,6 @@
 import { requireActor } from '@/server/auth';
 import { endpoint } from '@/server/http';
-import { downloadGeneration } from '@/server/resolution/generation';
+import { downloadGeneration } from '@/server/resolution/generation-records';
 
 /** Stored bytes of a Ready generation only; hash-checked and audited. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

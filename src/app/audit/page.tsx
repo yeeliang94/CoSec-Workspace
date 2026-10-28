@@ -79,7 +79,7 @@ export default function AuditPage() {
       }>('/api/audit?' + query(value, more ? cursor : null));
       setEntries(more ? [...entries, ...result.entries] : result.entries);
       setCursor(result.nextCursor);
-      setTotal(result.total ?? null);
+      if (!more) setTotal(result.total ?? null);
       setApplied(value);
       if (!more) setOpen([]);
     } catch (e) {
@@ -221,7 +221,7 @@ export default function AuditPage() {
       {status ? <p className="success">{status}</p> : null}
       {total !== null ? (
         <p className="metadata">
-          Showing {entries.length} of {total}. Times are Malaysia time (UTC+8).
+          {entries.length} of {total} entries
         </p>
       ) : null}
       {entries.length ? (
@@ -230,7 +230,7 @@ export default function AuditPage() {
             <caption className="sr-only">Audit entries, newest first</caption>
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Time (Malaysia, UTC+8)</th>
                 <th>Actor</th>
                 <th>Company</th>
                 <th>Action</th>

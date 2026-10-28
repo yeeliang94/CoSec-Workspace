@@ -10,6 +10,7 @@ import {
   mergeAttributes,
   type NodeViewProps,
 } from '@tiptap/react';
+import { LIMITS } from '@/domain/resolution/schema';
 import { Table } from '@tiptap/extension-table';
 import type { FieldDefinition, Predicate } from '@/domain/resolution/model';
 import { predicateSummary } from './fields';
@@ -87,7 +88,7 @@ export const Indent = Extension.create({
             ? chain().sinkListItem('listItem').run()
             : chain().liftListItem('listItem').run();
         const current = Number(editor.getAttributes('paragraph').indent ?? 0);
-        const next = Math.min(6, Math.max(0, current + delta));
+        const next = Math.min(LIMITS.indent, Math.max(0, current + delta));
         return chain().updateAttributes('paragraph', { indent: next }).run();
       };
     return { indent: step(1), outdent: step(-1) };

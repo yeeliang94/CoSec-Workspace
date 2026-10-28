@@ -10,8 +10,17 @@ export function Filing({ job, data }: Props) {
   return (
     <>
       <section className="section">
-        <h2>Filing · {job.filingState}</h2>
-        <p>Current package: v{version}</p>
+        <h2>Filing</h2>
+        <dl className="record-meta">
+          <div>
+            <dt>Filing state</dt>
+            <dd>{job.filingState}</dd>
+          </div>
+          <div>
+            <dt>Current package</dt>
+            <dd>v{version}</dd>
+          </div>
+        </dl>
         {job.blockers?.length && job.filingState !== 'Outcome confirmed' ? (
           <div className="warning">
             <ul>
@@ -218,12 +227,20 @@ export function Filing({ job, data }: Props) {
                 <h3>
                   {attempt.reference} · package v{attempt.version}
                 </h3>
-                <p>
-                  {attempt.channel} · {formatDate(attempt.submittedDate)}
-                </p>
-                <p className="metadata">
-                  Lodger: {data.users.find((u) => u.id === attempt.lodgerId)?.name}
-                </p>
+                <dl className="record-meta">
+                  <div>
+                    <dt>Channel</dt>
+                    <dd>{attempt.channel}</dd>
+                  </div>
+                  <div>
+                    <dt>Submitted</dt>
+                    <dd>{formatDate(attempt.submittedDate)}</dd>
+                  </div>
+                  <div>
+                    <dt>Lodger</dt>
+                    <dd>{data.users.find((u) => u.id === attempt.lodgerId)?.name}</dd>
+                  </div>
+                </dl>
                 <EvidenceLinks
                   ids={[
                     ...attempt.documentIds,

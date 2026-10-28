@@ -46,8 +46,9 @@ export default function Documents() {
           <span className="sr-only">Company</span>
           <select
             value={companyId}
-            onChange={(e) => {
-              if (canLeaveEditing()) setCompanyId(e.target.value);
+            onChange={async (e) => {
+              const next = e.target.value;
+              if (await canLeaveEditing()) setCompanyId(next);
             }}
           >
             <option value="">All companies</option>
@@ -85,7 +86,12 @@ export default function Documents() {
                 <tr key={d.id}>
                   <td>
                     <a href={'/api/documents/' + d.id}>{d.title}</a>
-                    <div className="metadata">{d.originalName}</div>
+                    {d.originalName !== d.title ? (
+                      <details className="file-details">
+                        <summary>Filename</summary>
+                        <span>{d.originalName}</span>
+                      </details>
+                    ) : null}
                   </td>
                   <td>
                     <Link href={'/companies/' + d.companyId}>

@@ -1,6 +1,7 @@
 import { signIn as authenticate } from './sign-in';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { answerPrompt } from './prompt';
 
 // Fictional data only. Records created here are prefixed "E2E" so they can be identified;
 // published template versions are immutable and cannot be removed afterwards.
@@ -139,6 +140,8 @@ test('author writes a clause with a bound value, reused question and two wording
   ).toHaveCount(1);
   await page.getByRole('tab', { name: /Members' written resolution/ }).click();
   await expect(page.locator('.template-canvas')).toContainText('The members note a fee of');
+  await page.getByRole('button', { name: 'Edit Company name', exact: true }).click();
+  await page.locator('.field-editor').getByText('Field references', { exact: true }).click();
   await expect(page.getByText(/From records: company\.name/)).toBeVisible();
 
   await noOverflow(page, 768);
@@ -233,7 +236,10 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.locator('.document-page')).toContainText('approves a fee of');
   await expect(page.locator('.document-page')).toContainText('Payable: No');
-  await expect(page.getByText('Word decides the final page breaks')).toBeVisible();
+  await page.getByText('Preview details', { exact: true }).click();
+  await expect(
+    page.getByRole('definition').filter({ hasText: 'Final page breaks are set by Word' }),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await page.getByRole('button', { name: 'Generate Word document' }).click();
@@ -277,17 +283,14 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type(' Unsaved version-history regression.');
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toBe('Discard unsaved changes?');
-    await dialog.dismiss();
-  });
   await page.getByRole('link', { name: 'v1', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(page.locator('.lifecycle-state')).toContainText('v2 · Draft');
   await page.getByRole('button', { name: 'Wording', exact: true }).click();
   await expect(canvas).toContainText('Unsaved version-history regression.');
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
-  page.once('dialog', async (dialog) => dialog.accept());
   await page.getByRole('link', { name: 'v1', exact: true }).click();
+  await answerPrompt(page, true);
   await expect(page.locator('.lifecycle-state')).toContainText('v1 · Published');
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v2', exact: true }).click();

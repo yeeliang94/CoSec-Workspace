@@ -1,6 +1,7 @@
 import { signIn } from './sign-in';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { answerPrompt } from './prompt';
 test('work context and unsaved plain/rich edits survive navigation attempts', async ({ page }) => {
   const accounts = JSON.parse(await readFile('.local/accounts.json', 'utf8')) as {
     key: string;
@@ -28,30 +29,30 @@ test('work context and unsaved plain/rich edits survive navigation attempts', as
   );
   await page.getByRole('link', { name: 'New job', exact: true }).click();
   await page.locator('[name=year]').fill('2022');
-  page.once('dialog', (d) => d.dismiss());
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(page).toHaveURL(/\/jobs\/new/);
   await expect(page.locator('[name=year]')).toHaveValue('2022');
-  page.once('dialog', (d) => d.dismiss());
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(page).toHaveURL(/\/jobs\/new/);
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
+  await answerPrompt(page, true);
   await expect(page).toHaveURL(/\/companies$/);
   await page.goto(jobUrl);
   const editor = page.locator('[contenteditable=true]');
   await editor.fill('Unsaved fictional note');
-  page.once('dialog', (d) => d.dismiss());
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(editor).toContainText('Unsaved fictional note');
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
+  await answerPrompt(page, true);
   await expect(page.getByRole('heading', { name: /^Checklist · v/ })).toBeVisible();
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('combobox', { name: 'Text size', exact: true }).selectOption('larger');
   await expect(page.locator('.application')).toHaveClass(/text-larger/);
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Work defaults', exact: true }).click();
+  await answerPrompt(page, true);
   await expect(page.locator('.application')).toHaveClass(/text-default/);
   await page.getByRole('button', { name: 'Personal', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Text size', exact: true })).toHaveValue(

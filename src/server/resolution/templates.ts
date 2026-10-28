@@ -1,12 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { asc, eq, inArray } from 'drizzle-orm';
-import { compileDocument } from '../../domain/resolution/compile';
-import type { CaseTemplate } from '../../domain/resolution/form';
-import type { ResolvedDocument } from '../../domain/resolution/model';
-import { renderDocx } from './render-docx';
-import { h, p, SAMPLE_BANNER, sampleAnswers, sampleContext, sampleSigners } from './samples';
 import { z } from 'zod';
-import { assertCapability, DomainError, today } from '../../domain/access';
+import { assertCapability, DomainError } from '../../domain/access';
 import type { Actor } from '../../domain/model';
 import {
   CLAUSE_CATEGORIES,
@@ -14,7 +9,6 @@ import {
   type AssemblyVersion,
   type ClauseTemplate,
   type ClauseVersion,
-  type OutputType,
   type ResolutionAssembly,
 } from '../../domain/resolution/model';
 import {
@@ -24,7 +18,6 @@ import {
   defaultSignature,
   OUTPUT_TYPE_ID,
   plainText,
-  wordingFor,
 } from '../../domain/resolution/schema';
 import {
   errorsOnly,
@@ -34,10 +27,11 @@ import {
   type Issue,
 } from '../../domain/resolution/validate';
 import { db, type Transaction } from '../db';
-import { endpoint } from '../http';
 import { prior, remember, requestKey } from '../repository';
 import * as s from '../schema';
-import { auditChange, diff, inForce } from './shared';
+import { auditChange, diff, requestId } from './shared';
+import { omit } from '../../domain/objects';
+import { listOutputTypes } from './output-types';
 
 export type Kind = 'clause' | 'assembly';
 type Version<K extends Kind> = K extends 'clause' ? ClauseVersion : AssemblyVersion;
@@ -70,27 +64,6 @@ export function contentHash(version: AnyVersion) {
       source: version.source,
       effectiveDate: version.effectiveDate,
     }),
-  );
-}
-
-/** Routes that may return field-level issues use this instead of `endpoint` directly. */
-export async function respond<T>(request: Request, fn: () => Promise<T>) {
-  let failure: IssuesError | undefined;
-  const response = await endpoint(request, async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof IssuesError) {
-        failure = error;
-        return null;
-      }
-      throw error;
-    }
-  });
-  if (!failure) return response;
-  return Response.json(
-    { error: failure.message, code: failure.code, issues: failure.issues },
-    { status: failure.status, headers: { 'Cache-Control': 'no-store' } },
   );
 }
 
@@ -204,12 +177,6 @@ const parentOf = (v: AnyVersion) => ('clauseId' in v ? v.clauseId : v.assemblyId
 const versionEntity = (kind: Kind) => (kind === 'clause' ? 'clause_version' : 'assembly_version');
 const templateEntity = (kind: Kind) => (kind === 'clause' ? 'clause_template' : 'assembly');
 
-export async function listOutputTypes(tx: Transaction | typeof db = db): Promise<OutputType[]> {
-  return (await tx.select().from(s.outputTypes))
-    .map((r) => r.data)
-    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-}
-
 /** Validation issues for a version (both structural and reference problems). */
 export async function versionIssues(
   kind: Kind,
@@ -267,21 +234,7 @@ export async function listTemplates(
     kind === 'clause'
       ? (await db.select().from(s.clauseTemplates)).map((r) => r.data as AnyTemplate)
       : (await db.select().from(s.resolutionAssemblies)).map((r) => r.data as AnyTemplate);
-  const versions =
-    kind === 'clause'
-      ? (
-          await db
-            .select()
-            .from(s.clauseTemplateVersions)
-            .orderBy(asc(s.clauseTemplateVersions.version))
-        ).map((r) => r.data as AnyVersion)
-      : (
-          await db
-            .select()
-            .from(s.resolutionAssemblyVersions)
-            .orderBy(asc(s.resolutionAssemblyVersions.version))
-        ).map((r) => r.data as AnyVersion);
-  return templates
+  const matched = templates
     .filter((t) => {
       if (!filters.includeHidden && (t.archived || ('hidden' in t && t.hidden))) return false;
       if (filters.usage && !t.usageContexts.includes(filters.usage as never)) return false;
@@ -297,8 +250,27 @@ export async function listTemplates(
           a.displayOrder - b.displayOrder ||
           a.name.localeCompare(b.name)
         : a.name.localeCompare(b.name),
-    )
-    .map((t) => ({ ...t, versions: versions.filter((v) => parentOf(v) === t.id) }));
+    );
+  // Versions carry full content, so only the matched templates' versions are loaded.
+  const ids = matched.map((t) => t.id);
+  const versions = !ids.length
+    ? []
+    : kind === 'clause'
+      ? (
+          await db
+            .select()
+            .from(s.clauseTemplateVersions)
+            .where(inArray(s.clauseTemplateVersions.clauseId, ids))
+            .orderBy(asc(s.clauseTemplateVersions.version))
+        ).map((r) => r.data as AnyVersion)
+      : (
+          await db
+            .select()
+            .from(s.resolutionAssemblyVersions)
+            .where(inArray(s.resolutionAssemblyVersions.assemblyId, ids))
+            .orderBy(asc(s.resolutionAssemblyVersions.version))
+        ).map((r) => r.data as AnyVersion);
+  return matched.map((t) => ({ ...t, versions: versions.filter((v) => parentOf(v) === t.id) }));
 }
 
 export async function getVersion(actor: Actor, kind: Kind, templateId: string, versionId: string) {
@@ -321,7 +293,6 @@ export async function getVersion(actor: Actor, kind: Kind, templateId: string, v
 }
 
 // ---------------------------------------------------------------- template-level actions
-const requestId = z.string().min(8).max(80);
 const usage = z
   .array(z.enum(['board', 'director_appointment', 'director_resignation']))
   .min(1)
@@ -445,18 +416,7 @@ export async function templateAction(actor: Actor, kind: Kind, input: unknown) {
           'STALE',
           409,
         );
-      const {
-        action: _a,
-        requestId: _r,
-        id: _i,
-        expectedRevision: _e,
-        reason,
-        ...changes
-      } = action;
-      void _a;
-      void _r;
-      void _i;
-      void _e;
+      const { reason, ...changes } = omit(action, 'action', 'requestId', 'id', 'expectedRevision');
       const defined = Object.fromEntries(
         Object.entries(changes).filter(([, v]) => v !== undefined),
       );
@@ -580,15 +540,7 @@ export async function applyVersionAction<K extends Kind>(
     assertCapability(actor, 'review_pack');
   let content: Record<string, unknown> | null = null;
   if (action.action === 'save_draft') {
-    const {
-      action: _a,
-      requestId: _r,
-      expectedRevision: _e,
-      ...rest
-    } = action as Record<string, unknown>;
-    void _a;
-    void _r;
-    void _e;
+    const rest = omit(action, 'action', 'requestId', 'expectedRevision');
     content = (kind === 'clause' ? clauseContentSchema : assemblyContentSchema).parse(rest);
   }
   const key = requestKey(actor, `${versionEntity(kind)}:${versionId}`, action.requestId);
@@ -773,255 +725,4 @@ export async function applyVersionAction<K extends Kind>(
     await remember(tx, key, { id: next.id, revision: next.revision });
     return { version: next as Version<K>, issues };
   });
-}
-
-// ---------------------------------------------------------------- output types
-const outputTypeAction = z.discriminatedUnion('action', [
-  z.strictObject({
-    action: z.literal('create'),
-    requestId,
-    id: z.string().regex(OUTPUT_TYPE_ID),
-    name: plainText(120).trim().min(1),
-    body: z.enum(['directors', 'members']),
-    order: z.number().int().min(0).max(1000).default(100),
-  }),
-  z.strictObject({
-    action: z.literal('update'),
-    requestId,
-    id: z.string().regex(OUTPUT_TYPE_ID),
-    name: plainText(120).trim().min(1).optional(),
-    active: z.boolean().optional(),
-    order: z.number().int().min(0).max(1000).optional(),
-  }),
-]);
-export async function applyOutputTypeAction(actor: Actor, input: unknown) {
-  assertCapability(actor, 'manage_templates');
-  const action = outputTypeAction.parse(input);
-  const key = requestKey(actor, `output_type:${action.id}`, action.requestId);
-  await db.transaction(async (tx) => {
-    if (await prior(tx, key)) return;
-    const [row] = await tx
-      .select()
-      .from(s.outputTypes)
-      .where(eq(s.outputTypes.id, action.id))
-      .for('update');
-    const before: OutputType | null = row?.data ?? null;
-    let next: OutputType;
-    if (action.action === 'create') {
-      if (row)
-        throw new DomainError('An output type with this id already exists.', 'DUPLICATE', 409);
-      next = {
-        id: action.id,
-        name: action.name,
-        body: action.body,
-        active: true,
-        order: action.order,
-      };
-      await tx.insert(s.outputTypes).values({ id: next.id, data: next });
-    } else {
-      if (!row) throw new DomainError('The output type is unavailable.', 'NOT_FOUND', 404);
-      next = {
-        ...row.data,
-        ...(action.name !== undefined ? { name: action.name } : {}),
-        ...(action.active !== undefined ? { active: action.active } : {}),
-        ...(action.order !== undefined ? { order: action.order } : {}),
-      };
-      await tx.update(s.outputTypes).set({ data: next }).where(eq(s.outputTypes.id, next.id));
-    }
-    await auditChange(tx, actor, {
-      companyId: null,
-      entityType: 'output_type',
-      entityId: next.id,
-      action: `output_type.${action.action === 'create' ? 'created' : 'updated'}`,
-      before,
-      after: next,
-      requestId: action.requestId,
-    });
-    await remember(tx, key, { id: next.id });
-  });
-  return listOutputTypes();
-}
-
-// ---------------------------------------------------------------- template preview service
-const previewInput = z.strictObject({
-  kind: z.enum(['clause', 'assembly']),
-  versionId: z.string().min(1).max(36),
-  outputTypeId: z.string().min(1).max(64).optional(),
-  draft: z.record(z.string(), z.unknown()).optional(),
-});
-
-/**
- * Previews a clause or assembly (saved version or unsaved draft) with fictional values only.
- * No company data is read, so a shared template never carries real data from a preview.
- */
-export async function previewTemplate(actor: Actor, input: unknown) {
-  assertTemplateReader(actor);
-  const request = previewInput.parse(input);
-  const ctx = sampleContext(today());
-  const types = await listOutputTypes();
-  let template: CaseTemplate;
-  let issues: Issue[];
-  if (request.kind === 'clause') {
-    const version = await loadVersion(db, 'clause', request.versionId);
-    const clause = await loadTemplate(db, 'clause', version.clauseId);
-    const content = request.draft
-      ? clauseContentSchema.parse({ source: '', effectiveDate: null, ...request.draft })
-      : version;
-    const outputTypeId =
-      request.outputTypeId ?? Object.keys(content.wordings)[0] ?? 'directors_written';
-    const outputType = types.find((t) => t.id === outputTypeId);
-    if (!outputType) throw new DomainError('Choose a configured output type.');
-    issues = validateClause(clause.name, content, types);
-    template = {
-      outputType,
-      assembly: {
-        name: SAMPLE_BANNER,
-        version: {
-          id: 'sample-assembly',
-          header: [
-            h(1, outputType.name.toUpperCase(), 'center'),
-            { type: 'clauseSlot', numbering: 'decimal' },
-          ],
-          closing: [],
-          signature: { columns: 2, showDate: false, label: '{name}' },
-          fields: [],
-          layout: defaultLayout,
-        },
-      },
-      clauses: [
-        {
-          key: 'sample',
-          name: clause.name,
-          version: { id: version.id, wordings: content.wordings, fields: content.fields },
-        },
-      ],
-    };
-  } else {
-    const version = await loadVersion(db, 'assembly', request.versionId);
-    const assembly = await loadTemplate(db, 'assembly', version.assemblyId);
-    const content = request.draft
-      ? assemblyContentSchema.parse({
-          source: '',
-          effectiveDate: null,
-          starterClauseIds: [],
-          ...request.draft,
-        })
-      : version;
-    const outputType = types.find((t) => t.id === (request.outputTypeId ?? assembly.outputTypeId));
-    if (!outputType) throw new DomainError('Choose a configured output type.');
-    issues = validateAssembly(assembly.name, content);
-    const candidates = content.starterClauseIds.length
-      ? (
-          await db
-            .select()
-            .from(s.clauseTemplateVersions)
-            .where(inArray(s.clauseTemplateVersions.clauseId, content.starterClauseIds))
-        ).map((r) => r.data)
-      : [];
-    // Starters follow the same effective-date rule as a new case dated today.
-    const asAt = today();
-    const starters = content.starterClauseIds.flatMap((id) => {
-      const v = inForce(
-        candidates.filter((x) => x.clauseId === id),
-        asAt,
-      );
-      return v && wordingFor(v.wordings, outputType.id)?.length ? [v] : [];
-    });
-    const names = starters.length
-      ? (
-          await db
-            .select()
-            .from(s.clauseTemplates)
-            .where(
-              inArray(
-                s.clauseTemplates.id,
-                starters.map((v) => v.clauseId),
-              ),
-            )
-        ).map((r) => r.data)
-      : [];
-    const clauses = content.starterClauseIds.flatMap((id) => {
-      const v = starters.find((x) => x.clauseId === id);
-      return v
-        ? [
-            {
-              key: `s${v.version}${id.slice(0, 6)}`.toLowerCase().replace(/[^a-z0-9]/g, ''),
-              name: names.find((n) => n.id === id)?.name ?? 'Clause',
-              version: v,
-            },
-          ]
-        : [];
-    });
-    template = {
-      outputType,
-      assembly: { name: assembly.name, version: { id: version.id, ...content } },
-      clauses: clauses.length
-        ? clauses
-        : [
-            {
-              key: 'placeholder',
-              name: 'Selected clauses',
-              version: {
-                id: 'placeholder',
-                fields: [],
-                wordings: {
-                  [outputType.id]: [p('[The clauses chosen for the case appear here.]')],
-                },
-              },
-            },
-          ],
-    };
-  }
-  const allFields = [
-    template.assembly.version.fields,
-    ...template.clauses.map((c) => c.version.fields),
-  ];
-  const shared = sampleAnswers(
-    allFields
-      .flat()
-      .filter(
-        (field, i, list) =>
-          (field.scope === 'case' || template.assembly.version.fields.includes(field)) &&
-          list.findIndex((x) => x.id === field.id) === i,
-      ),
-    ctx,
-  );
-  const answers = {
-    shared,
-    clauses: Object.fromEntries(
-      template.clauses.map((c) => [
-        c.key,
-        sampleAnswers(
-          c.version.fields.filter((x) => x.scope === 'clause'),
-          ctx,
-        ),
-      ]),
-    ),
-  };
-  const compiled = compileDocument(
-    { ...template, ctx, answers, signers: sampleSigners(ctx) },
-    'sample',
-  );
-  const resolved: ResolvedDocument = {
-    ...compiled.resolved,
-    title: `${compiled.resolved.title} (${SAMPLE_BANNER})`,
-    layout: {
-      ...compiled.resolved.layout,
-      header: [SAMPLE_BANNER, compiled.resolved.layout.header].filter(Boolean).join(' · '),
-    },
-    blocks: [
-      { type: 'paragraph', align: 'center', runs: [{ text: SAMPLE_BANNER, marks: ['bold'] }] },
-      ...compiled.resolved.blocks,
-    ],
-    containsSamples: true,
-  };
-  return { resolved, issues: [...issues, ...compiled.issues], values: compiled.values };
-}
-
-export async function previewTemplateDocx(actor: Actor, input: unknown) {
-  const { resolved } = await previewTemplate(actor, input);
-  return {
-    bytes: await renderDocx(resolved),
-    fileName: `${resolved.title.replace(/[^\p{L}\p{N} ._()-]+/gu, ' ').trim()}.docx`,
-  };
 }

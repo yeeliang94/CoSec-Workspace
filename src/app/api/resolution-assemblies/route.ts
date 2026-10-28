@@ -1,8 +1,9 @@
 import { requireActor } from '@/server/auth';
-import { listTemplates, respond, templateAction } from '@/server/resolution/templates';
+import { endpoint } from '@/server/http';
+import { listTemplates, templateAction } from '@/server/resolution/templates';
 
 export async function GET(request: Request) {
-  return respond(request, async () => {
+  return endpoint(request, async () => {
     const actor = await requireActor(request);
     const q = new URL(request.url).searchParams;
     return {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return respond(request, async () =>
+  return endpoint(request, async () =>
     templateAction(await requireActor(request), 'assembly', await request.json()),
   );
 }

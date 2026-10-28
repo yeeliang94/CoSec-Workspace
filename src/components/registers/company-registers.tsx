@@ -126,10 +126,20 @@ export function MembersRegister({ companyId, asAt }: { companyId: string; asAt: 
                             : 'Transfer'}{' '}
                         · {e.shareClass.name}
                       </Link>
-                      <p className="metadata">
-                        Effective {formatDate(e.effectiveDate)} · entered {formatDate(e.recordedAt)}{' '}
-                        · pack v{e.packVersion}
-                      </p>
+                      <dl className="record-meta">
+                        <div>
+                          <dt>Effective</dt>
+                          <dd>{formatDate(e.effectiveDate)}</dd>
+                        </div>
+                        <div>
+                          <dt>Entered</dt>
+                          <dd>{formatDate(e.recordedAt)}</dd>
+                        </div>
+                        <div>
+                          <dt>Pack</dt>
+                          <dd>v{e.packVersion}</dd>
+                        </div>
+                      </dl>
                       {e.effectiveDate > asAt ? <p>Approved and future dated</p> : null}
                     </li>
                   ))}
@@ -211,11 +221,24 @@ export function BeneficialOwnershipRegister({
                             ? 'Review/update'
                             : 'Cessation'}
                       </Link>
-                      <p className="metadata">
-                        Effective {formatDate(e.effectiveDate)} · register entry{' '}
-                        {formatDate(e.registerEntryDate)} · entered {formatDate(e.recordedAt)}
-                      </p>
-                      <p>{e.sourceVersion}</p>
+                      <dl className="record-meta">
+                        <div>
+                          <dt>Effective</dt>
+                          <dd>{formatDate(e.effectiveDate)}</dd>
+                        </div>
+                        <div>
+                          <dt>Register entry</dt>
+                          <dd>{formatDate(e.registerEntryDate)}</dd>
+                        </div>
+                        <div>
+                          <dt>Entered</dt>
+                          <dd>{formatDate(e.recordedAt)}</dd>
+                        </div>
+                        <div>
+                          <dt>Source version</dt>
+                          <dd>{e.sourceVersion}</dd>
+                        </div>
+                      </dl>
                     </li>
                   ))}
                 </ul>

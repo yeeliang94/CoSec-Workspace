@@ -159,10 +159,21 @@ export function DocumentPreview({
       ) : null}
       {document ? (
         <>
-          <p className="metadata">
-            Preview only. Word decides the final page breaks and pagination.
-            {document.containsSamples ? ' Contains labelled sample values.' : ''}
-          </p>
+          <details className="advanced-filters">
+            <summary>Preview details</summary>
+            <dl className="record-meta">
+              <div>
+                <dt>Pagination</dt>
+                <dd>Final page breaks are set by Word</dd>
+              </div>
+              {document.containsSamples ? (
+                <div>
+                  <dt>Values</dt>
+                  <dd>Fictional samples</dd>
+                </div>
+              ) : null}
+            </dl>
+          </details>
           <div className="document-scroll">
             <article
               className="document-page"

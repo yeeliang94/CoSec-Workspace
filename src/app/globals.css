@@ -785,8 +785,8 @@ td .state {
 }
 .editor-toolbar button {
   padding: 4px 7px;
-  font-size: 12px;
-  min-height: 30px;
+  font-size: calc(12px * var(--scale));
+  min-height: 36px;
   border-color: transparent;
   background: transparent;
 }
@@ -1361,6 +1361,46 @@ fieldset label + label {
 }
 .metadata-link {
   font-size: calc(12px * var(--scale));
+}
+.record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md) var(--space-section);
+  margin: var(--space-md) 0 var(--space-lg);
+}
+.record-meta > div {
+  min-width: 0;
+  max-width: 100%;
+}
+.record-meta dt {
+  color: var(--muted);
+  font-size: calc(12px * var(--scale));
+}
+.record-meta dd {
+  margin: 3px 0 0;
+  font-size: calc(13px * var(--scale));
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.file-details {
+  margin-top: var(--space-sm);
+  font-size: calc(13px * var(--scale));
+  overflow-wrap: anywhere;
+}
+.file-details > summary {
+  color: var(--primary);
+  cursor: pointer;
+  width: fit-content;
+}
+.file-details > span {
+  display: block;
+  margin-top: var(--space-sm);
+}
+@media (max-width: 650px) {
+  .template-toolbar button,
+  .template-toolbar select {
+    min-height: 40px;
+  }
 }
 .action-status:empty {
   display: none;
@@ -1964,12 +2004,19 @@ dialog.drawer::backdrop {
 .template-status .lifecycle {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
 }
 .lifecycle .actions {
-  margin-top: var(--space-sm);
+  margin: 0;
 }
 .lifecycle .warning,
-.lifecycle .feedback {
+.lifecycle .feedback,
+.lifecycle > .success,
+.lifecycle form.confirmation {
+  flex-basis: 100%;
   margin: 10px 0 0;
 }
 .lifecycle-state {
@@ -2222,9 +2269,9 @@ dialog.drawer::backdrop {
 }
 .template-toolbar select {
   width: 128px;
-  min-height: 30px;
+  min-height: 36px;
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--scale));
 }
 .toolbar-group {
   display: inline-flex;
@@ -2571,3 +2618,29 @@ dialog.drawer::backdrop {
   opacity: 0.6;
 }
 /* ---- end resolution builder ---- */
+
+/* Confirmation: a small focused dialog for discard and replace decisions */
+dialog.confirm-dialog {
+  /* The reset zeroes margins; auto restores the browser's centring of a modal dialog. */
+  margin: auto;
+  width: min(420px, calc(100% - 32px));
+  height: fit-content;
+  border: 0;
+  border-radius: 6px;
+  padding: var(--space-section);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.15);
+}
+dialog.confirm-dialog::backdrop {
+  background: rgba(28, 45, 57, 0.32);
+}
+dialog.confirm-dialog p {
+  margin: 0 0 var(--space-xl);
+}
+dialog.confirm-dialog .actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

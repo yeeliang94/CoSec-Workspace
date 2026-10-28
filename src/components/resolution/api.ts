@@ -1,17 +1,13 @@
 /** Client helpers and response shapes for the resolution builder APIs (docs/RESOLUTION_CONTRACTS.md). */
 import type {
-  AnswerValue,
   AssemblyVersion,
   ClauseTemplate,
   ClauseVersion,
   DocumentGeneration,
-  FieldDefinition,
   GenerationRecord,
-  PersonSnapshot,
   ResolutionAssembly,
   ResolutionCase,
   ResolvedDocument,
-  SignerRole,
 } from '@/domain/resolution/model';
 
 export type Issue = {
@@ -23,20 +19,8 @@ export type Issue = {
   fieldId?: string;
   itemId?: string;
 };
-export type FormField = FieldDefinition & {
-  value: AnswerValue | Record<string, AnswerValue>;
-  sourceLabel?: string;
-  readOnly: boolean;
-  active: boolean;
-  activeItemIds?: string[];
-  choices?: PersonSnapshot[];
-};
-export type FormModel = {
-  shared: FormField[];
-  clauses: { key: string; clauseName: string; fields: FormField[] }[];
-  signers: { role: SignerRole; label: string; pool: PersonSnapshot[] }[];
-  conflicts: Issue[];
-};
+export type { FormField, FormModel } from '@/domain/resolution/form';
+import type { FormModel, CaseInput } from '@/domain/resolution/form';
 export type ClauseWithVersions = ClauseTemplate & { versions: ClauseVersion[] };
 export type AssemblyWithVersions = ResolutionAssembly & { versions: AssemblyVersion[] };
 export type CaseDetail = {
@@ -192,6 +176,7 @@ export type ClausesResponse = {
     newerVersions: NewerVersion[];
   };
   form: FormModel | null;
+  formInput: CaseInput | null;
   /** Answer issues for generation (complete check); field issues carry unit and fieldId. */
   issues?: Issue[];
 };
@@ -204,4 +189,10 @@ export function newestPerClause(clauses: AvailableClause[]) {
     if (!current || clause.version > current.version) best.set(clause.clauseId, clause);
   }
   return [...best.values()];
+}
+
+export function statusOf<T extends { version: number; status: string }>(versions: T[]) {
+  const last = latest(versions);
+  const published = latestPublished(versions);
+  return { last, published };
 }

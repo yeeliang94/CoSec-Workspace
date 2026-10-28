@@ -135,6 +135,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const pathname = usePathname();
+  const navigationPath = /^\/(templates|people)(\/|$)/.test(pathname)
+    ? '/resolutions'
+    : /^\/audit(\/|$)/.test(pathname)
+      ? '/settings'
+      : pathname;
   const router = useRouter();
   const login = pathname === '/login';
   useEffect(installEditGuards, []);
@@ -211,7 +216,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     key={href}
                     href={href}
                     aria-current={
-                      pathname === href || pathname.startsWith(href + '/') ? 'page' : undefined
+                      navigationPath === href || navigationPath.startsWith(href + '/')
+                        ? 'page'
+                        : undefined
                     }
                   >
                     <Icon kind={icon} />
@@ -220,7 +227,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                 ))}
               </nav>
               <div className="sidebar-bottom">
-                <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
+                <Link
+                  href="/settings"
+                  aria-current={navigationPath === '/settings' ? 'page' : undefined}
+                >
                   <Icon kind="settings" />
                   Settings
                 </Link>
@@ -235,7 +245,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     type="button"
                     className="quiet"
                     onClick={async () => {
-                      if (!canLeaveEditing()) return;
+                      if (!(await canLeaveEditing())) return;
                       await request('/api/auth/sign-out', {});
                       workMemory.current = { href: '/work', scrollY: 0, focusId: '' };
                       setWorkHref('/work');

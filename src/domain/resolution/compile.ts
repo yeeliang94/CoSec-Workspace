@@ -1,5 +1,6 @@
 import type {
   BlockNode,
+  ExecutionRequirement,
   FieldDefinition,
   InlineNode,
   PersonSnapshot,
@@ -31,6 +32,7 @@ import { ASSEMBLY_KEY, formatValue, personProperty, type Raw } from './values';
 export type CompileMode = 'final' | 'preview' | 'sample';
 export type CompileResult = {
   resolved: ResolvedDocument;
+  executionRequirements: ExecutionRequirement[];
   issues: Issue[];
   /** Display text of every value used, keyed `fieldId` (shared) or `clauseKey.fieldId`. */
   values: Record<string, string>;
@@ -56,6 +58,7 @@ export function compileDocument(input: CaseInput, mode: CompileMode): CompileRes
     ...validateAnswers(input, mode === 'final', resolver),
   ];
   const values: Record<string, string> = {};
+  const executionRequirements: ExecutionRequirement[] = [];
   const missing = new Set<string>();
   let containsSamples = false;
   let placeholders = false;
@@ -277,6 +280,9 @@ export function compileDocument(input: CaseInput, mode: CompileMode): CompileRes
         const people = (input.signers[block.role] ?? [])
           .map((id) => pool.find((p) => p.id === id))
           .filter((p): p is PersonSnapshot => !!p);
+        for (const person of people)
+          if (!executionRequirements.some((r) => r.personId === person.id && r.role === block.role))
+            executionRequirements.push({ personId: person.id, role: block.role });
         // One pass, so a name containing "{capacity}" is never expanded again.
         const label = (p: PersonSnapshot) =>
           a.signature.label
@@ -315,7 +321,7 @@ export function compileDocument(input: CaseInput, mode: CompileMode): CompileRes
     blocks: body,
     containsSamples,
   };
-  return { resolved, issues, values, placeholders };
+  return { resolved, issues, values, placeholders, executionRequirements };
 }
 
 /** Puts the clause number on the first paragraph or heading; later paragraphs align with its text. */

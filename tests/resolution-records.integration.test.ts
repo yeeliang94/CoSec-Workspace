@@ -541,7 +541,7 @@ describe('audit', () => {
     let cursor: string | undefined;
     do {
       const page = await queryAudit(admin, filters, { cursor, limit: 2 });
-      expect(page.total).toBe(5);
+      expect(page.total).toBe(cursor ? undefined : 5);
       expect(page.entries.length).toBeLessThanOrEqual(2);
       seen.push(...page.entries.map((e) => e.id));
       cursor = page.nextCursor ?? undefined;

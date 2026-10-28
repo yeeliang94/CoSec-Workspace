@@ -1,10 +1,7 @@
 import { requireActor } from '@/server/auth';
 import { endpoint } from '@/server/http';
-import {
-  applyOutputTypeAction,
-  assertTemplateReader,
-  listOutputTypes,
-} from '@/server/resolution/templates';
+import { assertTemplateReader } from '@/server/resolution/templates';
+import { applyOutputTypeAction, listOutputTypes } from '@/server/resolution/output-types';
 
 export async function GET(request: Request) {
   return endpoint(request, async () => {

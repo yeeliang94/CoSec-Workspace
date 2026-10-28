@@ -70,8 +70,9 @@ function PeopleDirectory() {
             type="button"
             className="primary"
             aria-expanded={creating}
-            onClick={() => {
-              if (!creating || canLeaveEditing()) setCreating(!creating);
+            onClick={async () => {
+              if (creating && !(await canLeaveEditing())) return;
+              setCreating(!creating);
             }}
           >
             New person
@@ -83,8 +84,9 @@ function PeopleDirectory() {
           type="button"
           className={'filter' + (view === 'people' ? ' active' : '')}
           aria-pressed={view === 'people'}
-          onClick={() => {
-            if (view === 'people' || canLeaveEditing()) setView('people');
+          onClick={async () => {
+            if (view !== 'people' && !(await canLeaveEditing())) return;
+            setView('people');
           }}
         >
           Directory
@@ -93,8 +95,9 @@ function PeopleDirectory() {
           type="button"
           className={'filter' + (view === 'relationships' ? ' active' : '')}
           aria-pressed={view === 'relationships'}
-          onClick={() => {
-            if (view === 'relationships' || canLeaveEditing()) setView('relationships');
+          onClick={async () => {
+            if (view !== 'relationships' && !(await canLeaveEditing())) return;
+            setView('relationships');
           }}
         >
           Company relationships
@@ -126,8 +129,9 @@ function PeopleDirectory() {
           <span className={view === 'relationships' ? undefined : 'sr-only'}>Company</span>
           <select
             value={companyId}
-            onChange={(event) => {
-              if (canLeaveEditing()) setCompanyId(event.target.value);
+            onChange={async (event) => {
+              const next = event.target.value;
+              if (await canLeaveEditing()) setCompanyId(next);
             }}
           >
             {view === 'people' ? <option value="">All companies</option> : null}
@@ -273,7 +277,12 @@ function NewPerson({ onDone }: { onDone: (id?: string) => Promise<void> }) {
             <button className="primary" disabled={action.pending}>
               Create person
             </button>
-            <button type="button" onClick={() => void onDone()}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) await onDone();
+              }}
+            >
               Cancel
             </button>
           </div>
@@ -315,18 +324,10 @@ function PersonDrawer({
       />
       {person && data ? (
         <>
-          <dl className="facts">
+          <dl className="record-meta">
             <div>
               <dt>Email</dt>
               <dd>{person.email || '—'}</dd>
-            </div>
-            <div>
-              <dt>Created</dt>
-              <dd>{formatDate(person.createdAt)}</dd>
-            </div>
-            <div>
-              <dt>Revision</dt>
-              <dd>{person.revision}</dd>
             </div>
           </dl>
           {person.migrationNote ? <p className="warning">{person.migrationNote}</p> : null}
@@ -340,12 +341,29 @@ function PersonDrawer({
                     <Link href={'/companies/' + r.companyId}>
                       {data.companies.find((c) => c.id === r.companyId)?.name || 'Company'}
                     </Link>
-                    <p className="metadata">
-                      {roleName(r.role)}
-                      {r.capacity ? ` · ${r.capacity}` : ''} · {formatDate(r.startDate)} to{' '}
-                      {r.endDate ? formatDate(r.endDate) : 'present'}
-                      {r.projectedFrom ? ' · from posted officer events' : ''}
-                    </p>
+                    <dl className="record-meta">
+                      <div>
+                        <dt>Role</dt>
+                        <dd>
+                          {roleName(r.role)}
+                          {r.capacity ? ` · ${r.capacity}` : ''}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>From</dt>
+                        <dd>{formatDate(r.startDate)}</dd>
+                      </div>
+                      <div>
+                        <dt>Until</dt>
+                        <dd>{r.endDate ? formatDate(r.endDate) : 'Present'}</dd>
+                      </div>
+                    </dl>
+                    {r.projectedFrom ? (
+                      <details className="advanced-filters">
+                        <summary>Source</summary>
+                        <p>Posted officer events</p>
+                      </details>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -353,9 +371,9 @@ function PersonDrawer({
               <p className="metadata">No relationships with companies you can see.</p>
             )}
           </section>
-          <section className="section">
-            <h3>Name history</h3>
-            {person.nameHistory.length ? (
+          {person.nameHistory.length ? (
+            <section className="section">
+              <h3>Name history</h3>
               <ul className="list-plain">
                 {person.nameHistory.map((entry, i) => (
                   <li key={i}>
@@ -366,13 +384,11 @@ function PersonDrawer({
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="metadata">No earlier names recorded.</p>
-            )}
-          </section>
-          <section className="section">
-            <h3>Custom values</h3>
-            {Object.keys(person.customValues).length ? (
+            </section>
+          ) : null}
+          {Object.keys(person.customValues).length ? (
+            <section className="section">
+              <h3>Custom values</h3>
               <dl className="custom-values">
                 {Object.entries(person.customValues).map(([key, values]) => {
                   const current = values.at(-1);
@@ -392,10 +408,8 @@ function PersonDrawer({
                   );
                 })}
               </dl>
-            ) : (
-              <p className="metadata">None recorded.</p>
-            )}
-          </section>
+            </section>
+          ) : null}
           {data.actor.capabilities.includes('manage_people') ? (
             <PersonEdit
               person={person}
@@ -406,22 +420,30 @@ function PersonDrawer({
               }}
             />
           ) : null}
-          {load.data!.audit.length ? (
-            <details className="disclosure">
-              <summary>Change history</summary>
-              <ul className="list-plain">
-                {load.data!.audit.map((entry) => (
-                  <li key={entry.id}>
-                    {entry.action.replaceAll('_', ' ')}
-                    <p className="metadata">
-                      {entry.actorName} · {formatDate(entry.at)}
-                      {entry.reason ? ` · ${entry.reason}` : ''}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+          <details className="disclosure">
+            <summary>Record history</summary>
+            <dl className="record-meta">
+              <div>
+                <dt>Created</dt>
+                <dd>{formatDate(person.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>Revision</dt>
+                <dd>{person.revision}</dd>
+              </div>
+            </dl>
+            <ul className="list-plain">
+              {load.data!.audit.map((entry) => (
+                <li key={entry.id}>
+                  {entry.action.replaceAll('_', ' ')}
+                  <p className="metadata">
+                    {entry.actorName} · {formatDate(entry.at)}
+                    {entry.reason ? ` · ${entry.reason}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
         </>
       ) : null}
     </Drawer>
@@ -493,7 +515,10 @@ function PersonEdit({
               onChange={(event) => setForm({ ...form, fullName: event.target.value })}
             />
           </label>
-          <p className="metadata">Earlier documents keep the name they were generated with.</p>
+          <details className="advanced-filters">
+            <summary>Name changes</summary>
+            <p>Earlier documents keep the name they were generated with.</p>
+          </details>
           <label>
             Email
             <input

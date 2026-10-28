@@ -1,5 +1,7 @@
 import type { Actor, Capability } from './model';
 export class DomainError extends Error {
+  /** Field-level detail for the client; set by subclasses such as IssuesError. */
+  issues?: readonly unknown[];
   constructor(
     message: string,
     public code = 'VALIDATION',

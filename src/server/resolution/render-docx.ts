@@ -21,6 +21,7 @@ import {
   WidthType,
   convertMillimetersToTwip,
 } from 'docx';
+import { DomainError } from '../../domain/access';
 import type {
   Align,
   ResolvedBlock,
@@ -410,7 +411,8 @@ export function readZip(bytes: Buffer): Map<string, Buffer> {
 }
 
 export function validateDocx(bytes: Buffer) {
-  if (bytes.byteLength > LIMITS.outputBytes) throw new Error('The document is larger than 5 MiB.');
+  if (bytes.byteLength > LIMITS.outputBytes)
+    throw new DomainError('The document is larger than 5 MiB.', 'TOO_LARGE');
   const entries = readZip(bytes);
   const xml = entries.get('word/document.xml')?.toString('utf8');
   if (!xml || !xml.includes('<w:body>')) throw new Error('The package has no Word document body.');
@@ -439,7 +441,10 @@ export async function renderDocx(
     const bytes = await Promise.race([
       Packer.toBuffer(buildDocument(doc)),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Rendering took too long.')), timeoutMs);
+        timer = setTimeout(
+          () => reject(new DomainError('Rendering took too long.', 'TIMEOUT')),
+          timeoutMs,
+        );
       }),
     ]);
     const buffer = Buffer.from(bytes);

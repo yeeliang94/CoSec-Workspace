@@ -15,9 +15,16 @@ export function Documents({ job, data }: Props) {
     <>
       <section className="section">
         <h2>Current pack · v{version}</h2>
-        <p className="metadata">
-          {pack?.state} · {formatDate(pack?.createdAt)}
-        </p>
+        <dl className="record-meta">
+          <div>
+            <dt>Document state</dt>
+            <dd>{pack?.state || 'Draft'}</dd>
+          </div>
+          <div>
+            <dt>Prepared</dt>
+            <dd>{formatDate(pack?.createdAt)}</dd>
+          </div>
+        </dl>
         {pack?.notes ? <p style={{ marginTop: 12 }}>{pack.notes}</p> : null}
         <ul className="document-list">
           {pack?.documentIds.map((id) => (
@@ -141,9 +148,19 @@ export function Documents({ job, data }: Props) {
               <li key={d.id}>
                 <div>
                   <a href={'/api/documents/' + d.id}>{d.title}</a>
-                  <small>
-                    {d.originalName} · {formatDate(d.createdAt)}
-                  </small>
+                  <details className="file-details">
+                    <summary>File details</summary>
+                    <dl className="record-meta">
+                      <div>
+                        <dt>Filename</dt>
+                        <dd>{d.originalName}</dd>
+                      </div>
+                      <div>
+                        <dt>Uploaded</dt>
+                        <dd>{formatDate(d.createdAt)}</dd>
+                      </div>
+                    </dl>
+                  </details>
                 </div>
                 <span className="metadata">{Math.max(1, Math.round(d.size / 1024))} KB</span>
               </li>

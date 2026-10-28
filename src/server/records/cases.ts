@@ -5,6 +5,7 @@ import * as s from '../schema';
 import { getJob, prior, remember, requestKey } from '../repository';
 import { auditChange, mutateCase, readCase } from '../resolution/shared';
 import { generationView } from '../resolution/generation';
+import { generationRequirements } from '../resolution/generation-signers';
 import { appendCustomValue } from './custom-fields';
 import {
   assertAny,
@@ -33,6 +34,7 @@ import {
   validateDependencies,
   type StepPatch,
 } from '../../domain/resolution/cases';
+import { omit } from '../../domain/objects';
 
 const CASE_WRITERS = ['generate_documents', 'prepare_job'] as const;
 
@@ -72,23 +74,27 @@ export async function listCases(actor: Actor, companyId?: string) {
 /** One call for the case screen: the case, its generations (without resolved content) and records. */
 export async function getCaseDetail(actor: Actor, id: string) {
   const resolutionCase = await readCase(actor, id);
-  const generations = (
-    await db
-      .select({ data: s.documentGenerations.data })
-      .from(s.documentGenerations)
-      .where(
-        and(
-          eq(s.documentGenerations.caseId, id),
-          eq(s.documentGenerations.companyId, resolutionCase.companyId),
-        ),
-      )
-      .orderBy(desc(s.documentGenerations.createdAt))
-  ).map(({ data }) => {
-    // Older rows stored the full selector pools; the view keeps only referenced people.
-    const { resolved: _omitted, ...rest } = generationView(data);
-    void _omitted;
-    return rest as Omit<DocumentGeneration, 'resolved'>;
-  });
+  const generations = await Promise.all(
+    (
+      await db
+        .select({ data: s.documentGenerations.data })
+        .from(s.documentGenerations)
+        .where(
+          and(
+            eq(s.documentGenerations.caseId, id),
+            eq(s.documentGenerations.companyId, resolutionCase.companyId),
+          ),
+        )
+        .orderBy(desc(s.documentGenerations.createdAt))
+    ).map(async ({ data }) => {
+      // Older rows stored the full selector pools; the view keeps only referenced people.
+      const rest = omit(
+        { ...generationView(data), executionRequirements: await generationRequirements(data, db) },
+        'resolved',
+      );
+      return rest as Omit<DocumentGeneration, 'resolved'>;
+    }),
+  );
   const records = generations.length
     ? (
         await db
@@ -171,8 +177,7 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
       revision: 1,
       data: resolutionCase,
     });
-    const { history: _history, ...after } = resolutionCase;
-    void _history;
+    const after = omit(resolutionCase, 'history');
     await auditChange(tx, actor, {
       companyId: resolutionCase.companyId,
       entityType: 'resolution_case',

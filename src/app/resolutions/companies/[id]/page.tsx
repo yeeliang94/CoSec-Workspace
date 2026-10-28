@@ -53,7 +53,12 @@ export default function CompanyResolutionSettings({ params }: { params: Promise<
       <header className="record-heading">
         <Link href={'/companies/' + id}>{company.name}</Link>
         <h1>Company resolution settings</h1>
-        <p className="metadata">{company.registrationNumber}</p>
+        <dl className="record-meta">
+          <div>
+            <dt>Registration number</dt>
+            <dd>{company.registrationNumber}</dd>
+          </div>
+        </dl>
       </header>
       <LoadState
         loading={profile.loading && !profile.data}
@@ -65,10 +70,7 @@ export default function CompanyResolutionSettings({ params }: { params: Promise<
         <>
           <section className="section" aria-labelledby="citations">
             <h2 id="citations">Constitution citations</h2>
-            <p className="metadata section-intro">
-              Dated citations from this company&apos;s constitution, used in resolution wording.
-              Record the source in the reason.
-            </p>
+
             <ul className="list-plain citation-list">
               {CITATION_KEYS.map((key) => (
                 <DatedEntry
@@ -94,46 +96,46 @@ export default function CompanyResolutionSettings({ params }: { params: Promise<
               ))}
             </ul>
           </section>
-          <section className="section" aria-labelledby="custom-values">
-            <h2 id="custom-values">Company custom values</h2>
-            {(definitions.data?.definitions ?? []).filter((d) => !d.archived).length ? (
-              <ul className="list-plain citation-list">
-                {(definitions.data?.definitions ?? [])
-                  .filter((d) => !d.archived)
-                  .map((definition) => (
-                    <DatedEntry
-                      key={definition.id}
-                      label={definition.label}
-                      definition={definition}
-                      values={
-                        Object.hasOwn(profile.data!.customValues, definition.id)
-                          ? profile.data!.customValues[definition.id]
-                          : undefined
-                      }
-                      canEdit={canEdit}
-                      onSave={(value, effectiveDate, reason) =>
-                        postJson<CompanyProfile>(`/api/companies/${id}/profile`, {
-                          action: 'set_custom',
-                          definitionId: definition.id,
-                          value: definition.valueType === 'boolean' ? value === 'true' : value,
-                          effectiveDate,
-                          reason,
-                          expectedRevision: profile.data!.revision,
-                          requestId: newRequestId(),
-                        }).then((next) => {
-                          profile.setData(next);
-                          return next;
-                        })
-                      }
-                    />
-                  ))}
-              </ul>
-            ) : (
-              <p className="metadata">
-                No company custom fields are defined. Template managers can add them.
-              </p>
-            )}
-          </section>
+          {(definitions.data?.definitions ?? []).some((d) => !d.archived) ? (
+            <section className="section" aria-labelledby="custom-values">
+              <h2 id="custom-values">Company custom values</h2>
+              {(definitions.data?.definitions ?? []).filter((d) => !d.archived).length ? (
+                <ul className="list-plain citation-list">
+                  {(definitions.data?.definitions ?? [])
+                    .filter((d) => !d.archived)
+                    .map((definition) => (
+                      <DatedEntry
+                        key={definition.id}
+                        label={definition.label}
+                        definition={definition}
+                        values={
+                          Object.hasOwn(profile.data!.customValues, definition.id)
+                            ? profile.data!.customValues[definition.id]
+                            : undefined
+                        }
+                        canEdit={canEdit}
+                        onSave={(value, effectiveDate, reason) =>
+                          postJson<CompanyProfile>(`/api/companies/${id}/profile`, {
+                            action: 'set_custom',
+                            definitionId: definition.id,
+                            value: definition.valueType === 'boolean' ? value === 'true' : value,
+                            effectiveDate,
+                            reason,
+                            expectedRevision: profile.data!.revision,
+                            requestId: newRequestId(),
+                          }).then((next) => {
+                            profile.setData(next);
+                            return next;
+                          })
+                        }
+                      />
+                    ))}
+                </ul>
+              ) : (
+                <p className="metadata">No company custom fields defined.</p>
+              )}
+            </section>
+          ) : null}
         </>
       ) : null}
       <section className="section">
@@ -177,9 +179,16 @@ function DatedEntry({
           <h3>{label}</h3>
           <p className={now ? undefined : 'muted'}>{display(now?.value)}</p>
           {now ? (
-            <p className="metadata">
-              From {formatDate(now.effectiveDate)} · {now.reason}
-            </p>
+            <dl className="record-meta">
+              <div>
+                <dt>Effective from</dt>
+                <dd>{formatDate(now.effectiveDate)}</dd>
+              </div>
+              <div>
+                <dt>Source and reason</dt>
+                <dd>{now.reason}</dd>
+              </div>
+            </dl>
           ) : null}
         </div>
         {canEdit && !open ? (

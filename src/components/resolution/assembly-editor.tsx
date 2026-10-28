@@ -8,7 +8,6 @@ import type {
   InlineNode,
   PageLayout,
   SignatureSettings,
-  UsageContext,
 } from '@/domain/resolution/model';
 import { Icon, useWorkspace } from '@/components/workspace';
 import {
@@ -18,7 +17,7 @@ import {
 } from '@/components/template-editor/editor';
 import { toTiptap, type ConvertIssue } from '@/components/template-editor/convert';
 import { FieldInspector } from '@/components/template-editor/field-inspector';
-import { latest, USAGE_CONTEXTS } from './api';
+import { latest } from './api';
 import { VersionHistory, VersionLifecycle } from './lifecycle';
 import {
   DiffSummary,
@@ -28,10 +27,12 @@ import {
   useTemplateVersion,
 } from './template-page';
 import { LoadState } from './use-load';
-import { ActionFeedback, useAction } from './use-action';
+import { useAction } from './use-action';
+import { confirmAction } from '@/components/edit-guard';
+import { AssemblyDetails } from './assembly-details';
 
 type Part = 'header' | 'closing';
-type Draft = {
+export type Draft = {
   header: BlockNode[];
   closing: BlockNode[];
   signature: SignatureSettings;
@@ -98,11 +99,6 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
     Boolean(data?.actor.capabilities.includes('manage_templates')) &&
     (version.status === 'Draft' || version.status === 'Returned');
   const [section, setSection] = useState<Section>('content');
-  const [meta, setMeta] = useState<AssemblyMeta>(() => ({
-    name: template.name,
-    description: template.description,
-    usageContexts: template.usageContexts,
-  }));
   const [draft, setDraft] = useState<Draft>(() => ({
     header: structuredClone(version.header),
     closing: structuredClone(version.closing),
@@ -144,9 +140,6 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
   const settingsRef = useRef<HTMLElement>(null);
   const save = useAction();
   const [conflict, setConflict] = useState(false);
-  const outputName =
-    outputTypes.find((t) => t.id === template.outputTypeId)?.name || template.outputTypeId;
-
   const change = (patch: Partial<Draft>) => {
     setDraft((current) => ({ ...current, ...patch }));
     markDirty();
@@ -267,11 +260,15 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
         Clause library
       </Link>
       <header className="record-heading">
-        <p className="metadata">
-          Assembly · {outputName}
-          {template.archived ? ' · archived' : ''}
-        </p>
         <h1>{template.name}</h1>
+        {template.archived ? (
+          <dl className="record-meta">
+            <div>
+              <dt>Availability</dt>
+              <dd>Archived</dd>
+            </div>
+          </dl>
+        ) : null}
       </header>
       <div className="template-status">
         <VersionLifecycle
@@ -311,8 +308,13 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
               <button
                 type="button"
                 className="text-button"
-                onClick={() => {
-                  if (window.confirm('Reload the latest version and discard your unsaved edits?'))
+                onClick={async () => {
+                  if (
+                    await confirmAction({
+                      message: 'Reload the latest version and discard your unsaved edits?',
+                      confirmLabel: 'Reload latest version',
+                    })
+                  )
                     void page.reload();
                 }}
               >
@@ -365,17 +367,15 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
               {editorFor('header')}
               <h2 className="canvas-label">Closing</h2>
               {editorFor('closing')}
-              <p className="metadata">
-                The clause slot marks where the preparer&apos;s clauses go. Signature blocks list
-                the signers chosen for each role.
-              </p>
             </div>
             <details className="inspector-disclosure" open>
               <summary>Shared questions and settings</summary>
-              <p className="metadata inspector-note">
-                Editing: {active === 'header' ? 'header' : 'closing'}. Fields here are asked once
-                per resolution.
-              </p>
+              <dl className="record-meta inspector-note">
+                <div>
+                  <dt>Editing</dt>
+                  <dd>{active === 'header' ? 'Header' : 'Closing'}</dd>
+                </div>
+              </dl>
               <FieldInspector
                 fields={draft.fields}
                 onFieldsChange={(fields) => change({ fields })}
@@ -394,10 +394,6 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
           <fieldset className="plain-fieldset" disabled={!editable}>
             <section className="section" aria-labelledby="signature-settings">
               <h2 id="signature-settings">Signatures</h2>
-              <p className="metadata">
-                Add a signature block to the closing for each signer role. These settings apply to
-                every block.
-              </p>
               <div className="form-grid">
                 <label>
                   Columns
@@ -426,9 +422,23 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                     }
                   />
                 </label>
-                <p className="metadata full">
-                  Use {'{name}'} and {'{capacity}'} for the signer&apos;s name and capacity.
-                </p>
+                <details className="advanced-filters full">
+                  <summary>Signature placeholders</summary>
+                  <dl className="record-meta">
+                    <div>
+                      <dt>Name</dt>
+                      <dd>
+                        <code>{'{name}'}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Capacity</dt>
+                      <dd>
+                        <code>{'{capacity}'}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
                 <label className="inline full">
                   <input
                     type="checkbox"
@@ -440,13 +450,17 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                   Show a date line under each signature
                 </label>
               </div>
-              <p className="metadata">
-                Roles in use:{' '}
-                {[...draft.header, ...draft.closing]
-                  .filter((b) => b.type === 'signatureBlock')
-                  .map((b) => (b.type === 'signatureBlock' ? b.role : ''))
-                  .join(', ') || 'none — add a signature block in the content'}
-              </p>
+              <dl className="record-meta">
+                <div>
+                  <dt>Roles in use</dt>
+                  <dd>
+                    {[...draft.header, ...draft.closing]
+                      .filter((b) => b.type === 'signatureBlock')
+                      .map((b) => (b.type === 'signatureBlock' ? b.role : ''))
+                      .join(', ') || 'None — add a signature block in Content'}
+                  </dd>
+                </div>
+              </dl>
             </section>
             <section className="section" aria-labelledby="layout-settings">
               <h2 id="layout-settings">Page layout</h2>
@@ -547,9 +561,23 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                     }
                   />
                 </label>
-                <p className="metadata full">
-                  Insert a field with {'{{field_id}}'}, for example {'{{company_name}}'}.
-                </p>
+                <details className="advanced-filters full">
+                  <summary>Header and footer placeholders</summary>
+                  <dl className="record-meta">
+                    <div>
+                      <dt>Format</dt>
+                      <dd>
+                        <code>{'{{field_id}}'}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Company name</dt>
+                      <dd>
+                        <code>{'{{company_name}}'}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
                 <label className="inline full">
                   <input
                     type="checkbox"
@@ -565,11 +593,9 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
           </fieldset>
         ) : section === 'starters' ? (
           <section aria-labelledby="starters-title">
-            <h2 id="starters-title">Starter clauses</h2>
-            <p className="metadata">
-              Added in this order when a preparer starts from this assembly. They can change the
-              list in the case.
-            </p>
+            <h2 id="starters-title" className="sr-only">
+              Starter clauses
+            </h2>
             <p className="sr-only" role="status" aria-live="polite">
               {starterStatus}
             </p>
@@ -676,16 +702,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
               </div>
             ) : null}
           </section>
-        ) : section === 'details' ? (
-          <AssemblyDetails
-            page={page}
-            draft={draft}
-            editable={editable}
-            onDraft={change}
-            meta={meta}
-            setMeta={setMeta}
-          />
-        ) : section === 'preview' ? (
+        ) : section === 'details' ? null : section === 'preview' ? (
           <SamplePreview
             kind="assembly"
             versionId={version.id}
@@ -707,7 +724,9 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
           />
         ) : (
           <section aria-labelledby="versions-title">
-            <h2 id="versions-title">Versions</h2>
+            <h2 id="versions-title" className="sr-only">
+              Versions
+            </h2>
             <VersionHistory
               versions={template.versions as AssemblyVersion[]}
               currentId={version.id}
@@ -715,136 +734,11 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
             />
           </section>
         )}
+        {/* Kept mounted so unsaved template details survive a section switch. */}
+        <div hidden={section !== 'details'}>
+          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
+        </div>
       </div>
-    </>
-  );
-}
-
-type AssemblyMeta = { name: string; description: string; usageContexts: UsageContext[] };
-
-function AssemblyDetails({
-  page,
-  draft,
-  editable,
-  onDraft,
-  meta,
-  setMeta,
-}: {
-  page: ReturnType<typeof useTemplateVersion<'assembly'>>;
-  draft: Draft;
-  editable: boolean;
-  onDraft: (patch: Partial<Draft>) => void;
-  /** Held by the workbench so unsaved edits survive switching sections. */
-  meta: AssemblyMeta;
-  setMeta: (meta: AssemblyMeta) => void;
-}) {
-  const { data } = useWorkspace();
-  const template = page.state!.template;
-  const canManage = Boolean(data?.actor.capabilities.includes('manage_templates'));
-  const action = useAction();
-  const metaDirty =
-    meta.name !== template.name ||
-    meta.description !== template.description ||
-    meta.usageContexts.join() !== template.usageContexts.join();
-  return (
-    <>
-      <section className="section" aria-labelledby="assembly-meta">
-        <h2 id="assembly-meta">Assembly details</h2>
-        <form
-          className="form-grid"
-          data-dirty={metaDirty ? 'true' : 'false'}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void action.run(
-              () =>
-                page
-                  .updateTemplate({
-                    name: meta.name.trim(),
-                    description: meta.description.trim(),
-                    usageContexts: meta.usageContexts,
-                  })
-                  .then(() => true),
-              'Assembly details saved',
-            );
-          }}
-        >
-          <fieldset className="plain-fieldset full form-grid" disabled={!canManage}>
-            <label className="full">
-              Name
-              <input
-                required
-                maxLength={160}
-                value={meta.name}
-                onChange={(event) => setMeta({ ...meta, name: event.target.value })}
-              />
-            </label>
-            <fieldset className="full">
-              <legend>Used for</legend>
-              {USAGE_CONTEXTS.map((context) => (
-                <label className="inline" key={context.value}>
-                  <input
-                    type="checkbox"
-                    checked={meta.usageContexts.includes(context.value)}
-                    onChange={(event) =>
-                      setMeta({
-                        ...meta,
-                        usageContexts: event.target.checked
-                          ? [...meta.usageContexts, context.value as UsageContext]
-                          : meta.usageContexts.filter((v) => v !== context.value),
-                      })
-                    }
-                  />
-                  {context.label}
-                </label>
-              ))}
-            </fieldset>
-            <label className="full">
-              Description
-              <input
-                maxLength={1000}
-                value={meta.description}
-                onChange={(event) => setMeta({ ...meta, description: event.target.value })}
-              />
-            </label>
-          </fieldset>
-          {canManage ? (
-            <div className="full form-footer">
-              <ActionFeedback
-                error={action.error}
-                status={action.status}
-                conflict={action.conflict}
-                onReload={() => void page.reload()}
-              />
-              <div className="actions">
-                <button disabled={action.pending || !metaDirty || !meta.usageContexts.length}>
-                  Save assembly details
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </form>
-      </section>
-      <section className="section" aria-labelledby="version-meta">
-        <h2 id="version-meta">This version</h2>
-        <fieldset className="plain-fieldset form-grid" disabled={!editable}>
-          <label className="full">
-            Source or basis of wording
-            <textarea
-              maxLength={2000}
-              value={draft.source}
-              onChange={(event) => onDraft({ source: event.target.value })}
-            />
-          </label>
-          <label>
-            Effective date
-            <input
-              type="date"
-              value={draft.effectiveDate || ''}
-              onChange={(event) => onDraft({ effectiveDate: event.target.value || null })}
-            />
-          </label>
-        </fieldset>
-      </section>
     </>
   );
 }

@@ -1,9 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Actor, DocumentState, Job } from '../../domain/model';
+import { SIGNER_ROLE_LABELS } from '../../domain/resolution/model';
 import { currentPack, executionBlockers } from '../../domain/workflows';
 import type { Transaction } from '../db';
 import * as s from '../schema';
 import { getDocuments } from '../repository';
+import { generationRequirements, satisfiesRequirement } from './generation-signers';
 
 /** Execution belongs to the exact attached generation and hash, independently of pack signatures. */
 export async function generatedExecutionStatus(actor: Actor, job: Job, tx: Transaction) {
@@ -53,19 +55,17 @@ export async function generatedExecutionStatus(actor: Actor, job: Job, tx: Trans
       ...generation.snapshot.companyPeople,
       ...generation.snapshot.proposedPeople,
     ];
-    for (const personId of new Set(Object.values(generation.signers).flat())) {
+    const requirements = await generationRequirements(generation, tx);
+    for (const requirement of requirements) {
+      const { personId, role } = requirement;
       required++;
-      const executed = records.some(
-        ({ data: record }) =>
-          record.kind === 'execution' &&
-          record.generationId === generation.id &&
-          record.sha256 === generation.sha256 &&
-          record.signerPersonId === personId,
+      const executed = records.some(({ data: record }) =>
+        satisfiesRequirement(record, generation, requirement, requirements),
       );
       if (executed) signed++;
       else
         blockers.push(
-          `${document.title}: ${people.find((p) => p.id === personId)?.name ?? personId} signature evidence is missing for generation ${generation.id}.`,
+          `${document.title}: ${people.find((p) => p.id === personId)?.name ?? personId} (${SIGNER_ROLE_LABELS[role]}) signature evidence is missing for generation ${generation.id}.`,
         );
     }
   }

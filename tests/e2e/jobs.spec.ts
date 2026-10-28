@@ -89,7 +89,7 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   await confirm.getByRole('button', { name: 'Record client confirmation', exact: true }).click();
   await expect(page.getByText('Client confirmation evidenced', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Request review of v/ }).click();
-  await expect(page.locator('.record-heading')).toContainText('Awaiting review');
+  await expect(page.locator('.track-facts')).toContainText('Awaiting review');
   await signIn('reviewer');
   await page.goto(jobUrl);
   const review = page
@@ -101,7 +101,7 @@ test('annual return creation, retained duplicate validation, evidence, versions 
     .locator('[name=reason]')
     .fill('Checked fictional sources and exact pack through UI acceptance.');
   await review.getByRole('button', { name: /Record decision for v/ }).click();
-  await expect(page.locator('.record-heading')).toContainText('Action in progress');
+  await expect(page.locator('.track-facts')).toContainText('Action in progress');
   await expect(page.locator('.track-facts')).toContainText('Reviewed');
   await mkdir('.local/ui-review', { recursive: true });
   for (const width of [1440, 768, 390, 320]) {

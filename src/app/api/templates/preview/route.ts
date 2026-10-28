@@ -1,10 +1,10 @@
 import { requireActor } from '@/server/auth';
 import { endpoint } from '@/server/http';
-import { previewTemplate, previewTemplateDocx, respond } from '@/server/resolution/templates';
+import { previewTemplate, previewTemplateDocx } from '@/server/resolution/template-preview';
 
 /** JSON preview of a saved version or an unsaved draft, with fictional values only. */
 export async function POST(request: Request) {
-  return respond(request, async () =>
+  return endpoint(request, async () =>
     previewTemplate(await requireActor(request), await request.json()),
   );
 }

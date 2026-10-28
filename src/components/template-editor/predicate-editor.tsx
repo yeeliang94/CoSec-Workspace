@@ -49,10 +49,7 @@ export function PredicateEditor({
     emit(rules.map((item, i) => (i === index ? rule : item)));
   const nested =
     value && (value.op === 'and' || value.op === 'or') && value.all.length !== rules.length;
-  if (!fields.length)
-    return (
-      <p className="metadata">Create a field first. A condition tests a field&apos;s answer.</p>
-    );
+  if (!fields.length) return <p>Create a field to set a condition.</p>;
   return (
     <div className="predicate-editor">
       {nested ? (
@@ -80,7 +77,7 @@ export function PredicateEditor({
         const prefix = `${idPrefix}-rule-${index}`;
         return (
           <fieldset key={index} className="predicate-rule">
-            <legend>Rule {index + 1}</legend>
+            <legend className={rules.length === 1 ? 'sr-only' : undefined}>Rule {index + 1}</legend>
             <label htmlFor={prefix + '-field'}>
               Field
               <select

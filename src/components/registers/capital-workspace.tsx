@@ -393,7 +393,10 @@ export function CapitalWorkspace({ job, data }: JobSectionProps) {
           <dd>{job.filingState}</dd>
         </div>
       </dl>
-      <p className="prose">{job.routeBasis}</p>
+      <dl className="source-versions">
+        <dt>Route basis</dt>
+        <dd className="prose">{job.routeBasis}</dd>
+      </dl>
       <RegisterState {...result} />
       <div className="actions">
         <button className="quiet" onClick={result.reload} disabled={result.loading}>
@@ -480,17 +483,29 @@ export function CapitalWorkspace({ job, data }: JobSectionProps) {
                     </table>
                   </div>
                   {job.capitalReconciliation.sourceCertificate ? (
-                    <p className="metadata section">
-                      Source: {job.capitalReconciliation.sourceCertificate.number} ·{' '}
-                      {job.capitalReconciliation.sourceMember?.name} ·{' '}
-                      {job.capitalReconciliation.sourceCertificate.units} units
-                    </p>
+                    <dl className="record-meta">
+                      <div>
+                        <dt>Source certificate</dt>
+                        <dd>{job.capitalReconciliation.sourceCertificate.number}</dd>
+                      </div>
+                      <div>
+                        <dt>Source member</dt>
+                        <dd>{job.capitalReconciliation.sourceMember?.name || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Source units</dt>
+                        <dd>{job.capitalReconciliation.sourceCertificate.units}</dd>
+                      </div>
+                    </dl>
                   ) : null}
                 </div>
               ) : null}
-              <p className="metadata section">
-                Stamping: {proposal.stamping.disposition} · {proposal.stamping.basis}
-              </p>
+              <dl className="source-versions">
+                <dt>Stamping</dt>
+                <dd>{proposal.stamping.disposition}</dd>
+                <dt>Stamping basis</dt>
+                <dd className="prose">{proposal.stamping.basis}</dd>
+              </dl>
               <EvidenceLinks
                 ids={[...proposal.authorityEvidenceIds, proposal.stamping.evidenceId]}
                 data={data}

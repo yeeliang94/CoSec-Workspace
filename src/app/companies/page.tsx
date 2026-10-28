@@ -24,8 +24,9 @@ export default function Companies() {
           {data.actor.capabilities.includes('manage_users') ? (
             <button
               className="primary"
-              onClick={() => {
-                if (!adding || canLeaveEditing()) setAdding(!adding);
+              onClick={async () => {
+                if (adding && !(await canLeaveEditing())) return;
+                setAdding(!adding);
               }}
             >
               <Icon kind="plus" />

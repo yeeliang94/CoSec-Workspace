@@ -12,12 +12,14 @@ export function Overview({ job, data }: Props) {
       <section className="section">
         <h2>Next action</h2>
         <p>{job.nextAction || 'Prepare supporting evidence'}</p>
-        {job.blockers?.length ? (
+        {job.blockers?.some((blocker) => blocker !== job.nextAction) ? (
           <div className="warning">
             <ul>
-              {job.blockers.map((blocker) => (
-                <li key={blocker}>{blocker}</li>
-              ))}
+              {job.blockers
+                .filter((blocker) => blocker !== job.nextAction)
+                .map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
             </ul>
           </div>
         ) : null}
@@ -182,7 +184,7 @@ export function Overview({ job, data }: Props) {
         </section>
       ) : null}
       <section className="section">
-        <h2>Dependencies</h2>
+        <h2 className={job.dependencyIds.length ? undefined : 'sr-only'}>Dependencies</h2>
         {job.dependencyIds.length ? (
           <ul className="list-plain">
             {job.dependencyIds.map((id) => {
@@ -197,9 +199,7 @@ export function Overview({ job, data }: Props) {
               );
             })}
           </ul>
-        ) : (
-          <p className="muted">No linked work</p>
-        )}
+        ) : null}
         {prepare ? (
           <details className="disclosure">
             <summary>Link a dependent job</summary>

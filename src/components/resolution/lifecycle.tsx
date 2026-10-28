@@ -1,9 +1,10 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { TemplateStatus } from '@/domain/resolution/model';
 import { formatDate, useWorkspace } from '@/components/workspace';
-import { canLeaveEditing } from '@/components/edit-guard';
+import { canLeaveEditing, hasUnsavedEdits } from '@/components/edit-guard';
 import { errorText, newRequestId, postJson } from './api';
 
 type VersionLike = {
@@ -56,7 +57,6 @@ export function VersionLifecycle({
   const canManage = caps.includes('manage_templates');
   const independent = actor.id !== version.createdBy && actor.id !== version.submittedBy;
   const canReview = caps.includes('review_pack') && canManage && independent;
-  const name = (id: string | null) => data.users.find((user) => user.id === id)?.name || id || '—';
 
   async function run(action: string, extra: Record<string, unknown> = {}, done = '') {
     setPending(action);
@@ -93,16 +93,6 @@ export function VersionLifecycle({
         <strong>
           v{version.version} · {version.status}
         </strong>
-        <span className="metadata">
-          {' '}
-          · created by {name(version.createdBy)}
-          {version.submittedAt
-            ? ` · submitted by ${name(version.submittedBy)} ${formatDate(version.submittedAt)}`
-            : ''}
-          {version.reviewedAt
-            ? ` · ${version.status === 'Returned' ? 'returned' : 'published'} by ${name(version.reviewedBy)} ${formatDate(version.reviewedAt)}`
-            : ''}
-        </span>
       </p>
       {version.status === 'Returned' && version.returnReason ? (
         <p className="warning">Returned: {version.returnReason}</p>
@@ -216,6 +206,7 @@ export function VersionHistory({
   hrefFor: (id: string) => string;
 }) {
   const { data } = useWorkspace();
+  const router = useRouter();
   const name = (id: string | null) => data?.users.find((user) => user.id === id)?.name || id || '—';
   return (
     <ul className="list-plain version-list">
@@ -229,19 +220,51 @@ export function VersionHistory({
               <Link
                 href={hrefFor(version.id)}
                 onNavigate={(event) => {
-                  if (!canLeaveEditing()) event.preventDefault();
+                  if (!hasUnsavedEdits()) return;
+                  event.preventDefault();
+                  void canLeaveEditing().then((leave) => {
+                    if (leave) router.push(hrefFor(version.id));
+                  });
                 }}
               >
                 v{version.version}
               </Link>
             )}{' '}
             · {version.status}
-            <p className="metadata">
-              Created by {name(version.createdBy)} {formatDate(version.createdAt)}
-              {version.reviewedAt
-                ? ` · reviewed by ${name(version.reviewedBy)} ${formatDate(version.reviewedAt)}`
-                : ''}
-            </p>
+            <dl className="record-meta">
+              <div>
+                <dt>Created by</dt>
+                <dd>{name(version.createdBy)}</dd>
+              </div>
+              <div>
+                <dt>Created</dt>
+                <dd>{formatDate(version.createdAt)}</dd>
+              </div>
+              {version.submittedAt ? (
+                <>
+                  <div>
+                    <dt>Submitted by</dt>
+                    <dd>{name(version.submittedBy)}</dd>
+                  </div>
+                  <div>
+                    <dt>Submitted</dt>
+                    <dd>{formatDate(version.submittedAt)}</dd>
+                  </div>
+                </>
+              ) : null}
+              {version.reviewedAt ? (
+                <>
+                  <div>
+                    <dt>Reviewed by</dt>
+                    <dd>{name(version.reviewedBy)}</dd>
+                  </div>
+                  <div>
+                    <dt>Reviewed</dt>
+                    <dd>{formatDate(version.reviewedAt)}</dd>
+                  </div>
+                </>
+              ) : null}
+            </dl>
           </li>
         ))}
     </ul>

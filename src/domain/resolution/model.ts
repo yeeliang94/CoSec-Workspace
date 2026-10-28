@@ -171,6 +171,11 @@ export type ClauseVersion = Reviewed & {
   fields: FieldDefinition[];
 };
 export type SignerRole = 'directors' | 'members' | 'certifiers';
+export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
+  directors: 'Director',
+  members: 'Member',
+  certifiers: 'Certified true copy signer',
+};
 export type PageLayout = {
   pageSize: 'A4' | 'Letter';
   marginsMm: { top: number; right: number; bottom: number; left: number };
@@ -308,6 +313,7 @@ export type CaseClauseSelection = {
   /** Reasons recorded when a default clause was removed from a W04-linked case. */
   removals: { clauseId: string; reason: string; actorId: string; at: string }[];
 };
+export type ExecutionRequirement = { personId: string; role: SignerRole };
 export type SignerSelection = Record<SignerRole, string[]>; // ordered person ids
 export type DecisionRecord = {
   status: 'Not recorded' | 'Passed' | 'Not passed';
@@ -440,6 +446,8 @@ export type DocumentGeneration = {
   clauses?: ClauseEntry[];
   selectionRevision: number;
   signers: SignerSelection;
+  /** Roles actually rendered, frozen with the generation. Absent on older rows. */
+  executionRequirements?: ExecutionRequirement[];
   answers: { shared: Answers; clauses: Record<string, Answers> };
   /**
    * Exactly the authorised values used, with ids/revisions for provenance. Selector pools hold only
@@ -478,6 +486,8 @@ export type GenerationRecord =
       generationId: string;
       sha256: string;
       signerPersonId: string;
+      /** Absent on legacy evidence; only unambiguous single-role evidence can satisfy a gate. */
+      signerRole?: SignerRole;
       capacity: string;
       signedDate: string;
       evidenceId: string;

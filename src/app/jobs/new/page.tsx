@@ -270,7 +270,6 @@ export default function NewJob() {
                 value={personId}
                 required={route !== 'appointment'}
                 onChange={(e) => setPersonId(e.target.value)}
-                aria-describedby="person-help"
               >
                 <option value="">
                   {route === 'appointment' ? 'New person (enter name)' : 'Select person…'}
@@ -281,11 +280,6 @@ export default function NewJob() {
                   </option>
                 ))}
               </select>
-              <span className="metadata" id="person-help">
-                {route === 'appointment'
-                  ? 'Choose an existing person, or enter a new appointee.'
-                  : 'Choose a person already linked to this company.'}
-              </span>
             </label>
             {personId || route !== 'appointment' ? null : (
               <label>

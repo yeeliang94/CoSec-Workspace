@@ -372,10 +372,11 @@ export function SamplePreview({
           </select>
         </label>
       </div>
-      <p className="metadata">
-        Uses clearly fictional sample values. The on-screen preview includes unsaved edits; the
-        .docx sample uses the {dirty ? 'last saved draft' : 'saved draft'}.
-      </p>
+      {dirty ? (
+        <p className="warning">
+          Preview includes unsaved edits. Download uses the last saved draft.
+        </p>
+      ) : null}
       {error ? (
         <p className="feedback error" role="alert">
           {error}
@@ -403,7 +404,7 @@ export function DiffSummary({
   wordings: { name: string; before: unknown[] | undefined; after: unknown[] | undefined }[];
   serverChanges: Change[];
 }) {
-  if (!previous) return <p>First version. Nothing has been published from this template before.</p>;
+  if (!previous) return <p>First version.</p>;
   const lines: string[] = [];
   for (const w of wordings) {
     const before = w.before ? plainText(w.before as never) : null;

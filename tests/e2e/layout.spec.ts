@@ -18,7 +18,10 @@ test('shared headers, form spacing and staff columns retain their layout', async
   ).toBeVisible();
   const identity = page.locator('.page-header').first();
   const name = await identity.locator('h1').boundingBox();
-  const registration = await identity.locator('.metadata').boundingBox();
+  const registration = await page
+    .locator('.facts > div')
+    .filter({ has: page.getByText('Registration number', { exact: true }) })
+    .boundingBox();
   expect(registration!.y).toBeGreaterThanOrEqual(name!.y + name!.height);
   const officerHeader = page
     .locator('.section-header')

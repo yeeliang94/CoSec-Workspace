@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { signIn } from './sign-in';
+import { answerPrompt } from './prompt';
 
 async function login(page: Page, key = 'owner') {
   const accounts: { key: string; email: string; password: string }[] = JSON.parse(
@@ -16,14 +17,8 @@ async function login(page: Page, key = 'owner') {
 }
 
 async function traverse(page: Page, delta: number, discard: boolean) {
-  await Promise.all([
-    page.waitForEvent('dialog').then(async (dialog) => {
-      expect(dialog.message()).toBe('Discard unsaved changes?');
-      if (discard) await dialog.accept();
-      else await dialog.dismiss();
-    }),
-    page.evaluate((distance) => window.history.go(distance), delta),
-  ]);
+  await page.evaluate((distance) => window.history.go(distance), delta);
+  await answerPrompt(page, discard);
 }
 
 test('Back and Forward preserve dirty drafts on cancellation and navigate on discard', async ({
@@ -58,15 +53,15 @@ test('company opening edits survive cancelled close and navigation', async ({ pa
   await page.getByRole('button', { name: 'New company', exact: true }).click();
   const name = page.getByRole('textbox', { name: 'Legal name', exact: true });
   await name.fill('Unsaved fictional company');
-  page.once('dialog', (dialog) => dialog.dismiss());
   await page.getByRole('button', { name: 'Close form', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(name).toHaveValue('Unsaved fictional company');
-  page.once('dialog', (dialog) => dialog.dismiss());
   await page.getByRole('link', { name: 'My work', exact: true }).click();
+  await answerPrompt(page, false);
   await expect(page).toHaveURL(/\/companies$/);
   await expect(name).toHaveValue('Unsaved fictional company');
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Close form', exact: true }).click();
+  await answerPrompt(page, true);
   await expect(name).toHaveCount(0);
   await page.getByRole('button', { name: 'New company', exact: true }).click();
   await expect(name).toHaveValue('');
@@ -113,15 +108,15 @@ test('changing upload company requires discard and clears the previous evidence'
     mimeType: 'text/plain',
     buffer: Buffer.from('Fictional A'),
   });
-  page.once('dialog', (dialog) => dialog.dismiss());
   await company.selectOption(ids[1]);
+  await answerPrompt(page, false);
   await expect(company).toHaveValue(ids[0]);
   await expect(title).toHaveValue('Company A source');
   expect(await file.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe(
     'company-a.txt',
   );
-  page.once('dialog', (dialog) => dialog.accept());
   await company.selectOption(ids[1]);
+  await answerPrompt(page, true);
   await expect(company).toHaveValue(ids[1]);
   await expect(title).toHaveValue('');
   expect(await file.evaluate((input) => (input as HTMLInputElement).files?.length)).toBe(0);

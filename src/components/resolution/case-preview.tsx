@@ -23,7 +23,16 @@ export function CasePreview({ api }: { api: CaseApi }) {
           {load.loading ? 'Refreshing…' : 'Refresh preview'}
         </button>
       </div>
-      <p className="metadata">Uses the saved answers and the records as they stand today.</p>
+      <dl className="record-meta">
+        <div>
+          <dt>Answers</dt>
+          <dd>Last saved</dd>
+        </div>
+        <div>
+          <dt>Records</dt>
+          <dd>Current</dd>
+        </div>
+      </dl>
       {load.data ? (
         <DocumentPreview document={load.data.resolved} issues={load.data.issues} />
       ) : (

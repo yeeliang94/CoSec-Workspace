@@ -28,6 +28,7 @@ import {
 } from './template-page';
 import { LoadState } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
+import { confirmAction } from '@/components/edit-guard';
 
 type Draft = {
   wordings: Record<string, BlockNode[]>;
@@ -72,7 +73,6 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
     caps.includes('manage_templates') &&
     (version.status === 'Draft' || version.status === 'Returned');
   const [section, setSection] = useState<Section>('wording');
-  const [meta, setMeta] = useState(() => clauseMeta(template));
   const [draft, setDraft] = useState<Draft>(() => ({
     wordings: structuredClone(version.wordings),
     fields: structuredClone(version.fields),
@@ -199,12 +199,15 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
         Clause library
       </Link>
       <header className="record-heading">
-        <p className="metadata">
-          {template.category} · {template.governingAct || 'No Act set'}
-          {template.hidden ? ' · hidden from new resolutions' : ''}
-          {template.archived ? ' · archived' : ''}
-        </p>
         <h1>{template.name}</h1>
+        {template.hidden || template.archived ? (
+          <dl className="record-meta">
+            <div>
+              <dt>Availability</dt>
+              <dd>{template.archived ? 'Archived' : 'Hidden from new resolutions'}</dd>
+            </div>
+          </dl>
+        ) : null}
       </header>
       <div className="template-status">
         <VersionLifecycle
@@ -247,8 +250,13 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
               <button
                 type="button"
                 className="text-button"
-                onClick={() => {
-                  if (window.confirm('Reload the latest version and discard your unsaved edits?'))
+                onClick={async () => {
+                  if (
+                    await confirmAction({
+                      message: 'Reload the latest version and discard your unsaved edits?',
+                      confirmLabel: 'Reload latest version',
+                    })
+                  )
                     void page.reload();
                 }}
               >
@@ -258,14 +266,6 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
             </>
           ) : null}
         </div>
-      ) : null}
-      {!editable && version.status !== 'Draft' ? (
-        <p className="metadata read-only-note">
-          v{version.version} is {version.status.toLowerCase()} and cannot be edited.
-          {version.status === 'Published' || version.status === 'Superseded'
-            ? ' Create a new version to make changes.'
-            : ''}
-        </p>
       ) : null}
       <IssueList issues={state.issues} converter={converter} onNavigate={navigate} />
       <nav className="section-nav" aria-label="Clause sections">
@@ -293,7 +293,27 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                   id={'wording-tab-' + type.id}
                   aria-selected={tab === type.id}
                   aria-controls="wording-panel"
+                  tabIndex={tab === type.id ? 0 : -1}
                   className={tab === type.id ? 'active' : ''}
+                  onKeyDown={(event) => {
+                    const index = typeList.findIndex((item) => item.id === type.id);
+                    const nextIndex =
+                      event.key === 'ArrowRight'
+                        ? (index + 1) % typeList.length
+                        : event.key === 'ArrowLeft'
+                          ? (index - 1 + typeList.length) % typeList.length
+                          : event.key === 'Home'
+                            ? 0
+                            : event.key === 'End'
+                              ? typeList.length - 1
+                              : null;
+                    if (nextIndex === null) return;
+                    event.preventDefault();
+                    const next = typeList[nextIndex];
+                    setTab(next.id);
+                    setSelection(null);
+                    document.getElementById('wording-tab-' + next.id)?.focus();
+                  }}
                   onClick={() => {
                     setTab(type.id);
                     setSelection(null);
@@ -330,10 +350,13 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                   <button
                     type="button"
                     disabled={!copyFrom}
-                    onClick={() => {
+                    onClick={async () => {
                       if (
                         draft.wordings[tab]?.length &&
-                        !window.confirm(`Replace the ${typeName(tab)} wording?`)
+                        !(await confirmAction({
+                          message: `Replace the ${typeName(tab)} wording?`,
+                          confirmLabel: 'Replace wording',
+                        }))
                       )
                         return;
                       change({
@@ -356,11 +379,12 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                     <button
                       type="button"
                       className="quiet danger"
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          !window.confirm(
-                            `Remove the ${typeName(tab)} wording? This clause will not be offered for that output type.`,
-                          )
+                          !(await confirmAction({
+                            message: `Remove the ${typeName(tab)} wording? This clause will not be offered for that output type.`,
+                            confirmLabel: 'Remove wording',
+                          }))
                         )
                           return;
                         const next = { ...draft.wordings };
@@ -430,16 +454,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
               </div>
             </div>
           </section>
-        ) : section === 'details' ? (
-          <ClauseDetails
-            page={page}
-            draft={draft}
-            editable={editable}
-            onDraft={change}
-            meta={meta}
-            setMeta={setMeta}
-          />
-        ) : section === 'preview' ? (
+        ) : section === 'details' ? null : section === 'preview' ? (
           <SamplePreview
             kind="clause"
             versionId={version.id}
@@ -450,7 +465,9 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
           />
         ) : (
           <section aria-labelledby="versions-title">
-            <h2 id="versions-title">Versions</h2>
+            <h2 id="versions-title" className="sr-only">
+              Versions
+            </h2>
             <VersionHistory
               versions={template.versions as ClauseVersion[]}
               currentId={version.id}
@@ -458,54 +475,37 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
             />
           </section>
         )}
+        {/* Kept mounted so unsaved template details survive a section switch. */}
+        <div hidden={section !== 'details'}>
+          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
+        </div>
       </div>
     </>
   );
 }
-
-type ClauseMeta = {
-  name: string;
-  category: ClauseCategory;
-  governingAct: string;
-  usageContexts: UsageContext[];
-  displayOrder: string;
-  description: string;
-};
-const clauseMeta = (template: {
-  name: string;
-  category: ClauseCategory;
-  governingAct: string;
-  usageContexts: UsageContext[];
-  displayOrder: number;
-  description: string;
-}): ClauseMeta => ({
-  name: template.name,
-  category: template.category,
-  governingAct: template.governingAct,
-  usageContexts: template.usageContexts,
-  displayOrder: String(template.displayOrder),
-  description: template.description,
-});
 
 function ClauseDetails({
   page,
   draft,
   editable,
   onDraft,
-  meta,
-  setMeta,
 }: {
   page: ReturnType<typeof useTemplateVersion<'clause'>>;
   draft: Draft;
   editable: boolean;
   onDraft: (patch: Partial<Draft>) => void;
-  /** Held by the workbench so unsaved edits survive switching sections. */
-  meta: ClauseMeta;
-  setMeta: (meta: ClauseMeta) => void;
 }) {
   const { data } = useWorkspace();
   const template = page.state!.template;
   const canManage = Boolean(data?.actor.capabilities.includes('manage_templates'));
+  const [meta, setMeta] = useState({
+    name: template.name,
+    category: template.category,
+    governingAct: template.governingAct,
+    usageContexts: template.usageContexts,
+    displayOrder: String(template.displayOrder),
+    description: template.description,
+  });
   const action = useAction();
   const metaDirty =
     meta.name !== template.name ||
@@ -517,8 +517,9 @@ function ClauseDetails({
   return (
     <>
       <section className="section" aria-labelledby="clause-meta">
-        <h2 id="clause-meta">Clause details</h2>
-        <p className="metadata">These apply to every version of the clause.</p>
+        <h2 id="clause-meta" className="sr-only">
+          Clause details
+        </h2>
         <form
           className="form-grid"
           data-dirty={metaDirty ? 'true' : 'false'}
@@ -630,10 +631,10 @@ function ClauseDetails({
         </form>
       </section>
       <section className="section" aria-labelledby="version-meta">
-        <h2 id="version-meta">This version</h2>
+        <h2 id="version-meta">Version {page.state!.version.version}</h2>
         <fieldset className="plain-fieldset form-grid" disabled={!editable}>
           <label className="full">
-            Source or basis of wording
+            Source or basis of wording{editable ? ' (required for review)' : ''}
             <textarea
               maxLength={2000}
               value={draft.source}
@@ -641,7 +642,7 @@ function ClauseDetails({
             />
           </label>
           <label>
-            Effective date
+            Effective date{editable ? ' (required for review)' : ''}
             <input
               type="date"
               value={draft.effectiveDate || ''}
@@ -649,9 +650,6 @@ function ClauseDetails({
             />
           </label>
         </fieldset>
-        {editable ? (
-          <p className="metadata">Saved with the draft. Both are required before review.</p>
-        ) : null}
       </section>
     </>
   );

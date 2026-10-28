@@ -145,9 +145,16 @@ function CataloguePreview({
           Close preview
         </button>
       </div>
-      <p className="metadata">
-        {version.source} · effective {formatDate(version.effectiveDate)}
-      </p>
+      <dl className="record-meta">
+        <div>
+          <dt>Source</dt>
+          <dd>{version.source}</dd>
+        </div>
+        <div>
+          <dt>Effective date</dt>
+          <dd>{formatDate(version.effectiveDate)}</dd>
+        </div>
+      </dl>
       {error ? (
         <div className="feedback error" role="alert">
           {error}
@@ -314,11 +321,23 @@ function Catalogues() {
           <details className="disclosure">
             <summary>Template placeholders</summary>
             <div>
-              <p className="prose metadata">
-                {
-                  '{{company.name}}, {{company.registrationNumber}}, {{company.address}}, {{job.title}}, {{job.year}}, {{job.anniversaryDate}}, {{job.effectiveDate}}, {{firm.name}}, {{today}}'
-                }
-              </p>
+              <ul className="compact-list">
+                {[
+                  'company.name',
+                  'company.registrationNumber',
+                  'company.address',
+                  'job.title',
+                  'job.year',
+                  'job.anniversaryDate',
+                  'job.effectiveDate',
+                  'firm.name',
+                  'today',
+                ].map((field) => (
+                  <li key={field}>
+                    <code>{'{{' + field + '}}'}</code>
+                  </li>
+                ))}
+              </ul>
             </div>
           </details>
         </div>
@@ -577,8 +596,8 @@ export default function Settings() {
             key={item}
             className={tab === item ? 'active' : ''}
             aria-current={tab === item ? 'page' : undefined}
-            onClick={() => {
-              if (canLeaveEditing()) setTab(item);
+            onClick={async () => {
+              if (await canLeaveEditing()) setTab(item);
             }}
           >
             {item}
@@ -633,10 +652,12 @@ export default function Settings() {
                 },
               ]}
             />
-            <div className="form-section">
-              <h3>Approval policy</h3>
-              <p>Independent review</p>
-            </div>
+            <dl className="record-meta form-section">
+              <div>
+                <dt>Approval policy</dt>
+                <dd>Independent review</dd>
+              </div>
+            </dl>
           </section>
         ) : tab === 'Catalogues' ? (
           <Catalogues />
