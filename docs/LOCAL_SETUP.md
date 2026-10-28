@@ -20,8 +20,8 @@ The owner account can create companies, then explicitly grant preparers/reviewer
 
 ## Fresh installation
 
-1. Install dependencies using `npm ci`.
-2. `npm run db:provision` writes a private `.env` with a random session secret and creates the empty database. It refuses to replace an existing `.env`. Alternatively copy `.env.example` to `.env` and fill the secret (at least 32 characters). Use `BETTER_AUTH_URL` matching the browser URL. Do not point the seed at live client data.
+1. Install dependencies using `npm ci`. The project `.npmrc` turns off install scripts, so `better-sqlite3` uses its bundled build for your platform and no C++ build tools (Xcode, Visual Studio) are needed. npm would otherwise compile it from source, despite its `"gypfile": false`.
+2. `npm run db:provision` writes a private `.env` with a random session secret and creates the empty database. It refuses to replace an existing `.env`; a copy from the MySQL era (with `DATABASE_URL`) should be deleted first. Alternatively copy `.env.example` to `.env` and fill the secret (at least 32 characters). Use `BETTER_AUTH_URL` matching the browser URL. Do not point the seed at live client data.
 3. `npm run db:migrate` applies checksum-tracked SQL. Each migration runs in one transaction, so a failed migration leaves no partial schema. Back up before future migrations all the same.
 4. `npm run db:seed` populates fictional fixtures only when no users exist. It does not erase data. It writes unique random passwords to `.local/ACCOUNTS.md`.
 5. Run the app and worker as above. For production-mode local testing, run `npm run build`, then `npm start` (stop the dev process first).
