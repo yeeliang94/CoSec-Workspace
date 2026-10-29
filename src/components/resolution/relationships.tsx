@@ -131,8 +131,8 @@ function RelationshipTable({
   canManage: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [ending, setEnding] = useState<string>('');
-  const endingRow = rows.find((row) => row.id === ending);
+  const [ending, setEnding] = useState<{ id: string; initialEndDate: string } | null>(null);
+  const endingRow = rows.find((row) => row.id === ending?.id);
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
   const action = useAction();
@@ -176,8 +176,9 @@ function RelationshipTable({
                         className="quiet"
                         aria-label={`End ${roleName(row.role)} relationship for ${row.personName}`}
                         onClick={() => {
-                          setEnding(row.id);
-                          setEndDate(currentDate());
+                          const today = currentDate();
+                          setEnding({ id: row.id, initialEndDate: today });
+                          setEndDate(today);
                           setReason('');
                         }}
                       >
@@ -193,14 +194,14 @@ function RelationshipTable({
           </tbody>
         </table>
       </div>
-      {endingRow ? (
+      {ending && endingRow ? (
         <Drawer
           title={`End ${endingRow.personName} as ${roleName(endingRow.role).toLowerCase()}`}
-          onClose={() => setEnding('')}
+          onClose={() => setEnding(null)}
         >
           <form
             className="form-stack"
-            data-dirty={reason ? 'true' : 'false'}
+            data-dirty={reason || endDate !== ending.initialEndDate ? 'true' : 'false'}
             onSubmit={async (event) => {
               event.preventDefault();
               const ok = await action.run(
@@ -216,7 +217,7 @@ function RelationshipTable({
                 `Ended ${endingRow.personName}'s relationship`,
               );
               if (ok) {
-                setEnding('');
+                setEnding(null);
                 await onChanged();
               }
             }}
@@ -247,7 +248,7 @@ function RelationshipTable({
               <button
                 type="button"
                 onClick={async () => {
-                  if (await canLeaveEditing()) setEnding('');
+                  if (await canLeaveEditing()) setEnding(null);
                 }}
               >
                 Cancel
@@ -280,7 +281,14 @@ function AddRelationship({
     evidenceIds: [] as string[],
   });
   const evidence = data?.documents.filter((d) => d.companyId === companyId) ?? [];
-  const dirty = Boolean(form.person.name || form.capacity || form.startDate);
+  const dirty = Boolean(
+    form.person.name ||
+    form.person.choice ||
+    form.role !== 'director' ||
+    form.capacity ||
+    form.startDate ||
+    form.evidenceIds.length,
+  );
   return (
     <Drawer title="Add a person" onClose={onClose}>
       <form

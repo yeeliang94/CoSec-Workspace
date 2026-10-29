@@ -86,3 +86,9 @@ Fixed cyclic colour tokens and added cycle detection to `check:design`. Typograp
 Updated the affected browser journeys for checkbox evidence, modal creation forms, page headers and the shared record date. Added regressions for required choices, token cycles, in-drawer feedback, relationship conflict recovery and changing job activities.
 
 Follow-up verification after integrating the latest `main`: all 200 unit/integration tests pass, as do TypeScript, formatting, design-token validation and the production build. Playwright discovers all 30 browser tests. Fresh browser execution and visual verification were unavailable because browser access is disabled in Work settings; the earlier captures do not verify these follow-up fixes.
+
+### Greptile review follow-up — 29 October 2026
+
+Addressed both drawer-recovery findings on PR #13. Document-type creation owns its draft and errors in a child that unmounts on accepted discard, while cancelled closes retain entries and successful creation still reports its result outside the drawer. Dirty checks now include body-only document-type edits, relationship end-date changes against the opening date, and all add-relationship fields, including role, evidence and person choice.
+
+Added browser regressions for cancelled and accepted Close, Cancel and Escape paths, resetting discarded values and errors, and protecting date-only, role-only and evidence-only edits. All 200 unit/integration tests, TypeScript, formatting and the production build pass. Playwright discovers 32 browser tests; execution remains unverified because browser access is disabled in Work settings. Independent source review found no remaining issues in these fixes.

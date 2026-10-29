@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { signIn } from './sign-in';
+import { answerPrompt } from './prompt';
+import type { Document, Workspace } from '../../src/domain/model';
 
 async function login(page: Page) {
   const accounts: { key: string; email: string; password: string }[] = JSON.parse(
@@ -28,6 +30,144 @@ test('document type creation keeps a rejected request visible inside its drawer'
   await drawer.getByRole('button', { name: 'Add document type', exact: true }).click();
   await expect(drawer.getByRole('alert')).toHaveText('Document type could not be saved.');
   await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue('Fictional document type');
+  await drawer.getByRole('button', { name: 'Close', exact: true }).click();
+  await answerPrompt(page, true);
+  await expect(drawer).toHaveCount(0);
+  await page.getByRole('button', { name: 'New document type', exact: true }).click();
+  await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue('');
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+});
+
+test('document type drafts survive cancelled closes and reset after accepted discards', async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto('/templates#outputs');
+  for (const closeMethod of ['Close', 'Cancel', 'Escape'] as const) {
+    await page.getByRole('button', { name: 'New document type', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: 'New document type', exact: true });
+    const name = closeMethod === 'Escape' ? '' : 'Fictional unsaved document type';
+    await drawer.getByLabel('Name', { exact: true }).fill(name);
+    await drawer.getByLabel('Body', { exact: true }).selectOption('members');
+    const close = () =>
+      closeMethod === 'Escape'
+        ? drawer.press('Escape')
+        : drawer.getByRole('button', { name: closeMethod, exact: true }).click();
+    await close();
+    await answerPrompt(page, false);
+    await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue(name);
+    await expect(drawer.getByLabel('Body', { exact: true })).toHaveValue('members');
+    await close();
+    await answerPrompt(page, true);
+    await expect(drawer).toHaveCount(0);
+    await page.getByRole('button', { name: 'New document type', exact: true }).click();
+    await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue('');
+    await expect(drawer.getByLabel('Body', { exact: true })).toHaveValue('directors');
+    await drawer.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(drawer).toHaveCount(0);
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+});
+
+test('relationship drawers protect date-only, role-only and evidence-only edits', async ({
+  page,
+}) => {
+  await login(page);
+  await page.clock.setFixedTime(new Date());
+  const workspace: Workspace = await (await page.request.get('/api/workspace')).json();
+  const companyId = workspace.companies[0].id;
+  const evidence: Document = {
+    id: 'fictional-drawer-evidence',
+    companyId,
+    jobId: null,
+    title: 'Fictional drawer evidence',
+    originalName: 'fictional.txt',
+    mimeType: 'text/plain',
+    size: 1,
+    sha256: '',
+    storageKey: '',
+    createdBy: workspace.actor.id,
+    createdAt: '2026-10-01T00:00:00Z',
+    classification: 'General',
+  };
+  await page.route('**/api/workspace', (route) =>
+    route.fulfill({
+      json: {
+        ...workspace,
+        documents: [...workspace.documents, evidence],
+      },
+    }),
+  );
+  await page.route(`**/api/companies/${companyId}/relationships**`, (route) =>
+    route.fulfill({
+      json: {
+        relationships: [
+          {
+            id: 'fictional-drawer-relationship',
+            companyId,
+            personId: 'fictional-person',
+            personName: 'Fictional drawer director',
+            role: 'director',
+            capacity: '',
+            startDate: '2020-01-01',
+            endDate: null,
+            revision: 1,
+          },
+        ],
+        directorsAsAt: [],
+      },
+    }),
+  );
+  await page.goto(`/companies/${companyId}`);
+  const end = page.getByRole('button', {
+    name: 'End Director relationship for Fictional drawer director',
+    exact: true,
+  });
+  await end.click();
+  const ending = page.getByRole('dialog', {
+    name: 'End Fictional drawer director as director',
+    exact: true,
+  });
+  const originalDate = await ending.getByLabel('End date', { exact: true }).inputValue();
+  const changedDate = originalDate === '2026-10-01' ? '2026-10-02' : '2026-10-01';
+  await ending.getByLabel('End date', { exact: true }).fill(changedDate);
+  await ending.press('Escape');
+  await answerPrompt(page, false);
+  await expect(ending.getByLabel('End date', { exact: true })).toHaveValue(changedDate);
+  await expect(ending.getByLabel('Reason', { exact: true })).toHaveValue('');
+  await ending.press('Escape');
+  await answerPrompt(page, true);
+  await expect(ending).toHaveCount(0);
+  await end.click();
+  await expect(ending.getByLabel('End date', { exact: true })).toHaveValue(originalDate);
+  await ending.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(ending).toHaveCount(0);
+
+  for (const field of ['role', 'evidence'] as const) {
+    await page.getByRole('button', { name: 'Add person', exact: true }).click();
+    const adding = page.getByRole('dialog', { name: 'Add a person', exact: true });
+    if (field === 'role')
+      await adding.getByLabel('Role', { exact: true }).selectOption('secretary');
+    else await adding.getByRole('checkbox', { name: evidence.title, exact: true }).check();
+    await adding.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await answerPrompt(page, false);
+    if (field === 'role')
+      await expect(adding.getByLabel('Role', { exact: true })).toHaveValue('secretary');
+    else
+      await expect(
+        adding.getByRole('checkbox', { name: evidence.title, exact: true }),
+      ).toBeChecked();
+    await adding.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await answerPrompt(page, true);
+    await expect(adding).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add person', exact: true }).click();
+    await expect(adding.getByLabel('Role', { exact: true })).toHaveValue('director');
+    await expect(
+      adding.getByRole('checkbox', { name: evidence.title, exact: true }),
+    ).not.toBeChecked();
+    await adding.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(adding).toHaveCount(0);
+  }
 });
 
 test('relationship conflict reload preserves entries and retries with the latest revision', async ({
