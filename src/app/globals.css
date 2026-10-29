@@ -2890,3 +2890,8 @@ button.cancel-link {
   border: 0;
   background: transparent;
 }
+.person-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}

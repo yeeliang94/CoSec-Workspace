@@ -85,4 +85,4 @@ Fixed cyclic colour tokens and added cycle detection to `check:design`. Typograp
 
 Updated the affected browser journeys for checkbox evidence, modal creation forms, page headers and the shared record date. Added regressions for required choices, token cycles, in-drawer feedback, relationship conflict recovery and changing job activities.
 
-Follow-up verification: all 196 unit/integration tests pass, as do TypeScript, formatting, design-token validation and the production build. Playwright discovers all 30 browser tests. Fresh browser execution and visual verification were unavailable because browser access is disabled in Work settings; the earlier captures do not verify these follow-up fixes.
+Follow-up verification after integrating the latest `main`: all 200 unit/integration tests pass, as do TypeScript, formatting, design-token validation and the production build. Playwright discovers all 30 browser tests. Fresh browser execution and visual verification were unavailable because browser access is disabled in Work settings; the earlier captures do not verify these follow-up fixes.

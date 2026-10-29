@@ -401,6 +401,12 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
         case 'reopen': {
           assertOpen(c);
           if (!c.review) throw new DomainError('This resolution is already a draft.');
+          if (actor.id !== c.review.sentBy && actor.id !== c.review.reviewerId)
+            throw new DomainError(
+              'Only the person who sent it or the reviewer can take this back.',
+              'FORBIDDEN',
+              403,
+            );
           c.review = null;
           return { next: c, detail: 'Taken back for changes.' };
         }

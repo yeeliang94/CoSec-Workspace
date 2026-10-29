@@ -10,6 +10,7 @@ const input = z.object({
   incorporationDate: z.iso.date(),
   financialYearEnd: z
     .string()
+    .regex(/^(\d{4}-)?\d{2}-\d{2}$/, 'Choose the day and month of the financial year end.')
     .transform(yearEndMonthDay)
     .refine(isYearEnd, 'Choose the day and month of the financial year end.'),
   address: z.string().trim().min(2).max(2000),
