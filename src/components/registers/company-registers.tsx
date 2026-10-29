@@ -14,7 +14,7 @@ export function MembersRegister({ companyId, asAt }: { companyId: string; asAt: 
   return (
     <section className="section">
       <div className="page-header section-header">
-        <h2>Members and capital as at {formatDate(asAt)}</h2>
+        <h2>Members and capital</h2>
         {data?.actor.capabilities.includes('prepare_job') ? (
           <Link className="button" href={`/jobs/new?company=${companyId}&activity=W05`}>
             New share transaction
@@ -165,7 +165,7 @@ export function BeneficialOwnershipRegister({
   return (
     <section className="section">
       <div className="page-header section-header">
-        <h2>Beneficial ownership as at {formatDate(asAt)}</h2>
+        <h2>Beneficial ownership</h2>
         {data?.actor.capabilities.includes('prepare_job') ? (
           <Link href={`/jobs/new?company=${companyId}&activity=W06`} className="button">
             New BO assessment

@@ -23,12 +23,10 @@ test('shared headers, form spacing and staff columns retain their layout', async
     .filter({ has: page.getByText('Registration number', { exact: true }) })
     .boundingBox();
   expect(registration!.y).toBeGreaterThanOrEqual(name!.y + name!.height);
-  const officerHeader = page
-    .locator('.section-header')
-    .filter({ has: page.getByLabel('Record as at', { exact: true }) });
-  const heading = await officerHeader.locator('h2').boundingBox();
-  const date = await officerHeader.locator('input').boundingBox();
-  expect(Math.abs(heading!.y + heading!.height - date!.y - date!.height)).toBeLessThan(1);
+  const recordDate = page.getByLabel('Record as at', { exact: true });
+  const date = await recordDate.boundingBox();
+  const people = await page.getByRole('heading', { name: 'People', exact: true }).boundingBox();
+  expect(date!.y + date!.height).toBeLessThan(people!.y);
   await page.getByRole('link', { name: 'Annual return 2026', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Next action', exact: true })).toBeVisible();
   const overviewY = (await page

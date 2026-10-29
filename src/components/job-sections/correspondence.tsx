@@ -8,7 +8,7 @@ export function Correspondence({ job, data }: Props) {
   return (
     <>
       <section className="section">
-        <h2>External correspondence</h2>
+        <h2 className="sr-only">External correspondence</h2>
         {job.correspondence.length ? (
           <ul className="list-plain">
             {[...job.correspondence].reverse().map((entry) => (
@@ -78,6 +78,7 @@ export function Correspondence({ job, data }: Props) {
             job={job}
             action="correspondence"
             label="Record external correspondence"
+            primary
             fields={[
               {
                 name: 'direction',

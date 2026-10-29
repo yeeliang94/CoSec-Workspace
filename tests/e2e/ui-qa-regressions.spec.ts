@@ -23,17 +23,17 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   await login(page);
   await page.goto('/templates');
   await page.getByRole('button', { name: 'New paragraph', exact: true }).click();
-  const clause = page.getByRole('region', { name: 'New paragraph', exact: true });
+  const clause = page.getByRole('dialog', { name: 'New paragraph', exact: true });
   await clause.getByLabel('Description', { exact: true }).fill('Unsaved description only');
-  await discard(page, () => page.getByRole('button', { name: /^Layouts/ }).click(), false);
+  await discard(
+    page,
+    () => clause.getByRole('button', { name: 'Close', exact: true }).click(),
+    false,
+  );
   await expect(clause.getByLabel('Description', { exact: true })).toHaveValue(
     'Unsaved description only',
   );
-  await discard(
-    page,
-    () => page.getByRole('button', { name: 'New paragraph', exact: true }).click(),
-    false,
-  );
+  await discard(page, () => clause.press('Escape'), false);
   await discard(
     page,
     () => clause.getByRole('button', { name: 'Cancel', exact: true }).click(),
@@ -42,10 +42,15 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   await expect(clause.getByLabel('Description', { exact: true })).toHaveValue(
     'Unsaved description only',
   );
-  await discard(page, () => page.getByRole('button', { name: /^Layouts/ }).click(), true);
+  await discard(
+    page,
+    () => clause.getByRole('button', { name: 'Close', exact: true }).click(),
+    true,
+  );
   await expect(clause).toHaveCount(0);
+  await page.getByRole('button', { name: /^Layouts/ }).click();
   await page.getByRole('button', { name: 'New layout', exact: true }).click();
-  const assembly = page.getByRole('region', { name: 'New layout', exact: true });
+  const assembly = page.getByRole('dialog', { name: 'New layout', exact: true });
   await assembly.getByLabel('Description', { exact: true }).fill('Unsaved assembly description');
   await discard(
     page,
@@ -62,11 +67,11 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   );
   await page.goto('/resolutions');
   await page.getByRole('button', { name: 'New resolution', exact: true }).click();
-  const resolution = page.getByRole('region', { name: 'New resolution', exact: true });
+  const resolution = page.getByRole('dialog', { name: 'New resolution', exact: true });
   await resolution.getByLabel('Instruction date', { exact: true }).fill('2026-10-27');
   await discard(
     page,
-    () => page.getByRole('button', { name: 'New resolution', exact: true }).click(),
+    () => resolution.getByRole('button', { name: 'Close', exact: true }).click(),
     false,
   );
   await expect(resolution.getByLabel('Instruction date', { exact: true })).toHaveValue(

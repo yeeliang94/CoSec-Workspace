@@ -53,14 +53,19 @@ test('company opening edits survive cancelled close and navigation', async ({ pa
   await page.getByRole('button', { name: 'New company', exact: true }).click();
   const name = page.getByRole('textbox', { name: 'Legal name', exact: true });
   await name.fill('Unsaved fictional company');
-  await page.getByRole('button', { name: 'Close form', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'New company', exact: true })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await answerPrompt(page, false);
   await expect(name).toHaveValue('Unsaved fictional company');
-  await page.getByRole('link', { name: 'My work', exact: true }).click();
-  await answerPrompt(page, false);
+  await traverse(page, -1, false);
   await expect(page).toHaveURL(/\/companies$/);
   await expect(name).toHaveValue('Unsaved fictional company');
-  await page.getByRole('button', { name: 'Close form', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'New company', exact: true })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await answerPrompt(page, true);
   await expect(name).toHaveCount(0);
   await page.getByRole('button', { name: 'New company', exact: true }).click();

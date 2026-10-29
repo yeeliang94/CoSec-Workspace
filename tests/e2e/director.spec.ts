@@ -121,7 +121,7 @@ test('director review, execution, dated record, external submission and outcome 
   await submit.locator('[name=reference]').fill('FICTIONAL-UI-' + job.id.slice(0, 8));
   await submit.locator('[name=channel]').fill('Fictional external channel');
   await submit.locator('[name=evidenceId]').selectOption(evidence.id);
-  await submit.locator('[name=documentIds]').selectOption(evidence.id);
+  await submit.locator(`[name=documentIds][value="${evidence.id}"]`).check();
   await submit.getByRole('button', { name: 'Record external submission', exact: true }).click();
   await expect(page.locator('.track-facts').getByText('Submitted', { exact: true })).toBeVisible();
   await expect(page.getByText('Outcome confirmation outstanding', { exact: true })).toBeVisible();

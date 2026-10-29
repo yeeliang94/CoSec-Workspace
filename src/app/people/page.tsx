@@ -8,6 +8,7 @@ import {
   currentDate,
   Empty,
   formatDate,
+  humanize,
   Icon,
   PageHeader,
   useWorkspace,
@@ -60,15 +61,8 @@ function PeopleDirectory() {
     <>
       <PageHeader title="People">
         {canManage ? (
-          <button
-            type="button"
-            className="primary"
-            aria-expanded={creating}
-            onClick={async () => {
-              if (creating && !(await canLeaveEditing())) return;
-              setCreating(!creating);
-            }}
-          >
+          <button type="button" className="primary" onClick={() => setCreating(true)}>
+            <Icon kind="plus" />
             New person
           </button>
         ) : null}
@@ -192,8 +186,7 @@ function NewPerson({ onDone }: { onDone: (id?: string) => Promise<void> }) {
   const [notes, setNotes] = useState('');
   const [requestId, setRequestId] = useState(newRequestId);
   return (
-    <section className="new-resolution" aria-labelledby="new-person">
-      <h2 id="new-person">New person</h2>
+    <Drawer title="New person" onClose={() => void onDone()}>
       <form
         className="form-grid"
         data-dirty={fullName || email || notes ? 'true' : 'false'}
@@ -248,7 +241,7 @@ function NewPerson({ onDone }: { onDone: (id?: string) => Promise<void> }) {
           </div>
         </div>
       </form>
-    </section>
+    </Drawer>
   );
 }
 
@@ -319,10 +312,7 @@ function PersonDrawer({
                       </div>
                     </dl>
                     {r.projectedFrom ? (
-                      <details className="advanced-filters">
-                        <summary>Source</summary>
-                        <p>Posted officer events</p>
-                      </details>
+                      <p className="metadata">From the posted officer record</p>
                     ) : null}
                   </li>
                 ))}
@@ -395,7 +385,7 @@ function PersonDrawer({
             <ul className="list-plain">
               {load.data!.audit.map((entry) => (
                 <li key={entry.id}>
-                  {entry.action.replaceAll('_', ' ')}
+                  {humanize(entry.action)}
                   <p className="metadata">
                     {entry.actorName} · {formatDate(entry.at)}
                     {entry.reason ? ` · ${entry.reason}` : ''}

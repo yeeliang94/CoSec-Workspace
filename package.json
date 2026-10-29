@@ -13,7 +13,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/*.ts\" \"tests/**/*.ts\" \"*.config.{ts,mjs}\"",
-    "db:provision": "tsx scripts/provision-local.ts"
+    "db:provision": "tsx scripts/provision-local.ts",
+    "check:design": "node scripts/check-design-tokens.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

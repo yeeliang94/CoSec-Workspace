@@ -78,7 +78,7 @@ export function AssemblyEditor({ id }: { id: string }) {
       <>
         <Link href="/templates#assemblies" className="back-link">
           <Icon kind="back" />
-          Clause library
+          Templates
         </Link>
         <LoadState
           loading={page.loading}
@@ -257,7 +257,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
     <>
       <Link href="/templates#assemblies" className="back-link">
         <Icon kind="back" />
-        Clause library
+        Templates
       </Link>
       <header className="record-heading">
         <h1>{template.name}</h1>

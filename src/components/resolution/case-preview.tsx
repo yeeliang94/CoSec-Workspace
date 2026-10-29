@@ -15,6 +15,14 @@ export function CasePreview({ api }: { api: CaseApi }) {
       ),
     [id, api.detail.case.revision],
   );
+  // Before any wording is chosen there is nothing to preview: that is the next step, not an error.
+  if (!api.detail.case.selection)
+    return (
+      <section aria-labelledby="case-preview">
+        <h2 id="case-preview">4. Preview</h2>
+        <p className="muted">No preview yet</p>
+      </section>
+    );
   return (
     <section aria-labelledby="case-preview">
       <div className="page-header section-header">

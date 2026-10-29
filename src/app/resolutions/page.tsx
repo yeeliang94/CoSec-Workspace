@@ -15,6 +15,7 @@ import {
 } from '@/components/resolution/api';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
 import { canLeaveEditing } from '@/components/edit-guard';
+import { Drawer } from '@/components/resolution/drawer';
 
 export default function ResolutionsPage() {
   const { data } = useWorkspace();
@@ -60,27 +61,14 @@ export default function ResolutionsPage() {
             Templates
           </Link>
           {canCreate ? (
-            <button
-              type="button"
-              className="primary"
-              aria-expanded={creating}
-              onClick={async () => {
-                if (creating && !(await canLeaveEditing())) return;
-                setCreating(!creating);
-              }}
-            >
+            <button type="button" className="primary" onClick={() => setCreating(true)}>
+              <Icon kind="plus" />
               New resolution
             </button>
           ) : null}
         </div>
       </PageHeader>
-      {creating ? (
-        <NewResolution
-          onCancel={async () => {
-            if (await canLeaveEditing()) setCreating(false);
-          }}
-        />
-      ) : null}
+      {creating ? <NewResolution onCancel={() => setCreating(false)} /> : null}
       <div className="toolbar">
         <label className="search">
           <span className="sr-only">Search resolutions</span>
@@ -223,16 +211,7 @@ export default function ResolutionsPage() {
             </div>
           </Empty>
         ) : (
-          <Empty>
-            No resolutions yet
-            {canCreate ? (
-              <div>
-                <button type="button" className="primary" onClick={() => setCreating(true)}>
-                  New resolution
-                </button>
-              </div>
-            ) : null}
-          </Empty>
+          <Empty>No resolutions yet</Empty>
         )
       ) : null}
     </>
@@ -263,8 +242,7 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
   const director = kind !== 'board';
   const job = jobs.find((item) => item.id === jobId);
   return (
-    <section className="new-resolution" aria-labelledby="new-resolution-title">
-      <h2 id="new-resolution-title">New resolution</h2>
+    <Drawer title="New resolution" onClose={onCancel}>
       <form
         className="form-grid"
         data-dirty={
@@ -399,12 +377,17 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
             <button className="primary" disabled={pending}>
               {pending ? 'Creating…' : 'Create resolution'}
             </button>
-            <button type="button" onClick={onCancel}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) onCancel();
+              }}
+            >
               Cancel
             </button>
           </div>
         </div>
       </form>
-    </section>
+    </Drawer>
   );
 }

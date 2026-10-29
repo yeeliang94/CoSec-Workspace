@@ -1,10 +1,12 @@
 'use client';
+import { canLeaveEditing } from '@/components/edit-guard';
 import { useState } from 'react';
 import type { Person, RelationshipRole } from '@/domain/resolution/model';
 import { INDUSTRIES, MONTHS } from '@/domain/company';
 import { getJson } from '@/components/resolution/api';
 import { useLoad } from '@/components/resolution/use-load';
 import { request } from './workspace';
+import { Drawer } from './resolution/drawer';
 
 type Row = { key: string; name: string; role: RelationshipRole; startDate: string };
 const ROLES: { value: RelationshipRole; label: string }[] = [
@@ -22,7 +24,13 @@ const newRow = (role: RelationshipRole = 'director'): Row => ({
 });
 
 /** Opening company record with its people, saved together. */
-export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
+export function NewCompany({
+  onSaved,
+  onClose,
+}: {
+  onSaved: () => Promise<void>;
+  onClose: () => void;
+}) {
   const existing = useLoad(() => getJson<{ people: Person[] }>('/api/people'), []);
   const [rows, setRows] = useState<Row[]>([newRow()]);
   const [month, setMonth] = useState('12');
@@ -32,8 +40,7 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
   const update = (key: string, patch: Partial<Row>) =>
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   return (
-    <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>
-      <h2>New company</h2>
+    <Drawer title="New company" onClose={onClose}>
       <form
         inert={pending}
         aria-busy={pending}
@@ -138,7 +145,7 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
               </select>
             </label>
             <label>
-              Business activity (optional)
+              Business activity
               <input name="activity" placeholder="e.g. Software consultancy" />
             </label>
           </div>
@@ -208,8 +215,16 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
           <button className="primary" disabled={pending}>
             {pending ? 'Saving…' : 'Create company'}
           </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (await canLeaveEditing()) onClose();
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </form>
-    </section>
+    </Drawer>
   );
 }

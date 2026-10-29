@@ -43,6 +43,7 @@ export function Documents({ job, data }: Props) {
                 job={job}
                 action="revise_pack"
                 label="Save new pack version"
+                primary
                 fields={[
                   {
                     name: 'notes',

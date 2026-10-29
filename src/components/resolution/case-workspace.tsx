@@ -4,7 +4,14 @@ import Link from 'next/link';
 import type { ResolutionCase } from '@/domain/resolution/model';
 import { caseStatus, isEditable, routeMatches } from '@/domain/resolution/cases';
 import { canLeaveEditing, hasUnsavedEdits } from '@/components/edit-guard';
-import { Empty, formatDate, Icon, useWorkspace } from '@/components/workspace';
+import {
+  Empty,
+  formatDate,
+  formatDatesIn,
+  humanize,
+  Icon,
+  useWorkspace,
+} from '@/components/workspace';
 import { getJson, kindLabel, newRequestId, postJson, type CaseDetail } from './api';
 import { LoadState, useLoad } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
@@ -100,36 +107,40 @@ export function CaseWorkspace({ id }: { id: string }) {
         <Icon kind="back" />
         Resolutions
       </Link>
-      <header className="record-heading">
-        <div className="record-line">
-          <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>
-          <span className="metadata">·</span>
-          <Link href={'/resolutions/companies/' + item.companyId} className="metadata-link">
-            Company details used in resolutions
-          </Link>
-        </div>
+      <div className="page-header">
         <h1>{item.title}</h1>
-        <dl className="record-meta">
+        <div className="header-actions">
+          <Link href={'/resolutions/companies/' + item.companyId} className="button">
+            Company details
+          </Link>
+          <CompleteResolution api={api} />
+        </div>
+      </div>
+      <dl className="facts track-facts">
+        <div>
+          <dt>Company</dt>
+          <dd>
+            <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>
+          </dd>
+        </div>
+        <div>
+          <dt>Kind</dt>
+          <dd>{kindLabel(item.kind)}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{caseStatus(item, userName)}</dd>
+        </div>
+        {job ? (
           <div>
-            <dt>Kind</dt>
-            <dd>{kindLabel(item.kind)}</dd>
+            <dt>Linked job</dt>
+            <dd>
+              <Link href={'/jobs/' + job.id}>{job.title}</Link>
+            </dd>
           </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{caseStatus(item, userName)}</dd>
-          </div>
-          {job ? (
-            <div>
-              <dt>Linked job</dt>
-              <dd>
-                <Link href={'/jobs/' + job.id}>{job.title}</Link>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      </header>
+        ) : null}
+      </dl>
       <ReviewPanel api={api} />
-      <CompleteResolution api={api} />
       <nav className="section-nav" aria-label="Resolution sections">
         {SECTIONS.map(([key, label]) => (
           <button
@@ -153,23 +164,19 @@ export function CaseWorkspace({ id }: { id: string }) {
           </>
         ) : (
           <section aria-labelledby="case-history">
-            <h2 id="case-history">History</h2>
-            <dl className="record-meta">
-              <div>
-                <dt>Current revision</dt>
-                <dd>{item.revision}</dd>
-              </div>
-            </dl>
+            <h2 id="case-history" className="sr-only">
+              History
+            </h2>
             {item.history.length ? (
               <ul className="list-plain">
                 {[...item.history].reverse().map((event) => (
                   <li key={event.id}>
-                    <strong>{event.action.replaceAll('_', ' ')}</strong>
+                    <strong>{humanize(event.action)}</strong>
                     <p className="metadata">
                       {data.users.find((u) => u.id === event.actorId)?.name || event.actorId} ·{' '}
                       {formatDate(event.at)}
                     </p>
-                    {event.detail ? <p>{event.detail}</p> : null}
+                    {event.detail ? <p>{formatDatesIn(event.detail)}</p> : null}
                   </li>
                 ))}
               </ul>
@@ -398,23 +405,21 @@ function CompleteResolution({ api }: { api: CaseApi }) {
   )
     return null;
   return (
-    <div className="form-footer">
-      <div className="actions">
-        <button
-          type="button"
-          disabled={action.pending}
-          onClick={() => void action.run(() => api.act('complete'), 'Resolution completed')}
-        >
-          {action.pending ? 'Completing…' : 'Mark complete'}
-        </button>
-      </div>
+    <>
+      <button
+        type="button"
+        disabled={action.pending}
+        onClick={() => void action.run(() => api.act('complete'), 'Resolution completed')}
+      >
+        {action.pending ? 'Completing…' : 'Mark complete'}
+      </button>
       <ActionFeedback
         error={action.error}
         status={action.status}
         conflict={action.conflict}
         onReload={() => void api.reload()}
       />
-    </div>
+    </>
   );
 }
 

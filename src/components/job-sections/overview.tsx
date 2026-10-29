@@ -1,7 +1,7 @@
 'use client';
 import type { JobSectionProps as Props } from './shared';
 import Link from 'next/link';
-import { formatDate } from '../workspace';
+import { formatDate, formatDatesIn } from '../workspace';
 import { jobFields, JobAction, EvidenceLinks } from './shared';
 export function Overview({ job, data }: Props) {
   const { evidence, users, version } = jobFields(job, data);
@@ -11,14 +11,14 @@ export function Overview({ job, data }: Props) {
     <>
       <section className="section">
         <h2>Next action</h2>
-        <p>{job.nextAction || 'Prepare supporting evidence'}</p>
+        <p>{formatDatesIn(job.nextAction || 'Prepare supporting evidence')}</p>
         {job.blockers?.some((blocker) => blocker !== job.nextAction) ? (
           <div className="warning">
             <ul>
               {job.blockers
                 .filter((blocker) => blocker !== job.nextAction)
                 .map((blocker) => (
-                  <li key={blocker}>{blocker}</li>
+                  <li key={blocker}>{formatDatesIn(blocker)}</li>
                 ))}
             </ul>
           </div>
@@ -169,6 +169,7 @@ export function Overview({ job, data }: Props) {
                 job={job}
                 action="confirm_client"
                 label="Record client confirmation"
+                primary
                 fields={[
                   {
                     name: 'evidenceId',
@@ -321,9 +322,6 @@ export function Overview({ job, data }: Props) {
       ) : null}
       <section className="section">
         <h2>Completion</h2>
-        <p>
-          Job: {job.state} · Filing: {job.filingState}
-        </p>
         {prepare && !['Complete', 'Cancelled'].includes(job.state) ? (
           <JobAction
             job={job}

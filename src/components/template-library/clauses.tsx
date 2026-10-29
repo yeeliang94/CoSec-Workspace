@@ -1,4 +1,6 @@
 'use client';
+import { canLeaveEditing } from '@/components/edit-guard';
+import { Drawer } from '@/components/resolution/drawer';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -137,172 +139,170 @@ export function ClauseLibrary({
         onReload={() => void reload()}
       />
       {groups.length ? (
-        groups.map((group) => (
-          <section
-            key={group.name}
-            className="library-category"
-            aria-labelledby={'cat-' + group.name}
-          >
-            <h2 id={'cat-' + group.name}>{group.name}</h2>
-            <div className="table-wrap">
-              <table className="library-table stack-table">
-                <caption className="sr-only">{group.name} clauses</caption>
-                <thead>
-                  <tr>
-                    <th>Paragraph</th>
-                    <th>Version</th>
-                    <th>Act</th>
-                    {canManage ? <th>Actions</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.rows.map((clause) => {
-                    const { last, published } = statusOf(clause.versions);
-                    return (
-                      <tr key={clause.id}>
-                        <td>
-                          <Link href={'/templates/clauses/' + clause.id}>{clause.name}</Link>
-                          {clause.hidden || clause.archived ? (
-                            <div className="state">
-                              {clause.archived ? 'Archived' : 'Hidden from new resolutions'}
-                            </div>
-                          ) : null}
-                          {clause.description || last ? (
-                            <details className="file-details">
-                              <summary>Details</summary>
-                              <dl className="record-meta">
-                                {clause.description ? (
-                                  <div>
-                                    <dt>Description</dt>
-                                    <dd>{clause.description}</dd>
-                                  </div>
-                                ) : null}
-                                {last ? (
-                                  <div>
-                                    <dt>Updated</dt>
-                                    <dd>{formatDate(last.updatedAt.slice(0, 10))}</dd>
-                                  </div>
-                                ) : null}
-                              </dl>
-                            </details>
-                          ) : null}
-                        </td>
-                        <td data-label="Version">
-                          {last ? `v${last.version} · ${last.status}` : '—'}
-                          {published && published.id !== last?.id ? (
+        <div className="table-wrap">
+          <table className="library-table stack-table">
+            <caption className="sr-only">Standard wording by category</caption>
+            <thead>
+              <tr>
+                <th>Paragraph</th>
+                <th>Version</th>
+                <th>Act</th>
+                {canManage ? <th>Actions</th> : null}
+              </tr>
+            </thead>
+            {groups.map((group) => (
+              <tbody key={group.name}>
+                <tr className="group-row">
+                  <th scope="colgroup" colSpan={canManage ? 4 : 3}>
+                    {group.name}
+                  </th>
+                </tr>
+                {group.rows.map((clause) => {
+                  const { last, published } = statusOf(clause.versions);
+                  return (
+                    <tr key={clause.id}>
+                      <td>
+                        <Link href={'/templates/clauses/' + clause.id}>{clause.name}</Link>
+                        {clause.hidden || clause.archived ? (
+                          <div className="state">
+                            {clause.archived ? 'Archived' : 'Hidden from new resolutions'}
+                          </div>
+                        ) : null}
+                        {clause.description || last ? (
+                          <details className="file-details">
+                            <summary>Details</summary>
                             <dl className="record-meta">
-                              <div>
-                                <dt>Published</dt>
-                                <dd>v{published.version}</dd>
-                              </div>
+                              {clause.description ? (
+                                <div>
+                                  <dt>Description</dt>
+                                  <dd>{clause.description}</dd>
+                                </div>
+                              ) : null}
+                              {last ? (
+                                <div>
+                                  <dt>Updated</dt>
+                                  <dd>{formatDate(last.updatedAt.slice(0, 10))}</dd>
+                                </div>
+                              ) : null}
                             </dl>
-                          ) : null}
-                        </td>
-                        <td data-label="Act">{clause.governingAct || '—'}</td>
-                        {canManage ? (
-                          <td>
-                            <div className="row-actions">
+                          </details>
+                        ) : null}
+                      </td>
+                      <td data-label="Version">
+                        {last ? `v${last.version} · ${last.status}` : '—'}
+                        {published && published.id !== last?.id ? (
+                          <dl className="record-meta">
+                            <div>
+                              <dt>Published</dt>
+                              <dd>v{published.version}</dd>
+                            </div>
+                          </dl>
+                        ) : null}
+                      </td>
+                      <td data-label="Act">{clause.governingAct || '—'}</td>
+                      {canManage ? (
+                        <td>
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              className="quiet"
+                              aria-label={`Copy ${clause.name}`}
+                              disabled={action.pending}
+                              onClick={async () => {
+                                const copy = await action.run(
+                                  () =>
+                                    postJson<ClauseWithVersions>('/api/clause-templates', {
+                                      action: 'copy',
+                                      requestId: newRequestId(),
+                                      sourceId: clause.id,
+                                      name: `Copy of ${clause.name}`.slice(0, 160),
+                                    }),
+                                  `Copied ${clause.name}`,
+                                );
+                                if (copy) router.push('/templates/clauses/' + copy.id);
+                              }}
+                            >
+                              Copy
+                            </button>
+                            {!clause.archived ? (
                               <button
                                 type="button"
                                 className="quiet"
-                                aria-label={`Copy ${clause.name}`}
+                                aria-label={`${clause.hidden ? 'Unhide' : 'Hide'} ${clause.name}`}
                                 disabled={action.pending}
-                                onClick={async () => {
-                                  const copy = await action.run(
-                                    () =>
-                                      postJson<ClauseWithVersions>('/api/clause-templates', {
-                                        action: 'copy',
-                                        requestId: newRequestId(),
-                                        sourceId: clause.id,
-                                        name: `Copy of ${clause.name}`.slice(0, 160),
-                                      }),
-                                    `Copied ${clause.name}`,
-                                  );
-                                  if (copy) router.push('/templates/clauses/' + copy.id);
-                                }}
+                                onClick={() =>
+                                  void update(
+                                    clause,
+                                    { hidden: !clause.hidden },
+                                    `${clause.name} ${clause.hidden ? 'shown in' : 'hidden from'} the library`,
+                                  )
+                                }
                               >
-                                Copy
+                                {clause.hidden ? 'Unhide' : 'Hide'}
                               </button>
-                              {!clause.archived ? (
+                            ) : null}
+                            {clause.archived ? (
+                              <button
+                                type="button"
+                                className="quiet"
+                                aria-label={`Restore ${clause.name}`}
+                                onClick={() =>
+                                  void update(
+                                    clause,
+                                    { archived: false },
+                                    `${clause.name} restored`,
+                                  )
+                                }
+                              >
+                                Restore
+                              </button>
+                            ) : confirmArchive === clause.id ? (
+                              <span className="inline-confirm">
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  onClick={() => {
+                                    setConfirmArchive('');
+                                    void update(
+                                      clause,
+                                      {
+                                        archived: true,
+                                        reason: 'Archived from standard wording',
+                                      },
+                                      `${clause.name} archived`,
+                                    );
+                                  }}
+                                >
+                                  Archive {clause.name}
+                                </button>
                                 <button
                                   type="button"
                                   className="quiet"
-                                  aria-label={`${clause.hidden ? 'Unhide' : 'Hide'} ${clause.name}`}
-                                  disabled={action.pending}
-                                  onClick={() =>
-                                    void update(
-                                      clause,
-                                      { hidden: !clause.hidden },
-                                      `${clause.name} ${clause.hidden ? 'shown in' : 'hidden from'} the library`,
-                                    )
-                                  }
+                                  onClick={() => setConfirmArchive('')}
                                 >
-                                  {clause.hidden ? 'Unhide' : 'Hide'}
+                                  Keep
                                 </button>
-                              ) : null}
-                              {clause.archived ? (
-                                <button
-                                  type="button"
-                                  className="quiet"
-                                  aria-label={`Restore ${clause.name}`}
-                                  onClick={() =>
-                                    void update(
-                                      clause,
-                                      { archived: false },
-                                      `${clause.name} restored`,
-                                    )
-                                  }
-                                >
-                                  Restore
-                                </button>
-                              ) : confirmArchive === clause.id ? (
-                                <span className="inline-confirm">
-                                  <button
-                                    type="button"
-                                    className="danger"
-                                    onClick={() => {
-                                      setConfirmArchive('');
-                                      void update(
-                                        clause,
-                                        {
-                                          archived: true,
-                                          reason: 'Archived from standard wording',
-                                        },
-                                        `${clause.name} archived`,
-                                      );
-                                    }}
-                                  >
-                                    Archive {clause.name}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="quiet"
-                                    onClick={() => setConfirmArchive('')}
-                                  >
-                                    Keep
-                                  </button>
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="quiet danger"
-                                  aria-label={`Archive ${clause.name}`}
-                                  onClick={() => setConfirmArchive(clause.id)}
-                                >
-                                  Archive
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        ) : null}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ))
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="quiet danger"
+                                aria-label={`Archive ${clause.name}`}
+                                onClick={() => setConfirmArchive(clause.id)}
+                              >
+                                Archive
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            ))}
+          </table>
+        </div>
       ) : (
         <Empty>
           {filtered ? 'No matching paragraphs' : 'No paragraphs yet'}
@@ -368,8 +368,7 @@ function CreateClause({
   };
   const [form, setForm] = useState(initialForm);
   return (
-    <section className="new-resolution" aria-labelledby="new-clause">
-      <h2 id="new-clause">New paragraph</h2>
+    <Drawer title="New paragraph" onClose={onCancel}>
       <form
         className="form-grid"
         data-dirty={JSON.stringify(form) !== JSON.stringify(initialForm) ? 'true' : 'false'}
@@ -454,12 +453,17 @@ function CreateClause({
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
               Create clause
             </button>
-            <button type="button" onClick={onCancel}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) onCancel();
+              }}
+            >
               Cancel
             </button>
           </div>
         </div>
       </form>
-    </section>
+    </Drawer>
   );
 }

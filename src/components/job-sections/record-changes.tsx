@@ -11,7 +11,7 @@ export function RecordChanges({ job, data }: Props) {
   if (job.activity !== 'W04')
     return (
       <>
-        <h2>Corporate record changes</h2>
+        <h2 className="sr-only">Corporate record changes</h2>
         {!job.dependencyIds.length ? <p className="muted">No linked director changes</p> : null}
         {job.dependencyIds.map((id) => (
           <p key={id}>

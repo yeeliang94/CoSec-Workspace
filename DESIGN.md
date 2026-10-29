@@ -33,7 +33,11 @@ colors:
   scrollbar-thumb: "#b9c2c9"
   scrollbar-track: "#f3f5f6"
   danger: "#a83230"
+  danger-surface: "#fdf8f8"
+  danger-border: "#dcb8b7"
   success: "#356047"
+  success-border: "#c5d6ca"
+  overlay-backdrop: "rgba(28, 45, 57, 0.32)"
   warning-surface: "#f8f5ed"
   warning-text: "#5f4c24"
   warning-border: "#e3d9c2"
@@ -255,6 +259,8 @@ Use a status live region for brief action results. Keep missing evidence and unr
 - Do show what needs doing, who owns it and when it is due.
 - Do keep dates, evidence, versions and independent states explicit where they affect a decision.
 - Do use the existing spacing and type roles before introducing a new value.
+- Do run `npm run check:design` after stylesheet changes; it rejects raw colours and text sizes outside these roles.
+- Do open create and edit forms in the side drawer, and keep the page header to one back link, the title and its actions.
 - Do use narrow disclosures for secondary detail and keep material warnings visible.
 - Do verify a changed path at 390px, 768px and desktop widths, with keyboard focus and real-length sample content.
 - Do update this file when an approved visual rule changes, and keep product rules in DESIGN_SPEC.md.
