@@ -85,7 +85,7 @@ test('author writes a clause with a bound value, reused question and two wording
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/templates');
   await page.getByRole('button', { name: 'New paragraph' }).click();
-  const form = page.locator('.new-resolution');
+  const form = page.getByRole('dialog', { name: 'New paragraph', exact: true });
   await form.getByLabel('Name').fill(clauseName);
   await form.getByLabel('Category').selectOption('Dividend');
   await form.getByRole('button', { name: 'Create clause' }).click();
@@ -172,7 +172,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/resolutions');
   await page.getByRole('button', { name: 'New resolution' }).first().click();
-  const form = page.locator('.new-resolution');
+  const form = page.getByRole('dialog', { name: 'New resolution', exact: true });
   await form.getByLabel('Company').selectOption(companyId);
   await form.getByLabel('Title').fill(caseTitle);
   await form.getByRole('button', { name: 'Create resolution' }).click();
@@ -274,14 +274,14 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByRole('button', { name: 'Prepare', exact: true }).click();
   await page.getByLabel('Reviewer').selectOption({ label: 'Daniel Tan' });
   await page.getByRole('button', { name: 'Send for review', exact: true }).click();
-  await expect(page.locator('.record-heading')).toContainText('With Daniel Tan for review');
+  await expect(page.locator('.track-facts')).toContainText('With Daniel Tan for review');
   await expect(page.getByRole('button', { name: 'Send for review', exact: true })).toHaveCount(0);
   // Without the #section part, so the reviewer's visit is a full page load.
   const url = page.url().split('#')[0];
   await as(page, 'reviewer');
   await page.goto(url);
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
-  await expect(page.locator('.record-heading')).toContainText('Approved by Daniel Tan');
+  await expect(page.locator('.track-facts')).toContainText('Approved by Daniel Tan');
 });
 
 test('version-history links preserve a dirty draft when discard is cancelled', async ({ page }) => {
@@ -339,7 +339,7 @@ test('an unlinked director resolution can link its W04 job from Prepare', async 
     .selectOption(job.id);
   await section.getByRole('button', { name: 'Link W04 job', exact: true }).click();
   await expect(section).toHaveCount(0);
-  await expect(page.locator('.record-heading')).toContainText(job.title);
+  await expect(page.locator('.track-facts')).toContainText(job.title);
   const result = await (await page.request.get('/api/resolution-cases/' + item.id)).json();
   expect(result.case).toMatchObject({
     jobId: job.id,

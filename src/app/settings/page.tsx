@@ -211,7 +211,7 @@ function Catalogues() {
   const previous = data.settings.catalogue.find((v) => v.id === predecessor);
   return (
     <section>
-      <h2>Templates, checklists and rules</h2>
+      <h2>Job templates, checklists and rules</h2>
       <div className="table-wrap">
         <table>
           <caption className="sr-only">Versioned internal catalogues</caption>
@@ -289,6 +289,7 @@ function Catalogues() {
             url="/api/settings"
             action="catalogue_draft"
             label="Save draft version"
+            primary
             extra={{
               expectedRevision: data.settings.revision,
               kind,
@@ -568,20 +569,10 @@ export default function Settings() {
   return (
     <>
       <PageHeader title="Settings">
-        {data.actor.capabilities.includes('manage_templates') ||
-        data.actor.capabilities.includes('view_audit') ? (
-          <div className="header-actions">
-            {data.actor.capabilities.includes('manage_templates') ? (
-              <Link className="button" href="/templates">
-                Clause library
-              </Link>
-            ) : null}
-            {data.actor.capabilities.includes('view_audit') ? (
-              <Link className="button" href="/audit">
-                Audit log
-              </Link>
-            ) : null}
-          </div>
+        {data.actor.capabilities.includes('view_audit') ? (
+          <Link className="button" href="/audit">
+            Audit log
+          </Link>
         ) : null}
       </PageHeader>
       <nav className="section-nav" aria-label="Settings sections">

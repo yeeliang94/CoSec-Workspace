@@ -1,4 +1,5 @@
 'use client';
+import { canLeaveEditing } from '@/components/edit-guard';
 import { useState } from 'react';
 import Link from 'next/link';
 import type {
@@ -11,6 +12,7 @@ import { currentDate, formatDate, useWorkspace } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from './api';
 import { LoadState, useLoad } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
+import { Drawer } from './drawer';
 import { emptyPick, PersonField, resolvePick } from '@/components/person-field';
 
 type RelationshipView = CompanyRelationship & { personName: string };
@@ -56,18 +58,29 @@ export function CompanyRelationships({
       a.personName.localeCompare(b.personName),
   );
   const ended = sorted.filter((r) => !active(r));
+  const [adding, setAdding] = useState(false);
+  const canAdd = canManage && asAt === currentDate();
   return (
     <section className="section relationships" aria-labelledby="company-people">
       <div className="page-header section-header">
         <h2 id="company-people">People</h2>
-        <label className="as-at">
-          Record as at
-          <input
-            type="date"
-            value={asAt}
-            onChange={(event) => event.target.value && setAsAt(event.target.value)}
-          />
-        </label>
+        <div className="header-actions">
+          {pageAsAt === undefined ? (
+            <label className="as-at">
+              Record as at
+              <input
+                type="date"
+                value={asAt}
+                onChange={(event) => event.target.value && setAsAt(event.target.value)}
+              />
+            </label>
+          ) : null}
+          {canAdd ? (
+            <button type="button" onClick={() => setAdding(true)}>
+              Add person
+            </button>
+          ) : null}
+        </div>
       </div>
       <LoadState
         loading={load.loading && !load.data}
@@ -94,7 +107,13 @@ export function CompanyRelationships({
               />
             </details>
           ) : null}
-          {canManage ? <AddRelationship companyId={companyId} onAdded={load.reload} /> : null}
+          {adding ? (
+            <AddRelationship
+              companyId={companyId}
+              onAdded={load.reload}
+              onClose={() => setAdding(false)}
+            />
+          ) : null}
         </>
       ) : null}
     </section>
@@ -112,7 +131,8 @@ function RelationshipTable({
   canManage: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [ending, setEnding] = useState<string>('');
+  const [ending, setEnding] = useState<{ id: string; initialEndDate: string } | null>(null);
+  const endingRow = rows.find((row) => row.id === ending?.id);
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
   const action = useAction();
@@ -151,68 +171,19 @@ function RelationshipTable({
                 {canManage ? (
                   <td>
                     {!row.endDate ? (
-                      ending === row.id ? (
-                        <form
-                          className="form-stack inline-form"
-                          onSubmit={async (event) => {
-                            event.preventDefault();
-                            const ok = await action.run(
-                              () =>
-                                postJson(`/api/companies/${companyId}/relationships`, {
-                                  action: 'end',
-                                  id: row.id,
-                                  expectedRevision: row.revision,
-                                  requestId: newRequestId(),
-                                  endDate,
-                                  reason: reason.trim(),
-                                }),
-                              `Ended ${row.personName}'s relationship`,
-                            );
-                            if (ok) {
-                              setEnding('');
-                              await onChanged();
-                            }
-                          }}
-                        >
-                          <label>
-                            End date
-                            <input
-                              type="date"
-                              required
-                              value={endDate}
-                              onChange={(event) => setEndDate(event.target.value)}
-                            />
-                          </label>
-                          <label>
-                            Reason
-                            <input
-                              required
-                              value={reason}
-                              onChange={(event) => setReason(event.target.value)}
-                            />
-                          </label>
-                          <div className="actions">
-                            <button className="primary" disabled={action.pending}>
-                              End
-                            </button>
-                            <button type="button" onClick={() => setEnding('')}>
-                              Cancel
-                            </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <button
-                          type="button"
-                          className="quiet"
-                          aria-label={`End ${roleName(row.role)} relationship for ${row.personName}`}
-                          onClick={() => {
-                            setEnding(row.id);
-                            setReason('');
-                          }}
-                        >
-                          End…
-                        </button>
-                      )
+                      <button
+                        type="button"
+                        className="quiet"
+                        aria-label={`End ${roleName(row.role)} relationship for ${row.personName}`}
+                        onClick={() => {
+                          const today = currentDate();
+                          setEnding({ id: row.id, initialEndDate: today });
+                          setEndDate(today);
+                          setReason('');
+                        }}
+                      >
+                        End
+                      </button>
                     ) : (
                       <span className="metadata">—</span>
                     )}
@@ -223,6 +194,69 @@ function RelationshipTable({
           </tbody>
         </table>
       </div>
+      {ending && endingRow ? (
+        <Drawer
+          title={`End ${endingRow.personName} as ${roleName(endingRow.role).toLowerCase()}`}
+          onClose={() => setEnding(null)}
+        >
+          <form
+            className="form-stack"
+            data-dirty={reason || endDate !== ending.initialEndDate ? 'true' : 'false'}
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const ok = await action.run(
+                () =>
+                  postJson(`/api/companies/${companyId}/relationships`, {
+                    action: 'end',
+                    id: endingRow.id,
+                    expectedRevision: endingRow.revision,
+                    requestId: newRequestId(),
+                    endDate,
+                    reason: reason.trim(),
+                  }),
+                `Ended ${endingRow.personName}'s relationship`,
+              );
+              if (ok) {
+                setEnding(null);
+                await onChanged();
+              }
+            }}
+          >
+            <label>
+              End date
+              <input
+                type="date"
+                required
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
+            </label>
+            <label>
+              Reason
+              <input required value={reason} onChange={(event) => setReason(event.target.value)} />
+            </label>
+            <ActionFeedback
+              error={action.error}
+              status={action.status}
+              conflict={action.conflict}
+              onReload={() => void onChanged()}
+            />
+            <div className="actions">
+              <button className="primary" disabled={action.pending}>
+                End relationship
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (await canLeaveEditing()) setEnding(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
     </>
   );
 }
@@ -230,9 +264,11 @@ function RelationshipTable({
 function AddRelationship({
   companyId,
   onAdded,
+  onClose,
 }: {
   companyId: string;
   onAdded: () => Promise<void>;
+  onClose: () => void;
 }) {
   const { data } = useWorkspace();
   const people = useLoad(() => getJson<{ people: Person[] }>('/api/people'), []);
@@ -245,10 +281,16 @@ function AddRelationship({
     evidenceIds: [] as string[],
   });
   const evidence = data?.documents.filter((d) => d.companyId === companyId) ?? [];
-  const dirty = Boolean(form.person.name || form.capacity || form.startDate);
+  const dirty = Boolean(
+    form.person.name ||
+    form.person.choice ||
+    form.role !== 'director' ||
+    form.capacity ||
+    form.startDate ||
+    form.evidenceIds.length,
+  );
   return (
-    <details className="disclosure">
-      <summary>Add a person</summary>
+    <Drawer title="Add a person" onClose={onClose}>
       <form
         className="form-grid"
         data-dirty={dirty ? 'true' : 'false'}
@@ -285,6 +327,7 @@ function AddRelationship({
               evidenceIds: [],
             });
             await onAdded();
+            onClose();
           }
         }}
       >
@@ -327,32 +370,44 @@ function AddRelationship({
         {evidence.length ? (
           <fieldset className="full">
             <legend>Evidence</legend>
-            {evidence.map((doc) => (
-              <label className="inline" key={doc.id}>
-                <input
-                  type="checkbox"
-                  checked={form.evidenceIds.includes(doc.id)}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      evidenceIds: event.target.checked
-                        ? [...form.evidenceIds, doc.id]
-                        : form.evidenceIds.filter((id) => id !== doc.id),
-                    })
-                  }
-                />
-                {doc.title}
-              </label>
-            ))}
+            <div className="check-list">
+              {evidence.map((doc) => (
+                <label className="inline" key={doc.id}>
+                  <input
+                    type="checkbox"
+                    checked={form.evidenceIds.includes(doc.id)}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        evidenceIds: event.target.checked
+                          ? [...form.evidenceIds, doc.id]
+                          : form.evidenceIds.filter((id) => id !== doc.id),
+                      })
+                    }
+                  />
+                  {doc.title}
+                </label>
+              ))}
+            </div>
           </fieldset>
         ) : null}
         <div className="full form-footer">
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
-            <button disabled={action.pending}>Add person</button>
+            <button className="primary" disabled={action.pending}>
+              Add person
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) onClose();
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </form>
-    </details>
+    </Drawer>
   );
 }

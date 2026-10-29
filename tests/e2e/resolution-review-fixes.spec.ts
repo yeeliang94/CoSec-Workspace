@@ -35,22 +35,27 @@ async function post<T>(page: Page, path: string, data: object): Promise<T> {
   return response.json();
 }
 
-test('leaving a company page preserves an unsaved person draft until discard is accepted', async ({
+test('closing a company person drawer preserves an unsaved draft until discard is accepted', async ({
   page,
 }) => {
   await login(page);
   const workspace: Workspace = await (await page.request.get('/api/workspace')).json();
   await page.goto('/companies/' + workspace.companies[0].id);
-  await page.getByText('Add a person', { exact: true }).click();
+  await page.getByRole('button', { name: 'Add person', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Add a person', exact: true });
   await page.getByLabel('Capacity', { exact: true }).fill('Unsaved relationship draft');
-  const nav = page.getByRole('navigation', { name: 'Main navigation' });
-  await nav.getByRole('link', { name: 'People', exact: true }).click();
+  await drawer.getByRole('button', { name: 'Close', exact: true }).click();
   await answerPrompt(page, false);
   await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue(
     'Unsaved relationship draft',
   );
-  await nav.getByRole('link', { name: 'People', exact: true }).click();
+  await drawer.getByRole('button', { name: 'Close', exact: true }).click();
   await answerPrompt(page, true);
+  await expect(drawer).toHaveCount(0);
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'People', exact: true })
+    .click();
   await page.waitForURL(/\/people$/);
 });
 

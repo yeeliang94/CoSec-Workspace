@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { request, useWorkspace } from './workspace';
+import { requiredChoiceError } from './form-validation';
 export type Field = {
   name: string;
   label: string;
@@ -26,45 +27,63 @@ const RichEditor = dynamic(() => import('./rich-editor').then((module) => module
 export function FormFields({ fields }: { fields: Field[] }) {
   return (
     <div className="form-grid">
-      {fields.map((field) => (
-        <label className={field.full ? 'full' : ''} key={field.name}>
-          {field.label}
-          {field.type === 'textarea' || field.type === 'list' ? (
-            <textarea
-              name={field.name}
-              defaultValue={String(field.value || '')}
-              required={field.required}
-            />
-          ) : field.type === 'rich' ? (
-            <RichEditor name={field.name} initial={String(field.value || '')} />
-          ) : field.type === 'select' || field.type === 'multi' ? (
-            <select
-              name={field.name}
-              required={field.required}
-              multiple={field.type === 'multi'}
-              defaultValue={field.type === 'multi' ? undefined : String(field.value || '')}
-            >
-              <option value="">Select…</option>
-              {field.options?.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          ) : field.type === 'checkbox' ? (
-            <input name={field.name} type="checkbox" defaultChecked={Boolean(field.value)} />
-          ) : (
-            <input
-              name={field.name}
-              type={field.type || 'text'}
-              defaultValue={field.value === undefined ? '' : String(field.value)}
-              required={field.required}
-              min={field.min}
-              max={field.max}
-            />
-          )}
-        </label>
-      ))}
+      {fields.map((field) =>
+        field.type === 'multi' ? (
+          // Several choices: a labelled checkbox list, never a native multi-select box.
+          <fieldset className={field.full ? 'full' : ''} key={field.name}>
+            <legend>{field.label}</legend>
+            {field.options?.length ? (
+              <div className="check-list">
+                {field.options.map((option) => (
+                  <label className="inline" key={option.value}>
+                    <input type="checkbox" name={field.name} value={option.value} />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="metadata">No documents yet</p>
+            )}
+          </fieldset>
+        ) : (
+          <label className={field.full ? 'full' : ''} key={field.name}>
+            {field.label}
+            {field.type === 'textarea' || field.type === 'list' ? (
+              <textarea
+                name={field.name}
+                defaultValue={String(field.value || '')}
+                required={field.required}
+              />
+            ) : field.type === 'rich' ? (
+              <RichEditor name={field.name} initial={String(field.value || '')} />
+            ) : field.type === 'select' ? (
+              <select
+                name={field.name}
+                required={field.required}
+                defaultValue={String(field.value || '')}
+              >
+                <option value="">Select…</option>
+                {field.options?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : field.type === 'checkbox' ? (
+              <input name={field.name} type="checkbox" defaultChecked={Boolean(field.value)} />
+            ) : (
+              <input
+                name={field.name}
+                type={field.type || 'text'}
+                defaultValue={field.value === undefined ? '' : String(field.value)}
+                required={field.required}
+                min={field.min}
+                max={field.max}
+              />
+            )}
+          </label>
+        ),
+      )}
     </div>
   );
 }
@@ -161,6 +180,9 @@ export function ActionForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
+        const validationError = requiredChoiceError(fields, new FormData(event.currentTarget));
+        setError(validationError);
+        if (validationError) return;
         if (confirmation && !confirming) setConfirming(true);
         else void save();
       }}

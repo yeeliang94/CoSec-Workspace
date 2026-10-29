@@ -70,14 +70,18 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   expect(doc).toBeTruthy();
   await page.getByText('Prepare a new pack version', { exact: true }).click();
   await page.locator('[name=notes]').fill('Prepared external output for fictional UI test');
-  await page.locator('[name=documentIds]').selectOption([doc.id]);
+  await page.getByRole('button', { name: 'Save new pack version', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Choose at least one item for “Pack documents”.',
+  );
+  await page.locator(`[name=documentIds][value="${doc.id}"]`).check();
   await page.getByRole('button', { name: 'Save new pack version', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Current pack · v2', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
   const items = page.locator('.checklist-item');
   for (let index = 0; index < (await items.count()); index++) {
     const item = items.nth(index);
-    await item.locator('[name=evidenceIds][required]').selectOption([doc.id]);
+    await item.locator(`[name=evidenceIds][value="${doc.id}"]`).check();
     await item.getByRole('button', { name: 'Link evidence', exact: true }).click();
     await expect(item.getByText('Saved', { exact: true })).toBeVisible();
   }

@@ -18,8 +18,9 @@ test('work context and unsaved plain/rich edits survive navigation attempts', as
   await target.scrollIntoViewIfNeeded();
   const focusId = await target.getAttribute('id');
   const workUrl = page.url();
+  const targetUrl = new URL((await target.getAttribute('href'))!, workUrl).href;
   await target.click();
-  await page.locator('.record-heading').waitFor();
+  await expect(page).toHaveURL(targetUrl);
   const jobUrl = page.url();
   await page.locator('.back-link').click();
   await expect(page).toHaveURL(workUrl);

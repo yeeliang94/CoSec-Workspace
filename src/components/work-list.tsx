@@ -2,12 +2,29 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import type { Job, Workspace } from '@/domain/model';
-import { currentDate, formatDate, Icon, Empty, PageHeader, useWorkspace } from './workspace';
-export function WorkTable({ jobs, data }: { jobs: Job[]; data: Workspace }) {
+import {
+  currentDate,
+  formatDate,
+  Icon,
+  Empty,
+  PageHeader,
+  useWorkspace,
+  formatDatesIn,
+} from './workspace';
+export function WorkTable({
+  jobs,
+  data,
+  hideCompany = false,
+}: {
+  jobs: Job[];
+  data: Workspace;
+  /** On a company's own page the company column would repeat in every row. */
+  hideCompany?: boolean;
+}) {
   const { rememberWork } = useWorkspace();
   return (
     <div className="table-wrap">
-      <table className="work-table">
+      <table className={hideCompany ? 'work-table hide-company' : 'work-table'}>
         <caption className="sr-only">Company work and next actions</caption>
         <thead>
           <tr>
@@ -45,7 +62,7 @@ export function WorkTable({ jobs, data }: { jobs: Job[]; data: Workspace }) {
                   <div className="state">{job.state}</div>
                 </td>
                 <td>
-                  {job.nextAction || 'Prepare supporting evidence'}
+                  {formatDatesIn(job.nextAction || 'Prepare supporting evidence')}
                   <div className="metadata">
                     {job.filingState === 'Ready' ? (
                       <span className="success">Ready for filing</span>
@@ -54,7 +71,7 @@ export function WorkTable({ jobs, data }: { jobs: Job[]; data: Workspace }) {
                     ) : job.filingState === 'Queried' || job.filingState === 'Rejected' ? (
                       <span className="danger">{job.filingState}</span>
                     ) : job.blockers?.length && job.blockers[0] !== job.nextAction ? (
-                      job.blockers[0]
+                      formatDatesIn(job.blockers[0])
                     ) : (
                       ''
                     )}
@@ -299,9 +316,11 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
           </button>
         </Empty>
       )}
-      <p className="caption" style={{ marginTop: 18 }}>
-        {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
-      </p>
+      {jobs.length ? (
+        <p className="metadata list-count">
+          {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
+        </p>
+      ) : null}
     </>
   );
 }

@@ -332,6 +332,27 @@ export function Empty({ children }: { children: React.ReactNode }) {
   return <div className="empty">{children}</div>;
 }
 
+/** A system event name ("assembly_version.draft_saved") as a readable label ("Assembly version draft saved"). */
+export function humanize(value: string) {
+  const text = value.replace(/[._]+/g, ' ').trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Formats ISO dates written inside system messages ("on or after 2026-11-15") like every other date. */
+export function formatDatesIn(text: string) {
+  return text.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (value) => formatDate(value));
+}
+
+/** The one back link above a page title. */
+export function BackLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="back-link">
+      <Icon kind="back" />
+      {label}
+    </Link>
+  );
+}
+
 export function BackToWork() {
   const { workHref, restoreWork } = useWorkspace();
   return (

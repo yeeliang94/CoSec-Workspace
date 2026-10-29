@@ -2,7 +2,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Company, Officer, OfficerEvent } from '@/domain/model';
-import { useWorkspace, formatDate, currentDate, Empty, BackToWork } from '@/components/workspace';
+import { useWorkspace, formatDate, currentDate, Empty, BackLink } from '@/components/workspace';
 import {
   MembersRegister,
   BeneficialOwnershipRegister,
@@ -43,11 +43,9 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
   const jobs = data.jobs.filter((j) => j.companyId === id);
   return (
     <>
-      <BackToWork />
+      <BackLink href="/companies" label="Companies" />
       <div className="page-header">
-        <div>
-          <h1 className="company-title">{company.name}</h1>
-        </div>
+        <h1>{company.name}</h1>
         {data.actor.capabilities.includes('prepare_job') ? (
           <Link className="button" href={'/jobs/new?company=' + id}>
             New job
@@ -67,10 +65,12 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
           <dt>Engagement status</dt>
           <dd>{company.engagementStatus}</dd>
         </div>
-        <div>
-          <dt>Opening verification</dt>
-          <dd>{company.verification}</dd>
-        </div>
+        {company.verification !== 'Unverified' ? (
+          <div>
+            <dt>Opening verification</dt>
+            <dd>{company.verification}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Incorporation date</dt>
           <dd>{formatDate(company.incorporationDate)}</dd>
@@ -82,8 +82,9 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
         <div>
           <dt>Industry</dt>
           <dd>
-            {industryLabel(company.industry)}
-            {company.activity ? <div className="metadata">{company.activity}</div> : null}
+            {[industryLabel(company.industry), company.activity]
+              .filter((value) => value && value !== '—')
+              .join(' · ') || '—'}
           </dd>
         </div>
         <div>
@@ -92,40 +93,57 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
         </div>
       </dl>
       {company.verification === 'Unverified' ? (
-        <div className="warning">Opening company information is unverified.</div>
+        <div className="warning">
+          Opening company information is unverified.
+          {data.actor.capabilities.includes('confirm_record') ? (
+            <details className="disclosure">
+              <summary>Review opening record</summary>
+              <ActionForm
+                url={'/api/companies/' + company.id}
+                action="review_opening"
+                label="Confirm opening record review"
+                primary
+                confirmation={
+                  'Confirm review of opening company record revision ' +
+                  company.revision +
+                  '? The source and decision will be retained.'
+                }
+                extra={{ expectedRevision: company.revision, confirmed: true }}
+                fields={[
+                  {
+                    name: 'sourceEvidenceId',
+                    label: 'Opening source evidence',
+                    type: 'select',
+                    required: true,
+                    options: data.documents
+                      .filter((d) => d.companyId === company.id && d.classification === 'General')
+                      .map((d) => ({ value: d.id, label: d.title })),
+                  },
+                  { name: 'basis', label: 'Review basis', type: 'textarea', required: true },
+                ]}
+              />
+            </details>
+          ) : null}
+        </div>
       ) : null}
-      {data.actor.capabilities.includes('confirm_record') &&
-      company.verification === 'Unverified' ? (
-        <details className="disclosure">
-          <summary>Review opening record</summary>
-          <div>
-            <ActionForm
-              url={'/api/companies/' + company.id}
-              action="review_opening"
-              label="Confirm opening record review"
-              confirmation={
-                'Confirm review of opening company record revision ' +
-                company.revision +
-                '? The source and decision will be retained.'
-              }
-              extra={{ expectedRevision: company.revision, confirmed: true }}
-              fields={[
-                {
-                  name: 'sourceEvidenceId',
-                  label: 'Opening source evidence',
-                  type: 'select',
-                  required: true,
-                  options: data.documents
-                    .filter((d) => d.companyId === company.id && d.classification === 'General')
-                    .map((d) => ({ value: d.id, label: d.title })),
-                },
-                { name: 'basis', label: 'Review basis', type: 'textarea', required: true },
-              ]}
-            />
-          </div>
-        </details>
-      ) : null}
-      {asAt !== currentDate() ? <p className="warning">Historical view · read only</p> : null}
+      <div className="toolbar record-as-at">
+        <label>
+          Record as at
+          <input
+            type="date"
+            value={asAt}
+            onChange={(event) => event.target.value && setAsAt(event.target.value)}
+          />
+        </label>
+        {asAt !== currentDate() ? (
+          <>
+            <span className="metadata">Historical view · read only</span>
+            <button type="button" className="quiet" onClick={() => setAsAt(currentDate())}>
+              Back to today
+            </button>
+          </>
+        ) : null}
+      </div>
       {error ? (
         <div className="feedback error" role="alert">
           {error}
@@ -138,7 +156,11 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
       ) : null}
       <section className="section">
         <h2>Jobs</h2>
-        {jobs.length ? <WorkTable jobs={jobs} data={data} /> : <p className="muted">No jobs</p>}
+        {jobs.length ? (
+          <WorkTable jobs={jobs} data={data} hideCompany />
+        ) : (
+          <p className="muted">No jobs</p>
+        )}
       </section>
       <section className="section">
         <h2>Documents</h2>

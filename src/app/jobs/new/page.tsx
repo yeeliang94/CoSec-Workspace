@@ -4,12 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace, PageHeader, request, currentDate, Icon } from '@/components/workspace';
 import { FormFields, Field } from '@/components/forms';
+import { requiredChoiceError } from '@/components/form-validation';
 import type { Person } from '@/domain/resolution/model';
 export default function NewJob() {
   const { data, refresh } = useWorkspace();
   const router = useRouter();
   const [activity, setActivity] = useState('W03');
   const [companyId, setCompanyId] = useState('');
+  // Where the user came from: a company file (with a preset activity) or the work list.
+  const [originCompanyId, setOriginCompanyId] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -52,6 +55,7 @@ export default function NewJob() {
     setCompanyId(params.get('company') || '');
     const initial = params.get('activity');
     if (initial === 'W05' || initial === 'W06') setActivity(initial);
+    setOriginCompanyId(params.get('company') || '');
   }, []);
   if (!data) return null;
   const documents = data.documents
@@ -154,11 +158,26 @@ export default function NewJob() {
   ];
   return (
     <>
-      <Link href="/work" className="back-link">
-        <Icon kind="back" />
-        My work
-      </Link>
-      <PageHeader title="New job" />
+      {originCompanyId ? (
+        <Link href={'/companies/' + originCompanyId} className="back-link">
+          <Icon kind="back" />
+          {data.companies.find((c) => c.id === originCompanyId)?.name || 'Company'}
+        </Link>
+      ) : (
+        <Link href="/work" className="back-link">
+          <Icon kind="back" />
+          My work
+        </Link>
+      )}
+      <PageHeader
+        title={
+          activity === 'W05'
+            ? 'New share transaction'
+            : activity === 'W06'
+              ? 'New BO assessment'
+              : 'New job'
+        }
+      />
       <form
         inert={pending}
         aria-busy={pending}
@@ -177,6 +196,11 @@ export default function NewJob() {
           e.preventDefault();
           setError('');
           const f = new FormData(e.currentTarget);
+          const validationError = requiredChoiceError(fields, f);
+          if (validationError) {
+            setError(validationError);
+            return;
+          }
           const selectedRoute = String(f.get('route') || '');
           if (activity === 'W04') {
             if (personId && !people.some((p) => p.id === personId)) {
@@ -305,9 +329,18 @@ export default function NewJob() {
         ) : null}
         <div className="actions">
           <button className="primary" disabled={pending}>
-            {pending ? 'Creating…' : 'Create job'}
+            {pending
+              ? 'Creating…'
+              : activity === 'W05'
+                ? 'Create share transaction'
+                : activity === 'W06'
+                  ? 'Create BO assessment'
+                  : 'Create job'}
           </button>
-          <Link href="/work" className="button">
+          <Link
+            href={originCompanyId ? '/companies/' + originCompanyId : '/work'}
+            className="button"
+          >
             Cancel
           </Link>
         </div>

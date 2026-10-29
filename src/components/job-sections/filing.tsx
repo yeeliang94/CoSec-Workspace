@@ -1,6 +1,6 @@
 'use client';
 import type { JobSectionProps as Props } from './shared';
-import { formatDate, currentDate } from '../workspace';
+import { formatDate, currentDate, formatDatesIn } from '../workspace';
 import { jobFields, JobAction, EvidenceLinks } from './shared';
 export function Filing({ job, data }: Props) {
   const { evidence, version } = jobFields(job, data);
@@ -10,7 +10,7 @@ export function Filing({ job, data }: Props) {
   return (
     <>
       <section className="section">
-        <h2>Filing</h2>
+        <h2 className="sr-only">Filing</h2>
         <dl className="record-meta">
           <div>
             <dt>Filing state</dt>
@@ -22,12 +22,18 @@ export function Filing({ job, data }: Props) {
           </div>
         </dl>
         {job.blockers?.length && job.filingState !== 'Outcome confirmed' ? (
+          // The full list already leads the Overview; here it stays one line until asked for.
           <div className="warning">
-            <ul>
-              {job.blockers.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
+            Not ready to file: {job.blockers.length} outstanding{' '}
+            {job.blockers.length === 1 ? 'item' : 'items'}.
+            <details className="disclosure">
+              <summary>Show outstanding items</summary>
+              <ul>
+                {job.blockers.map((b) => (
+                  <li key={b}>{formatDatesIn(b)}</li>
+                ))}
+              </ul>
+            </details>
           </div>
         ) : null}
         {review ? (

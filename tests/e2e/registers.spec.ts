@@ -32,8 +32,13 @@ async function create(page: Page, activity: 'W05' | 'W06') {
   await page
     .getByLabel('Instruction and authority basis')
     .fill('Fictional browser evidence and reviewed route');
-  await page.getByRole('button', { name: 'Create job', exact: true }).click();
-  await expect(page.locator('.record-heading')).toBeVisible();
+  await page
+    .getByRole('button', {
+      name: activity === 'W05' ? 'Create share transaction' : 'Create BO assessment',
+      exact: true,
+    })
+    .click();
+  await expect(page).toHaveURL(/\/jobs\/[a-f0-9-]+$/);
   return page.url().split('/').at(-1)!;
 }
 async function upload(page: Page, title: string) {
@@ -54,7 +59,10 @@ async function preparePack(page: Page, doc: string, signers: string[] = []) {
   await page
     .getByLabel('Preparation and revision notes')
     .fill('Fictional exact output, evidence and record proposal');
-  await page.getByRole('listbox', { name: 'Pack documents', exact: true }).selectOption(doc);
+  await page
+    .getByRole('group', { name: 'Pack documents', exact: true })
+    .locator(`input[value="${doc}"]`)
+    .check();
   if (signers.length)
     await page.getByLabel('Required signers (one per line)').fill(signers.join('\n'));
   await page.getByRole('button', { name: 'Save new pack version', exact: true }).click();
@@ -62,7 +70,7 @@ async function preparePack(page: Page, doc: string, signers: string[] = []) {
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
   const checks = page.locator('.checklist-item');
   for (let i = 0; i < (await checks.count()); i++) {
-    await checks.nth(i).locator('select').selectOption(doc);
+    await checks.nth(i).locator(`[name=evidenceIds][value="${doc}"]`).check();
     await checks.nth(i).getByRole('button', { name: 'Link evidence', exact: true }).click();
     await expect(checks.nth(i).getByText('Saved', { exact: true })).toBeVisible();
   }

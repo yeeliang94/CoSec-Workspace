@@ -51,7 +51,7 @@ export function ClauseEditor({ id }: { id: string }) {
       <>
         <Link href="/templates" className="back-link">
           <Icon kind="back" />
-          Clause library
+          Templates
         </Link>
         <LoadState
           loading={page.loading}
@@ -196,7 +196,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
     <>
       <Link href="/templates" className="back-link">
         <Icon kind="back" />
-        Clause library
+        Templates
       </Link>
       <header className="record-heading">
         <h1>{template.name}</h1>

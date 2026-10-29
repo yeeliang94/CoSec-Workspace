@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { AuditEntryView } from '@/domain/resolution/records';
-import { Empty, Icon, PageHeader, useWorkspace } from '@/components/workspace';
+import { Empty, humanize, Icon, PageHeader, useWorkspace } from '@/components/workspace';
 import { download, errorText, getJson } from '@/components/resolution/api';
 
 const ENTITY_TYPES = [
@@ -104,9 +104,9 @@ export default function AuditPage() {
   const set = (key: keyof Filters, value: string) => setFilters({ ...filters, [key]: value });
   return (
     <>
-      <Link href="/resolutions" className="back-link">
+      <Link href="/settings" className="back-link">
         <Icon kind="back" />
-        Resolutions
+        Settings
       </Link>
       <PageHeader title="Audit log">
         {caps.includes('export_audit') ? (
@@ -250,7 +250,7 @@ export default function AuditPage() {
                       <td>{entry.actorName}</td>
                       <td>{entry.companyName || '—'}</td>
                       <td>
-                        {entry.action.replaceAll('_', ' ')}
+                        {humanize(entry.action)}
                         {entry.changes.length || entry.summary ? (
                           <div>
                             <button
@@ -265,13 +265,17 @@ export default function AuditPage() {
                                 )
                               }
                             >
-                              {expanded ? 'Hide changes' : `Show changes (${entry.changes.length})`}
+                              {expanded
+                                ? 'Hide changes'
+                                : entry.changes.length
+                                  ? `Show changes (${entry.changes.length})`
+                                  : 'Show details'}
                             </button>
                           </div>
                         ) : null}
                       </td>
                       <td>
-                        {entry.entityType ? entry.entityType.replaceAll('_', ' ') : '—'}
+                        {entry.entityType ? humanize(entry.entityType) : '—'}
                         <div className="metadata">
                           <code>{entry.entityId.slice(0, 12)}</code>
                         </div>

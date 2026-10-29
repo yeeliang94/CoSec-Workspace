@@ -4,23 +4,27 @@ import { type OutputType } from '@/domain/resolution/model';
 import { newRequestId, postJson } from '@/components/resolution/api';
 import { ActionFeedback, useAction } from '@/components/resolution/use-action';
 import { slugId } from '@/components/template-editor/fields';
+import { Drawer } from '@/components/resolution/drawer';
+import { canLeaveEditing } from '@/components/edit-guard';
 
 export function OutputTypes({
   types,
   reload,
+  creating,
+  onCreating,
 }: {
   types: OutputType[];
   reload: () => Promise<void>;
+  creating: boolean;
+  onCreating: (value: boolean) => void;
 }) {
   const action = useAction();
-  const [name, setName] = useState('');
-  const [body, setBody] = useState<'directors' | 'members'>('directors');
   return (
     <section aria-labelledby="output-types">
       <h2 id="output-types" className="sr-only">
         Output types
       </h2>
-      <ActionFeedback error={action.error} status={action.status} />
+      {!creating ? <ActionFeedback error={action.error} status={action.status} /> : null}
       <div className="table-wrap">
         <table>
           <caption className="sr-only">Output types</caption>
@@ -28,7 +32,6 @@ export function OutputTypes({
             <tr>
               <th>Document type</th>
               <th>Body</th>
-              <th>ID</th>
               <th>State</th>
               <th>Actions</th>
             </tr>
@@ -38,9 +41,6 @@ export function OutputTypes({
               <tr key={type.id}>
                 <td>{type.name}</td>
                 <td>{type.body === 'directors' ? 'Directors' : 'Members'}</td>
-                <td>
-                  <code>{type.id}</code>
-                </td>
                 <td>{type.active ? 'Active' : 'Inactive'}</td>
                 <td>
                   <button
@@ -69,65 +69,93 @@ export function OutputTypes({
           </tbody>
         </table>
       </div>
-      <details className="disclosure">
-        <summary>Add a document type</summary>
-        <form
-          className="form-grid"
-          data-dirty={name ? 'true' : 'false'}
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await action.run(
-              () =>
-                postJson('/api/output-types', {
-                  action: 'create',
-                  requestId: newRequestId(),
-                  id: slugId(
-                    name,
-                    types.map((t) => t.id),
-                  ),
-                  name: name.trim(),
-                  body,
-                  order: (types.at(-1)?.order ?? 0) + 10,
-                }),
-              `${name.trim()} added`,
-            );
-            if (ok) {
-              setName('');
-              await reload();
-            }
+      {creating ? (
+        <CreateOutputType
+          types={types}
+          reload={reload}
+          onClose={() => onCreating(false)}
+          onCreated={(name) => {
+            action.setError('');
+            action.setStatus(`${name} added`);
+            onCreating(false);
           }}
-        >
-          <label>
-            Name
-            <input
-              required
-              maxLength={120}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label>
-            Body
-            <select value={body} onChange={(e) => setBody(e.target.value as typeof body)}>
-              <option value="directors">Directors</option>
-              <option value="members">Members</option>
-            </select>
-          </label>
-          {name.trim() ? (
-            <p className="metadata full">
-              ID:{' '}
-              {slugId(
-                name,
-                types.map((t) => t.id),
-              )}{' '}
-              (stays the same if renamed)
-            </p>
-          ) : null}
-          <div className="actions">
-            <button disabled={action.pending}>Add document type</button>
-          </div>
-        </form>
-      </details>
+        />
+      ) : null}
     </section>
+  );
+}
+
+/** The draft and creation feedback live only as long as the drawer is open. */
+function CreateOutputType({
+  types,
+  reload,
+  onClose,
+  onCreated,
+}: {
+  types: OutputType[];
+  reload: () => Promise<void>;
+  onClose: () => void;
+  onCreated: (name: string) => void;
+}) {
+  const action = useAction();
+  const [name, setName] = useState('');
+  const [body, setBody] = useState<'directors' | 'members'>('directors');
+  return (
+    <Drawer title="New document type" onClose={onClose}>
+      <form
+        className="form-grid"
+        data-dirty={name || body !== 'directors' ? 'true' : 'false'}
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const ok = await action.run(
+            () =>
+              postJson('/api/output-types', {
+                action: 'create',
+                requestId: newRequestId(),
+                id: slugId(
+                  name,
+                  types.map((t) => t.id),
+                ),
+                name: name.trim(),
+                body,
+                order: (types.at(-1)?.order ?? 0) + 10,
+              }),
+            `${name.trim()} added`,
+          );
+          if (ok) {
+            await reload();
+            onCreated(name.trim());
+          }
+        }}
+      >
+        <label>
+          Name
+          <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          Body
+          <select value={body} onChange={(e) => setBody(e.target.value as typeof body)}>
+            <option value="directors">Directors</option>
+            <option value="members">Members</option>
+          </select>
+        </label>
+        <div className="full">
+          <ActionFeedback error={action.error} status={action.status} />
+        </div>
+        <div className="actions">
+          <button className="primary" disabled={action.pending}>
+            Add document type
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (await canLeaveEditing()) onClose();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Drawer>
   );
 }

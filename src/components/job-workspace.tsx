@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useWorkspace, Empty, BackToWork, formatDate } from './workspace';
+import { useWorkspace, Empty, BackToWork, formatDate, formatDatesIn, humanize } from './workspace';
 import { canLeaveEditing } from './forms';
 import { Overview } from './job-sections/overview';
 import { Checklist } from './job-sections/checklist';
@@ -28,11 +28,16 @@ export function JobWorkspace({ id }: { id: string }) {
   return (
     <>
       <BackToWork />
-      <header className="record-heading">
-        <Link href={'/companies/' + job.companyId}>{company?.name}</Link>
+      <div className="page-header">
         <h1>{job.title}</h1>
-      </header>
+      </div>
       <dl className="facts track-facts">
+        <div>
+          <dt>Company</dt>
+          <dd>
+            <Link href={'/companies/' + job.companyId}>{company?.name}</Link>
+          </dd>
+        </div>
         <div>
           <dt>Job</dt>
           <dd>{job.state}</dd>
@@ -77,26 +82,16 @@ export function JobWorkspace({ id }: { id: string }) {
           <Correspondence job={job} data={data} />
         ) : (
           <section>
-            <h2>Audit history</h2>
-            <dl className="record-meta">
-              <div>
-                <dt>Activity</dt>
-                <dd>{job.activity}</dd>
-              </div>
-              <div>
-                <dt>Revision</dt>
-                <dd>{job.revision}</dd>
-              </div>
-            </dl>
+            <h2 className="sr-only">History</h2>
             <ul className="list-plain">
               {[...job.history].reverse().map((event) => (
                 <li key={event.id}>
-                  <strong>{event.action.replaceAll('_', ' ')}</strong>
+                  <strong>{humanize(event.action)}</strong>
                   <p className="metadata">
                     {data.users.find((u) => u.id === event.actorId)?.name || event.actorId} ·{' '}
                     {formatDate(event.at)}
                   </p>
-                  <p>{event.detail}</p>
+                  <p>{formatDatesIn(event.detail)}</p>
                 </li>
               ))}
             </ul>

@@ -1,4 +1,6 @@
 'use client';
+import { canLeaveEditing } from '@/components/edit-guard';
+import { Drawer } from '@/components/resolution/drawer';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -170,8 +172,7 @@ function CreateAssembly({
   };
   const [form, setForm] = useState(initialForm);
   return (
-    <section className="new-resolution" aria-labelledby="new-assembly">
-      <h2 id="new-assembly">New layout</h2>
+    <Drawer title="New layout" onClose={onCancel}>
       <form
         className="form-grid"
         data-dirty={JSON.stringify(form) !== JSON.stringify(initialForm) ? 'true' : 'false'}
@@ -237,12 +238,17 @@ function CreateAssembly({
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
               Create assembly
             </button>
-            <button type="button" onClick={onCancel}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await canLeaveEditing()) onCancel();
+              }}
+            >
               Cancel
             </button>
           </div>
         </div>
       </form>
-    </section>
+    </Drawer>
   );
 }

@@ -342,9 +342,7 @@ function ClauseSelection({
           </button>
         ) : null}
       </div>
-      {!selection ? (
-        <p className="metadata">Choose a document type and layout, then press “Use this layout”.</p>
-      ) : (
+      {!selection ? null : (
         // Not inert while pending: that would blur the pressed control. Handlers ignore input
         // while a save is in flight instead.
         <div className="clause-picker" ref={listRef} aria-busy={busy}>

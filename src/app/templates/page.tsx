@@ -52,18 +52,15 @@ export default function TemplatesPage() {
         <Icon kind="back" />
         Resolutions
       </Link>
-      <PageHeader title="Resolution templates">
-        {canManage && tab !== 'outputs' ? (
-          <button
-            type="button"
-            className="primary"
-            aria-expanded={creating}
-            onClick={async () => {
-              if (creating && !(await canLeaveEditing())) return;
-              setCreating(!creating);
-            }}
-          >
-            {tab === 'clauses' ? 'New paragraph' : 'New layout'}
+      <PageHeader title="Templates">
+        {canManage ? (
+          <button type="button" className="primary" onClick={() => setCreating(true)}>
+            <Icon kind="plus" />
+            {tab === 'clauses'
+              ? 'New paragraph'
+              : tab === 'assemblies'
+                ? 'New layout'
+                : 'New document type'}
           </button>
         ) : null}
       </PageHeader>
@@ -91,7 +88,7 @@ export default function TemplatesPage() {
         loading={load.loading && !load.data}
         error={load.error}
         reload={() => void load.reload()}
-        label="clause library"
+        label="templates"
       />
       {load.data ? (
         tab === 'clauses' ? (
@@ -99,10 +96,7 @@ export default function TemplatesPage() {
             clauses={load.data.clauses}
             canManage={canManage}
             creating={creating}
-            onCreating={async (value) => {
-              if (!value && !(await canLeaveEditing())) return;
-              setCreating(value);
-            }}
+            onCreating={setCreating}
             reload={load.reload}
           />
         ) : tab === 'assemblies' ? (
@@ -111,14 +105,16 @@ export default function TemplatesPage() {
             outputTypes={load.data.outputTypes}
             canManage={canManage}
             creating={creating}
-            onCreating={async (value) => {
-              if (!value && !(await canLeaveEditing())) return;
-              setCreating(value);
-            }}
+            onCreating={setCreating}
             reload={load.reload}
           />
         ) : (
-          <OutputTypes types={load.data.outputTypes} reload={load.reload} />
+          <OutputTypes
+            types={load.data.outputTypes}
+            reload={load.reload}
+            creating={creating}
+            onCreating={setCreating}
+          />
         )
       ) : null}
     </>

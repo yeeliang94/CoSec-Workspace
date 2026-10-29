@@ -3,7 +3,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useWorkspace, PageHeader, Icon, formatDate, Empty } from '@/components/workspace';
 import { NewCompany } from '@/components/new-company';
-import { canLeaveEditing } from '@/components/edit-guard';
 export default function Companies() {
   const { data, refresh } = useWorkspace();
   const [query, setQuery] = useState('');
@@ -17,21 +16,16 @@ export default function Companies() {
       <PageHeader title="Companies">
         <div className="header-actions">
           {data.actor.capabilities.includes('prepare_job') ? (
-            <button
-              className="primary"
-              onClick={async () => {
-                if (adding && !(await canLeaveEditing())) return;
-                setAdding(!adding);
-              }}
-            >
-              {adding ? null : <Icon kind="plus" />}
-              {adding ? 'Close form' : 'New company'}
+            <button type="button" className="primary" onClick={() => setAdding(true)}>
+              <Icon kind="plus" />
+              New company
             </button>
           ) : null}
         </div>
       </PageHeader>
       {adding ? (
         <NewCompany
+          onClose={() => setAdding(false)}
           onSaved={async () => {
             await refresh();
             setAdding(false);
