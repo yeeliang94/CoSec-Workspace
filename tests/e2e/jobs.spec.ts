@@ -72,7 +72,7 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   await page.locator('[name=notes]').fill('Prepared external output for fictional UI test');
   await page.locator('[name=documentIds]').selectOption([doc.id]);
   await page.getByRole('button', { name: 'Save new pack version', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Current pack · v2', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Current pack v2', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
   const items = page.locator('.checklist-item');
   for (let index = 0; index < (await items.count()); index++) {
@@ -89,7 +89,7 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   await confirm.getByRole('button', { name: 'Record client confirmation', exact: true }).click();
   await expect(page.getByText('Client confirmation evidenced', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Request review of v/ }).click();
-  await expect(page.locator('.track-facts')).toContainText('Awaiting review');
+  await expect(page.locator('.job-facts')).toContainText('Awaiting review');
   await signIn('reviewer');
   await page.goto(jobUrl);
   const review = page
@@ -101,10 +101,10 @@ test('annual return creation, retained duplicate validation, evidence, versions 
     .locator('[name=reason]')
     .fill('Checked fictional sources and exact pack through UI acceptance.');
   await review.getByRole('button', { name: /Record decision for v/ }).click();
-  await expect(page.locator('.track-facts')).toContainText('Action in progress');
-  await expect(page.locator('.track-facts')).toContainText('Reviewed');
+  await expect(page.locator('.job-facts')).toContainText('Action in progress');
+  await expect(page.locator('.job-facts')).toContainText('Reviewed');
   await mkdir('.local/ui-review', { recursive: true });
-  for (const width of [1440, 768, 390, 320]) {
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

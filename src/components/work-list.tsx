@@ -3,86 +3,167 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import type { Job, Workspace } from '@/domain/model';
 import { currentDate, formatDate, Icon, Empty, PageHeader, useWorkspace } from './workspace';
-export function WorkTable({ jobs, data }: { jobs: Job[]; data: Workspace }) {
+import { readableDates } from './job-sections/shared';
+const companyOriginKey = 'cosec.companyOrigin';
+export type CompanyOrigin = { companyId: string; from: 'work' | 'job'; jobId?: string; at: number };
+/** Notes where a company file was opened from, so its back link can return there. */
+export function markCompanyOrigin(origin: Omit<CompanyOrigin, 'at'>) {
+  try {
+    sessionStorage.setItem(companyOriginKey, JSON.stringify({ ...origin, at: Date.now() }));
+  } catch {}
+}
+/** The origin noted by the click that just opened this company, if any. */
+export function readCompanyOrigin(companyId: string): CompanyOrigin | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(companyOriginKey) || 'null') as CompanyOrigin;
+    return value && value.companyId === companyId && Date.now() - value.at < 10000 ? value : null;
+  } catch {
+    return null;
+  }
+}
+function dueOf(job: Job) {
+  return job.statutoryDue || job.internalTarget || '';
+}
+function isOpen(job: Job) {
+  return !['Complete', 'Cancelled'].includes(job.state);
+}
+function addDays(date: string, days: number) {
+  const value = new Date(date + 'T00:00:00Z');
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+function daysBetween(from: string, to: string) {
+  return Math.round(
+    (new Date(to + 'T00:00:00Z').getTime() - new Date(from + 'T00:00:00Z').getTime()) / 86400000,
+  );
+}
+function dueNote(job: Job, today: string) {
+  const due = dueOf(job);
+  if (!due || !isOpen(job)) return '';
+  const days = daysBetween(due, today);
+  if (days > 0) return days === 1 ? ' (1 day overdue)' : ` (${days} days overdue)`;
+  if (days === 0) return ' (today)';
+  return '';
+}
+function statusOf(job: Job): { text: string; tone: string } {
+  if (job.filingState === 'Ready') return { text: 'Ready for filing', tone: 'success' };
+  if (job.filingState === 'Submitted' || job.filingState === 'Resubmitted')
+    return { text: 'Outcome outstanding', tone: '' };
+  if (job.filingState === 'Queried' || job.filingState === 'Rejected')
+    return { text: 'Filing ' + job.filingState.toLowerCase(), tone: 'danger' };
+  return { text: job.state, tone: '' };
+}
+export function groupByDue(jobs: Job[]) {
+  const today = currentDate();
+  const week = addDays(today, 7);
+  const groups: { label: string; jobs: Job[] }[] = [
+    { label: 'Overdue', jobs: [] },
+    { label: 'Due this week', jobs: [] },
+    { label: 'Later', jobs: [] },
+  ];
+  for (const job of jobs) {
+    const due = dueOf(job);
+    if (due && due < today && isOpen(job)) groups[0].jobs.push(job);
+    else if (due && due <= week) groups[1].jobs.push(job);
+    else groups[2].jobs.push(job);
+  }
+  return groups.filter((group) => group.jobs.length);
+}
+export function WorkTable({
+  jobs,
+  data,
+  grouped = false,
+  showCompany = true,
+}: {
+  jobs: Job[];
+  data: Workspace;
+  grouped?: boolean;
+  showCompany?: boolean;
+}) {
   const { rememberWork } = useWorkspace();
+  const today = currentDate();
+  const columns = showCompany ? 7 : 5;
+  const groups = grouped ? groupByDue(jobs) : [{ label: '', jobs }];
   return (
     <div className="table-wrap">
-      <table className="work-table">
+      <table className={'work-table' + (showCompany ? '' : ' compact')}>
         <caption className="sr-only">Company work and next actions</caption>
         <thead>
           <tr>
-            <th>Company</th>
+            {showCompany ? (
+              <>
+                <th>Company</th>
+                <th>Registration no.</th>
+              </>
+            ) : null}
             <th>Job</th>
+            <th>Status</th>
             <th>Next action</th>
             <th>Due</th>
             <th>Owner</th>
           </tr>
         </thead>
-        <tbody>
-          {jobs.map((job) => {
-            const company = data.companies.find((c) => c.id === job.companyId);
-            const due = job.statutoryDue || job.internalTarget;
-            return (
-              <tr key={job.id}>
-                <td>
-                  <Link
-                    id={'work-company-' + job.id}
-                    onClick={() => rememberWork('work-company-' + job.id)}
-                    href={'/companies/' + job.companyId}
-                  >
-                    {company?.name || 'Company'}
-                  </Link>
-                  <div className="metadata">{company?.registrationNumber}</div>
-                </td>
-                <td>
-                  <Link
-                    id={'work-job-' + job.id}
-                    onClick={() => rememberWork('work-job-' + job.id)}
-                    href={'/jobs/' + job.id}
-                  >
-                    {job.title}
-                  </Link>
-                  <div className="state">{job.state}</div>
-                </td>
-                <td>
-                  {job.nextAction || 'Prepare supporting evidence'}
-                  <div className="metadata">
-                    {job.filingState === 'Ready' ? (
-                      <span className="success">Ready for filing</span>
-                    ) : job.filingState === 'Submitted' || job.filingState === 'Resubmitted' ? (
-                      'Outcome outstanding'
-                    ) : job.filingState === 'Queried' || job.filingState === 'Rejected' ? (
-                      <span className="danger">{job.filingState}</span>
-                    ) : job.blockers?.length && job.blockers[0] !== job.nextAction ? (
-                      job.blockers[0]
-                    ) : (
-                      ''
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <span
-                    className={
-                      due && due < currentDate() && job.state !== 'Complete'
-                        ? 'danger nowrap'
-                        : 'nowrap'
-                    }
-                  >
-                    {formatDate(due)}
-                  </span>
-                  <div className="metadata">
-                    {job.statutoryDue
-                      ? 'Manual statutory date'
-                      : job.internalTarget
-                        ? 'Internal target'
-                        : 'Rule missing'}
-                  </div>
-                </td>
-                <td>{data.users.find((u) => u.id === job.ownerId)?.name || 'Unassigned'}</td>
+        {groups.map((group) => (
+          <tbody key={group.label || 'all'}>
+            {group.label ? (
+              <tr className="work-group">
+                <th colSpan={columns} scope="colgroup">
+                  {group.label}
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
+            ) : null}
+            {group.jobs.map((job) => {
+              const company = data.companies.find((c) => c.id === job.companyId);
+              const due = dueOf(job);
+              const overdue = Boolean(due && due < today && isOpen(job));
+              const status = statusOf(job);
+              return (
+                <tr key={job.id}>
+                  {showCompany ? (
+                    <>
+                      <td>
+                        <Link
+                          id={'work-company-' + job.id}
+                          onClick={() => {
+                            rememberWork('work-company-' + job.id);
+                            markCompanyOrigin({ companyId: job.companyId, from: 'work' });
+                          }}
+                          href={'/companies/' + job.companyId}
+                        >
+                          {company?.name || 'Company'}
+                        </Link>
+                      </td>
+                      <td className="muted nowrap">{company?.registrationNumber}</td>
+                    </>
+                  ) : null}
+                  <td>
+                    <Link
+                      id={'work-job-' + job.id}
+                      onClick={() => rememberWork('work-job-' + job.id)}
+                      href={'/jobs/' + job.id}
+                    >
+                      {job.title}
+                    </Link>
+                  </td>
+                  <td className={status.tone}>{status.text}</td>
+                  <td>{readableDates(job.nextAction || 'Prepare supporting evidence')}</td>
+                  <td className={overdue ? 'danger due-cell' : 'due-cell'}>
+                    <span className="nowrap">{formatDate(due)}</span>
+                    {dueNote(job, today) ? (
+                      <>
+                        {' '}
+                        <span className="nowrap">{dueNote(job, today).trim()}</span>
+                      </>
+                    ) : null}
+                  </td>
+                  <td className="nowrap">
+                    {data.users.find((u) => u.id === job.ownerId)?.name || 'Unassigned'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        ))}
       </table>
     </div>
   );
@@ -163,10 +244,13 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
             b.statutoryDue || b.internalTarget || '9999',
           ),
     );
+  const defaultFilter = mode === 'reviews' ? 'Review' : 'All work';
+  const untouched =
+    filter === defaultFilter && !query && !activity && !owner && !dueBefore && !blocker;
   return (
     <>
       <PageHeader title={mode === 'reviews' ? 'Reviews' : 'My work'}>
-        {data.actor.capabilities.includes('prepare_job') ? (
+        {mode !== 'reviews' && data.actor.capabilities.includes('prepare_job') ? (
           <Link href="/jobs/new" className="button primary">
             <Icon kind="plus" />
             New job
@@ -185,7 +269,6 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
             key={item}
           >
             {item}
-            <small>{base.filter((job) => matches(job, item, data.actor.id)).length}</small>
           </button>
         ))}
       </div>
@@ -231,11 +314,13 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
             }}
           >
             <option value="">All owners</option>
-            {data.users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
+            {data.users
+              .filter((u) => u.id === data.actor.id || data.jobs.some((j) => j.ownerId === u.id))
+              .map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
           </select>
         </label>
         <label>
@@ -251,6 +336,9 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
             <option value="company">Company name</option>
           </select>
         </label>
+        <p className="results-line" role="status">
+          {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
+        </p>
       </div>
       <details className="advanced-filters">
         <summary>More filters</summary>
@@ -280,7 +368,11 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
         </div>
       </details>
       {jobs.length ? (
-        <WorkTable jobs={jobs} data={data} />
+        <WorkTable jobs={jobs} data={data} grouped={sort === 'due'} />
+      ) : untouched ? (
+        <Empty>
+          <p>{mode === 'reviews' ? 'Nothing awaiting review' : 'No work yet'}</p>
+        </Empty>
       ) : (
         <Empty>
           <p>No matching jobs</p>
@@ -289,7 +381,7 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
               setQuery('');
               setActivity('');
               setOwner('');
-              setFilter('All work');
+              setFilter(defaultFilter);
               setDueBefore('');
               setBlocker(false);
               window.history.replaceState(null, '', window.location.pathname);
@@ -299,9 +391,6 @@ export function WorkList({ mode = 'work' }: { mode?: 'work' | 'reviews' }) {
           </button>
         </Empty>
       )}
-      <p className="caption" style={{ marginTop: 18 }}>
-        {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
-      </p>
     </>
   );
 }

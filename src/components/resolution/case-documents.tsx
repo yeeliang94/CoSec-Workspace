@@ -230,16 +230,15 @@ function Generation({
                   : 'muted'
             }
           >
-            · {generation.status}
+            , {generation.status}
           </span>
           {lastReview?.kind === 'review' ? (
             <span className={lastReview.decision === 'Approved' ? 'success' : 'danger'}>
-              {' '}
-              · {lastReview.decision === 'Approved' ? 'Approved' : 'Returned'} by{' '}
+              , {lastReview.decision === 'Approved' ? 'Approved' : 'Returned'} by{' '}
               {name(lastReview.actorId)}
             </span>
           ) : generation.status === 'Ready' ? (
-            <span className="muted"> · Not reviewed</span>
+            <span className="muted">, not reviewed</span>
           ) : null}
           {generation.failure ? <p className="danger">{generation.failure}</p> : null}
         </div>
@@ -362,7 +361,7 @@ function Generation({
               <option value="">Select…</option>
               {requirements.map(({ personId, role }) => (
                 <option key={`${role}:${personId}`} value={`${role}:${personId}`}>
-                  {personName(personId)} · {SIGNER_ROLE_LABELS[role]}
+                  {personName(personId)}, {SIGNER_ROLE_LABELS[role]}
                 </option>
               ))}
             </select>

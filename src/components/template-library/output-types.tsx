@@ -18,17 +18,16 @@ export function OutputTypes({
   return (
     <section aria-labelledby="output-types">
       <h2 id="output-types" className="sr-only">
-        Output types
+        Document types
       </h2>
       <ActionFeedback error={action.error} status={action.status} />
       <div className="table-wrap">
-        <table>
-          <caption className="sr-only">Output types</caption>
+        <table className="library-table">
+          <caption className="sr-only">Document types</caption>
           <thead>
             <tr>
               <th>Document type</th>
               <th>Body</th>
-              <th>ID</th>
               <th>State</th>
               <th>Actions</th>
             </tr>
@@ -38,14 +37,11 @@ export function OutputTypes({
               <tr key={type.id}>
                 <td>{type.name}</td>
                 <td>{type.body === 'directors' ? 'Directors' : 'Members'}</td>
-                <td>
-                  <code>{type.id}</code>
-                </td>
                 <td>{type.active ? 'Active' : 'Inactive'}</td>
                 <td>
                   <button
                     type="button"
-                    className="quiet"
+                    className="quiet table-action"
                     aria-label={`${type.active ? 'Deactivate' : 'Activate'} ${type.name}`}
                     onClick={async () => {
                       const ok = await action.run(
@@ -113,16 +109,6 @@ export function OutputTypes({
               <option value="members">Members</option>
             </select>
           </label>
-          {name.trim() ? (
-            <p className="metadata full">
-              ID:{' '}
-              {slugId(
-                name,
-                types.map((t) => t.id),
-              )}{' '}
-              (stays the same if renamed)
-            </p>
-          ) : null}
           <div className="actions">
             <button disabled={action.pending}>Add document type</button>
           </div>

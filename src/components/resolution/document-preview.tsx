@@ -1,6 +1,6 @@
 'use client';
 import type { ResolvedBlock, ResolvedDocument, ResolvedInline } from '@/domain/resolution/model';
-import type { Issue } from './api';
+import { plainIssue, type Issue, type IssueField } from './api';
 
 function Runs({ runs }: { runs: ResolvedInline[] }) {
   return (
@@ -129,29 +129,29 @@ export function DocumentPreview({
   document,
   issues = [],
   onIssue,
+  fields,
 }: {
   document: ResolvedDocument | null;
   issues?: Issue[];
   onIssue?: (issue: Issue) => void;
+  /** Lets issues name the field as the reader sees it. */
+  fields?: IssueField[];
 }) {
   return (
     <div className="document-preview">
       {issues.length ? (
         <div className="warning" role="alert">
-          <strong>
-            {issues.length} {issues.length === 1 ? 'issue' : 'issues'} to resolve
-          </strong>
+          <strong>To resolve before generating</strong>
           <ul>
             {issues.map((issue, index) => (
               <li key={index}>
                 {onIssue ? (
                   <button type="button" className="text-button" onClick={() => onIssue(issue)}>
-                    {issue.message}
+                    {plainIssue(issue, fields)}
                   </button>
                 ) : (
-                  issue.message
+                  plainIssue(issue, fields)
                 )}
-                {issue.location ? <span className="metadata"> · {issue.location}</span> : null}
               </li>
             ))}
           </ul>
@@ -188,11 +188,8 @@ export function DocumentPreview({
                 <div className="document-running">{document.layout.header}</div>
               ) : null}
               <Blocks blocks={document.blocks} />
-              {document.layout.footer || document.layout.pageNumbers ? (
-                <div className="document-running footer">
-                  {document.layout.footer}
-                  {document.layout.pageNumbers ? <span>Page 1 of N</span> : null}
-                </div>
+              {document.layout.footer ? (
+                <div className="document-running footer">{document.layout.footer}</div>
               ) : null}
             </article>
           </div>

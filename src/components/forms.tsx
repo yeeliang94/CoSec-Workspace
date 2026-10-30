@@ -44,7 +44,7 @@ export function FormFields({ fields }: { fields: Field[] }) {
               multiple={field.type === 'multi'}
               defaultValue={field.type === 'multi' ? undefined : String(field.value || '')}
             >
-              <option value="">Select…</option>
+              {field.type === 'multi' ? null : <option value="">Select…</option>}
               {field.options?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}

@@ -120,7 +120,7 @@ function CapitalEditor({ job, data, records }: JobSectionProps & { records: Capi
               <option value="">{kind === 'allotment' ? 'New share class' : 'Select…'}</option>
               {records.position.classes.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} · {c.currency}
+                  {c.name}, {c.currency}
                 </option>
               ))}
             </select>
@@ -158,8 +158,8 @@ function CapitalEditor({ job, data, records }: JobSectionProps & { records: Capi
                   .filter((c) => !c.cancelledOn && c.classId === classId)
                   .map((c) => (
                     <option value={c.id} key={c.id}>
-                      {c.number} · {records.position.members.find((m) => m.id === c.memberId)?.name}{' '}
-                      · {c.units} units
+                      {c.number}, {records.position.members.find((m) => m.id === c.memberId)?.name},{' '}
+                      {c.units} units
                     </option>
                   ))}
               </select>
@@ -412,8 +412,8 @@ export function CapitalWorkspace({ job, data }: JobSectionProps) {
                   ? 'Opening balances'
                   : proposal.kind === 'allotment'
                     ? 'Allotment'
-                    : 'Transfer'}{' '}
-                · {proposal.shareClass.name}
+                    : 'Transfer'}
+                , {proposal.shareClass.name}
               </h3>
               {!job.recordEventId && job.recordBaseRevision !== records.revision ? (
                 <p className="warning">

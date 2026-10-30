@@ -1,7 +1,7 @@
 'use client';
 import type { JobSectionProps as Props } from './shared';
 import { formatDate, currentDate } from '../workspace';
-import { jobFields, JobAction, EvidenceLinks } from './shared';
+import { jobFields, JobAction, EvidenceLinks, readableDates } from './shared';
 export function Filing({ job, data }: Props) {
   const { evidence, version } = jobFields(job, data);
   const review = data.actor.capabilities.includes('review_pack');
@@ -22,13 +22,18 @@ export function Filing({ job, data }: Props) {
           </div>
         </dl>
         {job.blockers?.length && job.filingState !== 'Outcome confirmed' ? (
-          <div className="warning">
-            <ul>
+          <>
+            <p className="warning">
+              {job.blockers.length === 1
+                ? '1 item outstanding before filing.'
+                : `${job.blockers.length} items outstanding before filing.`}
+            </p>
+            <ul className="list-plain outstanding-list">
               {job.blockers.map((b) => (
-                <li key={b}>{b}</li>
+                <li key={b}>{readableDates(b)}</li>
               ))}
             </ul>
-          </div>
+          </>
         ) : null}
         {review ? (
           <JobAction
@@ -225,7 +230,7 @@ export function Filing({ job, data }: Props) {
             {[...attempts].reverse().map((attempt) => (
               <li key={attempt.id}>
                 <h3>
-                  {attempt.reference} · package v{attempt.version}
+                  {attempt.reference}, package v{attempt.version}
                 </h3>
                 <dl className="record-meta">
                   <div>
@@ -251,14 +256,14 @@ export function Filing({ job, data }: Props) {
                 />
                 {attempt.messages.map((message) => (
                   <div className="warning" key={message.id}>
-                    <strong>{message.kind}</strong> · {formatDate(message.date)}
+                    <strong>{message.kind}</strong>, {formatDate(message.date)}
                     <p>{message.wording}</p>
                     <p>Response due {formatDate(message.responseDue)}</p>
                     <EvidenceLinks ids={[message.evidenceId]} data={data} />
                     {message.response ? (
                       <>
                         <p>
-                          Response {formatDate(message.response.date)} · {message.response.summary}
+                          Response {formatDate(message.response.date)}, {message.response.summary}
                         </p>
                         <EvidenceLinks ids={[message.response.evidenceId]} data={data} />
                       </>

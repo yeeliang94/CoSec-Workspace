@@ -123,8 +123,8 @@ export function MembersRegister({ companyId, asAt }: { companyId: string; asAt: 
                           ? 'Opening balances'
                           : e.kind === 'allotment'
                             ? 'Allotment'
-                            : 'Transfer'}{' '}
-                        · {e.shareClass.name}
+                            : 'Transfer'}
+                        , {e.shareClass.name}
                       </Link>
                       <dl className="record-meta">
                         <div>
@@ -168,7 +168,7 @@ export function BeneficialOwnershipRegister({
         <h2>Beneficial ownership as at {formatDate(asAt)}</h2>
         {data?.actor.capabilities.includes('prepare_job') ? (
           <Link href={`/jobs/new?company=${companyId}&activity=W06`} className="button">
-            New BO assessment
+            New beneficial ownership assessment
           </Link>
         ) : null}
       </div>
@@ -204,21 +204,21 @@ export function BeneficialOwnershipRegister({
               </table>
             </div>
           ) : (
-            <p className="muted">No reviewed BO entries at this date</p>
+            <p className="muted">No reviewed beneficial ownership entries at this date</p>
           )}
           {records.events.length ? (
             <details className="disclosure">
-              <summary>BO register history</summary>
+              <summary>Register history</summary>
               <div>
                 <ul className="list-plain">
                   {[...records.events].reverse().map((e) => (
                     <li key={e.id}>
                       <Link href={'/jobs/' + e.jobId}>
-                        {e.personName} ·{' '}
+                        {e.personName},{' '}
                         {e.kind === 'entry'
                           ? 'Entry'
                           : e.kind === 'review'
-                            ? 'Review/update'
+                            ? 'Review or update'
                             : 'Cessation'}
                       </Link>
                       <dl className="record-meta">

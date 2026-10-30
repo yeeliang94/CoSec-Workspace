@@ -209,7 +209,7 @@ function RelationshipTable({
                             setReason('');
                           }}
                         >
-                          End…
+                          End role
                         </button>
                       )
                     ) : (

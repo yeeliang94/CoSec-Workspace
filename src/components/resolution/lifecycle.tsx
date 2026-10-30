@@ -91,7 +91,7 @@ export function VersionLifecycle({
     <div className="lifecycle">
       <p className="lifecycle-state">
         <strong>
-          v{version.version} · {version.status}
+          v{version.version}, {version.status}
         </strong>
       </p>
       {version.status === 'Returned' && version.returnReason ? (
@@ -229,8 +229,8 @@ export function VersionHistory({
               >
                 v{version.version}
               </Link>
-            )}{' '}
-            · {version.status}
+            )}
+            , {version.status}
             <dl className="record-meta">
               <div>
                 <dt>Created by</dt>

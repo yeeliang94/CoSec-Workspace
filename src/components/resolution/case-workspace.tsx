@@ -30,14 +30,53 @@ type Section = (typeof SECTIONS)[number][0];
 /** Links to the old separate tabs land on the matching part of the single Prepare page. */
 const OLD_SECTIONS = ['overview', 'steps', 'clauses', 'questions', 'preview'];
 
+/** History entries in words; the stored action names are internal. */
+const HISTORY_LABELS: Record<string, string> = {
+  created: 'Created',
+  create: 'Created',
+  link_job: 'Linked director change',
+  update_details: 'Updated details',
+  add_step: 'Added step',
+  update_step: 'Updated step',
+  record_decision: 'Recorded outcome',
+  cancel: 'Cancelled',
+  complete: 'Marked complete',
+  send_for_review: 'Sent for review',
+  review: 'Reviewed',
+  reopen: 'Reopened for changes',
+  set_custom: 'Changed company value',
+  set_selection: 'Selected layout and wording',
+  save_answers: 'Saved answers',
+  accept_version: 'Updated paragraph wording',
+  family_created: 'Started a Word document',
+  document_generated: 'Created Word document',
+  resolution_attached: 'Attached to job',
+};
+export function historyLabel(action: string) {
+  if (HISTORY_LABELS[action]) return HISTORY_LABELS[action];
+  const words = action
+    .replace(/^resolution_case\./, '')
+    .replaceAll(/[_.]/g, ' ')
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+const isSection = (value: string | null): value is Section =>
+  SECTIONS.some(([key]) => key === value);
+
 export function CaseWorkspace({ id }: { id: string }) {
   const { data } = useWorkspace();
   const [section, setSection] = useState<Section>('prepare');
+  const complete = useAction();
   const load = useLoad(() => getJson<CaseDetail>('/api/resolution-cases/' + id), [id]);
   useEffect(() => {
+    // The open section lives in the address (?section=documents) so reloads and shared links
+    // return to it. Older #hash links still work.
     const read = () => {
+      const param = new URLSearchParams(window.location.search).get('section');
       const hash = window.location.hash.slice(1);
-      if (SECTIONS.some(([key]) => key === hash)) setSection(hash as Section);
+      if (isSection(param)) setSection(param);
+      else if (isSection(hash)) setSection(hash);
       else if (OLD_SECTIONS.includes(hash)) {
         setSection('prepare');
         requestAnimationFrame(() => document.getElementById('prepare-' + hash)?.scrollIntoView());
@@ -45,7 +84,11 @@ export function CaseWorkspace({ id }: { id: string }) {
     };
     read();
     window.addEventListener('hashchange', read);
-    return () => window.removeEventListener('hashchange', read);
+    window.addEventListener('popstate', read);
+    return () => {
+      window.removeEventListener('hashchange', read);
+      window.removeEventListener('popstate', read);
+    };
   }, []);
   if (!data) return null;
   if (!load.data)
@@ -92,44 +135,51 @@ export function CaseWorkspace({ id }: { id: string }) {
   const choose = async (key: Section) => {
     if (key === section || !(await canLeaveEditing())) return;
     setSection(key);
-    window.history.replaceState(window.history.state, '', '#' + key);
+    const params = new URLSearchParams(window.location.search);
+    if (key === 'prepare') params.delete('section');
+    else params.set('section', key);
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + (params.size ? '?' + params.toString() : ''),
+    );
   };
+  const canComplete =
+    item.state === 'Open' &&
+    caps.some((cap) => cap === 'prepare_job' || cap === 'generate_documents');
   return (
     <>
       <Link href="/resolutions" className="back-link">
         <Icon kind="back" />
         Resolutions
       </Link>
-      <header className="record-heading">
-        <div className="record-line">
-          <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>
-          <span className="metadata">·</span>
-          <Link href={'/resolutions/companies/' + item.companyId} className="metadata-link">
-            Company details used in resolutions
-          </Link>
+      <header className="record-heading resolution-heading">
+        <div>
+          <h1>{item.title}</h1>
+          <p className="record-number">
+            <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>{' '}
+            {company?.registrationNumber}
+          </p>
         </div>
-        <h1>{item.title}</h1>
-        <dl className="record-meta">
-          <div>
-            <dt>Kind</dt>
-            <dd>{kindLabel(item.kind)}</dd>
+        {canComplete ? (
+          <div className="header-actions">
+            <button
+              type="button"
+              disabled={complete.pending}
+              onClick={() => void complete.run(() => api.act('complete'), 'Resolution completed')}
+            >
+              {complete.pending ? 'Completing…' : 'Mark complete'}
+            </button>
           </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{caseStatus(item, userName)}</dd>
-          </div>
-          {job ? (
-            <div>
-              <dt>Linked job</dt>
-              <dd>
-                <Link href={'/jobs/' + job.id}>{job.title}</Link>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
+        ) : null}
       </header>
+      <ActionFeedback
+        error={complete.error}
+        status={complete.status}
+        conflict={complete.conflict}
+        onReload={() => void api.reload()}
+      />
       <ReviewPanel api={api} />
-      <CompleteResolution api={api} />
       <nav className="section-nav" aria-label="Resolution sections">
         {SECTIONS.map(([key, label]) => (
           <button
@@ -143,41 +193,71 @@ export function CaseWorkspace({ id }: { id: string }) {
           </button>
         ))}
       </nav>
-      <div className="section-content">
-        {section === 'prepare' ? (
-          <Prepare api={api} />
-        ) : section === 'documents' ? (
-          <>
-            <CaseDocuments api={api} />
-            <DecisionRecord api={api} />
-          </>
-        ) : (
-          <section aria-labelledby="case-history">
-            <h2 id="case-history">History</h2>
-            <dl className="record-meta">
+      <div className="split record-split">
+        <div className="split-main section-content">
+          {section === 'prepare' ? (
+            <Prepare api={api} />
+          ) : section === 'documents' ? (
+            <>
+              <CaseDocuments api={api} />
+              <DecisionRecord api={api} />
+            </>
+          ) : (
+            <section aria-labelledby="case-history">
+              <h2 id="case-history">History</h2>
+              {item.history.length ? (
+                <ul className="list-plain case-history">
+                  {[...item.history].reverse().map((event) => (
+                    <li key={event.id}>
+                      <strong>{historyLabel(event.action)}</strong>
+                      <p className="metadata">
+                        {data.users.find((u) => u.id === event.actorId)?.name || event.actorId},{' '}
+                        {formatDate(event.at)}
+                      </p>
+                      {event.detail ? <p>{event.detail}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty>No history yet</Empty>
+              )}
+            </section>
+          )}
+        </div>
+        <aside className="detail-aside" aria-labelledby="case-facts">
+          <h2 id="case-facts">Details</h2>
+          <dl className="facts stacked">
+            <div>
+              <dt>Kind</dt>
+              <dd>{kindLabel(item.kind)}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{caseStatus(item, userName)}</dd>
+            </div>
+            <div>
+              <dt>Owner</dt>
+              <dd>{userName(item.ownerId)}</dd>
+            </div>
+            {job ? (
               <div>
-                <dt>Current revision</dt>
-                <dd>{item.revision}</dd>
+                <dt>Linked director change</dt>
+                <dd>
+                  <Link href={'/jobs/' + job.id}>{job.title}</Link>
+                </dd>
               </div>
-            </dl>
-            {item.history.length ? (
-              <ul className="list-plain">
-                {[...item.history].reverse().map((event) => (
-                  <li key={event.id}>
-                    <strong>{event.action.replaceAll('_', ' ')}</strong>
-                    <p className="metadata">
-                      {data.users.find((u) => u.id === event.actorId)?.name || event.actorId} ·{' '}
-                      {formatDate(event.at)}
-                    </p>
-                    {event.detail ? <p>{event.detail}</p> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Empty>No history yet</Empty>
-            )}
-          </section>
-        )}
+            ) : null}
+            <div>
+              <dt>Revision</dt>
+              <dd>{item.revision}</dd>
+            </div>
+          </dl>
+          <p className="aside-link">
+            <Link className="section-link" href={'/resolutions/companies/' + item.companyId}>
+              Company details used in resolutions
+            </Link>
+          </p>
+        </aside>
       </div>
     </>
   );
@@ -239,7 +319,7 @@ function SendForReview({ api }: { api: CaseApi }) {
           {send.pending ? 'Sending…' : 'Send for review'}
         </button>
       </form>
-      {!item.selection ? <p className="metadata">Choose the wording in step 2 first.</p> : null}
+      {!item.selection ? <p className="metadata">Choose the layout in step 2 first.</p> : null}
       <ActionFeedback
         error={send.error || closing.error}
         status={send.status || closing.status}
@@ -259,9 +339,7 @@ function SendForReview({ api }: { api: CaseApi }) {
             <textarea required value={reason} onChange={(event) => setReason(event.target.value)} />
           </label>
           <div className="actions">
-            <button className="danger" disabled={closing.pending || !reason.trim()}>
-              Cancel resolution
-            </button>
+            <button disabled={closing.pending || !reason.trim()}>Cancel resolution</button>
             <button type="button" onClick={() => setCancelling(false)}>
               Keep it
             </button>
@@ -385,35 +463,6 @@ function ReviewPanel({ api }: { api: CaseApi }) {
         </button>
       </div>
       {feedback}
-    </div>
-  );
-}
-
-function CompleteResolution({ api }: { api: CaseApi }) {
-  const { data } = useWorkspace();
-  const action = useAction();
-  if (
-    api.detail.case.state !== 'Open' ||
-    !data?.actor.capabilities.some((cap) => cap === 'prepare_job' || cap === 'generate_documents')
-  )
-    return null;
-  return (
-    <div className="form-footer">
-      <div className="actions">
-        <button
-          type="button"
-          disabled={action.pending}
-          onClick={() => void action.run(() => api.act('complete'), 'Resolution completed')}
-        >
-          {action.pending ? 'Completing…' : 'Mark complete'}
-        </button>
-      </div>
-      <ActionFeedback
-        error={action.error}
-        status={action.status}
-        conflict={action.conflict}
-        onReload={() => void api.reload()}
-      />
     </div>
   );
 }
@@ -688,22 +737,20 @@ function LinkDirectorJob({ api }: { api: CaseApi }) {
         }}
       >
         <label>
-          Director change (W04)
+          Director change job
           <select required value={jobId} onChange={(event) => setJobId(event.target.value)}>
-            <option value="">Select director change…</option>
+            <option value="">Select a director change…</option>
             {jobs.map((job) => (
               <option key={job.id} value={job.id}>
-                {job.title} · {job.personName} · {formatDate(job.effectiveDate)}
+                {job.title}, {job.personName}, {formatDate(job.effectiveDate)}
               </option>
             ))}
           </select>
         </label>
-        <p className="metadata">
-          Linking takes the person and effective date from this job. Record posting remains subject
-          to W04 review.
-        </p>
         {!jobs.length ? (
-          <Link href={`/jobs/new?company=${item.companyId}&activity=W04`}>New director change</Link>
+          <Link className="section-link" href={`/jobs/new?company=${item.companyId}&activity=W04`}>
+            New director change
+          </Link>
         ) : null}
         <ActionFeedback
           error={action.error}
@@ -712,7 +759,7 @@ function LinkDirectorJob({ api }: { api: CaseApi }) {
           onReload={() => void api.reload()}
         />
         <div className="actions">
-          <button disabled={action.pending || !jobId}>Link W04 job</button>
+          <button disabled={action.pending || !jobId}>Link director change job</button>
         </div>
       </form>
     </section>

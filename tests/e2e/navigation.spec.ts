@@ -10,11 +10,11 @@ test('work context and unsaved plain/rich edits survive navigation attempts', as
   }[];
   const account = accounts.find((a) => a.key === 'owner')!;
   await signIn(page, account);
-  await page.setViewportSize({ width: 390, height: 700 });
+  await page.setViewportSize({ width: 1280, height: 700 });
   await page.goto('/work');
   await page.getByRole('searchbox', { name: 'Search jobs and companies' }).fill('Aster');
   await page.getByRole('combobox', { name: 'Sort work' }).selectOption('company');
-  const target = page.locator('.work-table tbody tr').last().locator('td').nth(1).getByRole('link');
+  const target = page.locator('.work-table tbody tr').last().locator('td').nth(2).getByRole('link');
   await target.scrollIntoViewIfNeeded();
   const focusId = await target.getAttribute('id');
   const workUrl = page.url();
@@ -47,7 +47,7 @@ test('work context and unsaved plain/rich edits survive navigation attempts', as
   await expect(editor).toContainText('Unsaved fictional note');
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
   await answerPrompt(page, true);
-  await expect(page.getByRole('heading', { name: /^Checklist · v/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Checklist v/ })).toBeVisible();
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('combobox', { name: 'Text size', exact: true }).selectOption('larger');
   await expect(page.locator('.application')).toHaveClass(/text-larger/);

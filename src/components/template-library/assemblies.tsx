@@ -61,11 +61,12 @@ export function AssemblyLibrary({
       {rows.length ? (
         <div className="table-wrap">
           <table className="library-table stack-table">
-            <caption className="sr-only">Assemblies</caption>
+            <caption className="sr-only">Layouts</caption>
             <thead>
               <tr>
                 <th>Layout</th>
                 <th>Document type</th>
+                {showArchived ? <th>Availability</th> : null}
                 <th>Version</th>
                 {canManage ? <th>Actions</th> : null}
               </tr>
@@ -77,19 +78,18 @@ export function AssemblyLibrary({
                   <tr key={assembly.id}>
                     <td>
                       <Link href={'/templates/assemblies/' + assembly.id}>{assembly.name}</Link>
-                      {assembly.archived ? <div className="state">Archived</div> : null}
                     </td>
                     <td data-label="Document type">{typeName(assembly.outputTypeId)}</td>
-                    <td data-label="Version">
-                      {last ? `v${last.version} · ${last.status}` : '—'}
-                      {published && published.id !== last?.id ? (
-                        <dl className="record-meta">
-                          <div>
-                            <dt>Published</dt>
-                            <dd>v{published.version}</dd>
-                          </div>
-                        </dl>
-                      ) : null}
+                    {showArchived ? (
+                      <td data-label="Availability">
+                        {assembly.archived ? 'Archived' : 'Available'}
+                      </td>
+                    ) : null}
+                    <td data-label="Version" className="nowrap">
+                      {last ? `v${last.version}, ${last.status}` : '—'}
+                      {published && published.id !== last?.id
+                        ? ` (v${published.version} published)`
+                        : ''}
                     </td>
                     {canManage ? (
                       <td>
@@ -189,7 +189,7 @@ function CreateAssembly({
                 description: form.description.trim(),
                 usageContexts: form.usageContexts,
               }),
-            'Assembly created',
+            'Layout created',
           );
           if (created) {
             formElement.setAttribute('data-dirty', 'false');
@@ -207,7 +207,7 @@ function CreateAssembly({
           />
         </label>
         <label>
-          Output type
+          Document type
           <select
             value={form.outputTypeId}
             onChange={(event) => setForm({ ...form, outputTypeId: event.target.value })}
@@ -235,7 +235,7 @@ function CreateAssembly({
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
-              Create assembly
+              Create layout
             </button>
             <button type="button" onClick={onCancel}>
               Cancel

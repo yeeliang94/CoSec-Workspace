@@ -100,7 +100,7 @@ test('director review, execution, dated record, external submission and outcome 
   await sign.locator('[name=signer]').selectOption('Director consent');
   await sign.locator('[name=evidenceId]').selectOption(evidence.id);
   await sign.getByRole('button', { name: /Record signature on v/ }).click();
-  await expect(page.locator('.track-facts')).toContainText('Fully signed');
+  await expect(page.locator('.job-facts')).toContainText('Fully signed');
   await signIn('reviewer');
   await page.goto('/jobs/' + job.id);
   await page.getByRole('button', { name: 'Record changes', exact: true }).click();
@@ -111,7 +111,7 @@ test('director review, execution, dated record, external submission and outcome 
   ).toBeVisible();
   await page.getByRole('button', { name: 'Filing', exact: true }).click();
   await page.getByRole('button', { name: /Authorise filing readiness for v/ }).click();
-  await expect(page.locator('.track-facts').getByText('Ready', { exact: true })).toBeVisible();
+  await expect(page.locator('.job-facts').getByText('Ready', { exact: true })).toBeVisible();
   await signIn('lodger');
   await page.goto('/jobs/' + job.id);
   await page.getByRole('button', { name: 'Filing', exact: true }).click();
@@ -123,7 +123,7 @@ test('director review, execution, dated record, external submission and outcome 
   await submit.locator('[name=evidenceId]').selectOption(evidence.id);
   await submit.locator('[name=documentIds]').selectOption(evidence.id);
   await submit.getByRole('button', { name: 'Record external submission', exact: true }).click();
-  await expect(page.locator('.track-facts').getByText('Submitted', { exact: true })).toBeVisible();
+  await expect(page.locator('.job-facts').getByText('Submitted', { exact: true })).toBeVisible();
   await expect(page.getByText('Outcome confirmation outstanding', { exact: true })).toBeVisible();
   const outcome = page
     .locator('form')
@@ -133,7 +133,7 @@ test('director review, execution, dated record, external submission and outcome 
   await outcome.getByRole('button', { name: 'Confirm filing outcome', exact: true }).click();
   await outcome.getByRole('button', { name: 'Confirm filing outcome', exact: true }).click();
   await expect(
-    page.locator('.track-facts').getByText('Outcome confirmed', { exact: true }),
+    page.locator('.job-facts').getByText('Outcome confirmed', { exact: true }),
   ).toBeVisible();
   expect(
     (await (await page.request.get('/api/workspace')).json()).jobs.find((j: Job) => j.id === job.id)

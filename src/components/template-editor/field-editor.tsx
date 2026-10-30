@@ -398,7 +398,6 @@ export function FieldEditor({
           {!confirmDelete ? (
             <button
               type="button"
-              className="danger"
               disabled={usages.length > 0}
               onClick={() => setConfirmDelete(true)}
             >

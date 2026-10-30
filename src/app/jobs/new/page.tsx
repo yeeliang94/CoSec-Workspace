@@ -253,11 +253,11 @@ export default function NewJob() {
                 resetPerson();
               }}
             >
-              <option value="W03">Annual return · W03</option>
-              <option value="W04">Director change · W04</option>
-              <option value="W05">Members and capital · W05</option>
+              <option value="W03">Annual return</option>
+              <option value="W04">Director change</option>
+              <option value="W05">Members and capital</option>
               {data.actor.capabilities.includes('view_bo') ? (
-                <option value="W06">Beneficial ownership · W06</option>
+                <option value="W06">Beneficial ownership</option>
               ) : null}
             </select>
           </label>
@@ -293,7 +293,26 @@ export default function NewJob() {
             )}
           </div>
         ) : null}
-        <FormFields key={activity} fields={fields} />
+        <FormFields key={activity} fields={fields.filter((field) => field.type !== 'multi')} />
+        {fields
+          .filter((field) => field.type === 'multi')
+          .map((field) => (
+            <fieldset className="check-rows" key={activity + field.name}>
+              <legend>{field.label}</legend>
+              {field.options?.length ? (
+                field.options.map((option) => (
+                  <label className="inline" key={option.value}>
+                    <input type="checkbox" name={field.name} value={option.value} />
+                    {option.label}
+                  </label>
+                ))
+              ) : (
+                <p className="muted">
+                  {companyId ? 'No documents for this company' : 'Choose a company first'}
+                </p>
+              )}
+            </fieldset>
+          ))}
         <div className="warning">
           No approved statutory deadline rule is configured. A reviewed manual date can be recorded
           in the job.

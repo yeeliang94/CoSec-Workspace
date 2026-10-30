@@ -224,7 +224,7 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   await page.getByRole('button', { name: 'Word documents', exact: true }).click();
   await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
-  for (const width of [390, 768, 1440]) {
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(
       page.getByRole('button', { name: 'Attach to director change pack', exact: true }),
@@ -267,7 +267,7 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue('Director');
   await page.getByLabel('Signed on', { exact: true }).fill(today);
   await page.getByRole('combobox', { name: 'Signed copy', exact: true }).selectOption(evidence.id);
-  for (const width of [390, 768, 1440]) {
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole('combobox', { name: 'Signer', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

@@ -29,8 +29,8 @@ export function RecordVersion({ snapshot }: { snapshot: PackVersion['recordSnaps
                 ? 'Opening balances'
                 : capital.kind === 'allotment'
                   ? 'Allotment'
-                  : 'Transfer'}{' '}
-              · {capital.shareClass.name}
+                  : 'Transfer'}
+              , {capital.shareClass.name}
             </h3>
             <div className="table-wrap">
               <table>

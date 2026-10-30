@@ -118,9 +118,7 @@ export function RecordForm({
         </div>
       ) : null}
       <div className="actions">
-        <button className="primary" disabled={pending}>
-          {pending ? 'Saving…' : label}
-        </button>
+        <button disabled={pending}>{pending ? 'Saving…' : label}</button>
       </div>
     </form>
   );

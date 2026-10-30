@@ -15,6 +15,19 @@ import { AssemblyLibrary } from '@/components/template-library/assemblies';
 import { ClauseLibrary } from '@/components/template-library/clauses';
 
 type Tab = 'clauses' | 'assemblies' | 'outputs';
+const tabParams: Record<Tab, string> = {
+  clauses: 'wording',
+  assemblies: 'layouts',
+  outputs: 'document-types',
+};
+function tabFromLocation(): Tab | null {
+  const param = new URLSearchParams(window.location.search).get('tab');
+  const fromParam = (Object.keys(tabParams) as Tab[]).find((key) => tabParams[key] === param);
+  if (fromParam) return fromParam;
+  // Older links used a hash.
+  const hash = window.location.hash.slice(1);
+  return hash === 'assemblies' || hash === 'outputs' ? hash : null;
+}
 
 export default function TemplatesPage() {
   const { data } = useWorkspace();
@@ -35,8 +48,8 @@ export default function TemplatesPage() {
     };
   }, []);
   useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    if (hash === 'assemblies' || hash === 'outputs') setTab(hash);
+    const initial = tabFromLocation();
+    if (initial) setTab(initial);
   }, []);
   if (!data) return null;
   const canManage = data.actor.capabilities.includes('manage_templates');
@@ -44,7 +57,11 @@ export default function TemplatesPage() {
     if (next === tab || !(await canLeaveEditing())) return;
     setTab(next);
     setCreating(false);
-    window.history.replaceState(window.history.state, '', '#' + next);
+    const url = new URL(window.location.href);
+    url.hash = '';
+    if (next === 'clauses') url.searchParams.delete('tab');
+    else url.searchParams.set('tab', tabParams[next]);
+    window.history.replaceState(window.history.state, '', url.pathname + url.search);
   };
   return (
     <>
@@ -52,29 +69,30 @@ export default function TemplatesPage() {
         <Icon kind="back" />
         Resolutions
       </Link>
-      <PageHeader title="Resolution templates">
+      <PageHeader title="Templates">
         {canManage && tab !== 'outputs' ? (
           <button
             type="button"
-            className="primary"
+            className={creating ? undefined : 'primary'}
             aria-expanded={creating}
             onClick={async () => {
               if (creating && !(await canLeaveEditing())) return;
               setCreating(!creating);
             }}
           >
-            {tab === 'clauses' ? 'New paragraph' : 'New layout'}
+            {creating ? null : <Icon kind="plus" />}
+            {tab === 'clauses' ? 'New wording' : 'New layout'}
           </button>
         ) : null}
       </PageHeader>
-      <div className="filters" role="group" aria-label="Library sections">
+      <div className="filters" role="group" aria-label="Template sections">
         {(
           [
-            ['clauses', 'Standard wording', load.data?.clauses.filter((c) => !c.archived).length],
-            ['assemblies', 'Layouts', load.data?.assemblies.filter((a) => !a.archived).length],
-            ...(canManage ? [['outputs', 'Document types', load.data?.outputTypes.length]] : []),
-          ] as [Tab, string, number | undefined][]
-        ).map(([key, label, count]) => (
+            ['clauses', 'Wording'],
+            ['assemblies', 'Layouts'],
+            ...(canManage ? [['outputs', 'Document types']] : []),
+          ] as [Tab, string][]
+        ).map(([key, label]) => (
           <button
             type="button"
             key={key}
@@ -83,7 +101,6 @@ export default function TemplatesPage() {
             onClick={() => choose(key)}
           >
             {label}
-            {count !== undefined ? <small>{count}</small> : null}
           </button>
         ))}
       </div>
@@ -91,7 +108,7 @@ export default function TemplatesPage() {
         loading={load.loading && !load.data}
         error={load.error}
         reload={() => void load.reload()}
-        label="clause library"
+        label="templates"
       />
       {load.data ? (
         tab === 'clauses' ? (

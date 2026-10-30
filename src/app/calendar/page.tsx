@@ -4,6 +4,7 @@ import { useWorkspace, PageHeader, formatDate, currentDate, Empty } from '@/comp
 export default function Calendar() {
   const { data } = useWorkspace();
   if (!data) return null;
+  const today = currentDate();
   const reminders = data.reminders
     .filter((r) => !r.resolved)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -26,11 +27,9 @@ export default function Calendar() {
             <tbody>
               {reminders.map((reminder) => (
                 <tr key={reminder.id}>
-                  <td className={reminder.dueDate < currentDate() ? 'danger nowrap' : 'nowrap'}>
+                  <td className={reminder.dueDate < today ? 'danger nowrap' : 'nowrap'}>
                     {formatDate(reminder.dueDate)}
-                    {reminder.dueDate < currentDate() ? (
-                      <div className="metadata danger">Overdue</div>
-                    ) : null}
+                    {reminder.dueDate < today ? ' (overdue)' : null}
                   </td>
                   <td>
                     <Link href={'/jobs/' + reminder.jobId}>

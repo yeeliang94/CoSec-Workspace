@@ -20,7 +20,7 @@ function AssessmentEditor({ job, data, records }: JobSectionProps & { records: B
           kind !== 'entry'
             ? records.owners.find((e) => e.id === fieldText(form, 'predecessorId'))
             : null;
-        if (kind !== 'entry' && !previous) throw new Error('Select an active BO entry.');
+        if (kind !== 'entry' && !previous) throw new Error('Select an active register entry.');
         return {
           expectedRegisterRevision: records.revision,
           assessment: {
@@ -43,9 +43,9 @@ function AssessmentEditor({ job, data, records }: JobSectionProps & { records: B
         <label>
           Record change
           <select value={kind} onChange={(e) => setKind(e.target.value as BoAssessment['kind'])}>
-            <option value="entry">BO entry</option>
-            <option value="review">BO review/update</option>
-            <option value="cessation">BO cessation</option>
+            <option value="entry">Register entry</option>
+            <option value="review">Review or update</option>
+            <option value="cessation">Cessation</option>
           </select>
         </label>
         {kind === 'entry' ? (
@@ -136,7 +136,7 @@ export function BoWorkspace({ job, data }: JobSectionProps) {
   const review = data.actor.capabilities.includes('confirm_record') && !job.recordEventId;
   const evidenceField = {
     name: 'evidenceId',
-    label: 'BO evidence',
+    label: 'Beneficial ownership evidence',
     type: 'select' as const,
     required: true,
     options: evidence,
@@ -300,10 +300,10 @@ export function BoWorkspace({ job, data }: JobSectionProps) {
                 <dt>Record change</dt>
                 <dd>
                   {assessment.kind === 'entry'
-                    ? 'BO entry'
+                    ? 'Register entry'
                     : assessment.kind === 'review'
-                      ? 'BO review/update'
-                      : 'BO cessation'}
+                      ? 'Review or update'
+                      : 'Cessation'}
                 </dd>
               </div>
               <div>
@@ -426,13 +426,15 @@ export function BoWorkspace({ job, data }: JobSectionProps) {
         <JobAction
           job={job}
           action="post_record"
-          label="Post reviewed BO register entry"
+          label="Post reviewed register entry"
           extra={{ confirmed: true }}
-          confirmation="Post this independently reviewed BO assessment to the dated register? Notices, replies and discrepancies must be resolved. External e-BOS filing remains separate."
+          confirmation="Post this independently reviewed beneficial ownership assessment to the dated register? Notices, replies and discrepancies must be resolved. External e-BOS filing remains separate."
         />
       ) : null}
       {job.recordEventId ? (
-        <p className="feedback status">BO register entry recorded · Filing: {job.filingState}</p>
+        <p className="feedback status">
+          Register entry recorded. Filing: {job.filingState.toLowerCase()}.
+        </p>
       ) : null}
     </>
   );

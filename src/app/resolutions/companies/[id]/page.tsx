@@ -271,7 +271,7 @@ function DatedEntry({
           <ul className="compact-list">
             {[...values!].reverse().map((v, i) => (
               <li key={i}>
-                {display(v.value)} · from {formatDate(v.effectiveDate)} · recorded{' '}
+                {display(v.value)}, from {formatDate(v.effectiveDate)}, recorded{' '}
                 {formatDate(v.recordedAt)}
               </li>
             ))}

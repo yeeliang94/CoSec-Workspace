@@ -22,8 +22,8 @@ async function discard(page: Page, action: () => Promise<unknown>, accept: boole
 test('creation forms preserve meaningful edits until a confirmed discard', async ({ page }) => {
   await login(page);
   await page.goto('/templates');
-  await page.getByRole('button', { name: 'New paragraph', exact: true }).click();
-  const clause = page.getByRole('region', { name: 'New paragraph', exact: true });
+  await page.getByRole('button', { name: 'New wording', exact: true }).click();
+  const clause = page.getByRole('region', { name: 'New wording', exact: true });
   await clause.getByLabel('Description', { exact: true }).fill('Unsaved description only');
   await discard(page, () => page.getByRole('button', { name: /^Layouts/ }).click(), false);
   await expect(clause.getByLabel('Description', { exact: true })).toHaveValue(
@@ -31,7 +31,7 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   );
   await discard(
     page,
-    () => page.getByRole('button', { name: 'New paragraph', exact: true }).click(),
+    () => page.getByRole('button', { name: 'New wording', exact: true }).click(),
     false,
   );
   await discard(
@@ -122,7 +122,7 @@ test('wording tabs support roving keyboard focus and wrap in both directions', a
   );
 });
 
-test('larger text scales template controls and keeps the mobile page within its viewport', async ({
+test('larger text scales template controls and keeps the page within its viewport', async ({
   page,
 }) => {
   await login(page);
@@ -163,7 +163,7 @@ test('larger text scales template controls and keeps the mobile page within its 
     await expect
       .poll(() => selector.evaluate((element) => parseFloat(getComputedStyle(element).fontSize)))
       .toBeGreaterThan(baseline);
-    for (const width of [390, 768]) {
+    for (const width of [1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth))

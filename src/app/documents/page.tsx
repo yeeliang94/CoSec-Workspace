@@ -20,13 +20,13 @@ export default function Documents() {
   return (
     <>
       <PageHeader title="Documents">
-        <div className="header-actions">
-          <Link className="button" href="/resolutions">
+        <div className="header-actions header-links">
+          <Link className="section-link" href="/resolutions">
             Resolutions
           </Link>
           {data.actor.capabilities.includes('manage_templates') ? (
-            <Link className="button" href="/templates">
-              Clause library
+            <Link className="section-link" href="/templates">
+              Templates
             </Link>
           ) : null}
         </div>
@@ -75,6 +75,7 @@ export default function Documents() {
             <thead>
               <tr>
                 <th>Document</th>
+                <th>File name</th>
                 <th>Company</th>
                 <th>Linked job</th>
                 <th>Uploaded</th>
@@ -86,13 +87,8 @@ export default function Documents() {
                 <tr key={d.id}>
                   <td>
                     <a href={'/api/documents/' + d.id}>{d.title}</a>
-                    {d.originalName !== d.title ? (
-                      <details className="file-details">
-                        <summary>Filename</summary>
-                        <span>{d.originalName}</span>
-                      </details>
-                    ) : null}
                   </td>
+                  <td className="muted file-name">{d.originalName}</td>
                   <td>
                     <Link href={'/companies/' + d.companyId}>
                       {data.companies.find((c) => c.id === d.companyId)?.name}
@@ -107,7 +103,7 @@ export default function Documents() {
                       'Company file'
                     )}
                   </td>
-                  <td>{formatDate(d.createdAt)}</td>
+                  <td className="nowrap tabular">{formatDate(d.createdAt)}</td>
                   <td className="nowrap">{Math.max(1, Math.round(d.size / 1024))} KB</td>
                 </tr>
               ))}

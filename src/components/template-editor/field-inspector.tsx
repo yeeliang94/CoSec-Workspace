@@ -145,11 +145,7 @@ export function FieldInspector({
                       Edit {selectedField.label}
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => editor.current?.deleteNode(selection.pos)}
-                  >
+                  <button type="button" onClick={() => editor.current?.deleteNode(selection.pos)}>
                     Remove chip
                   </button>
                 </div>
@@ -228,7 +224,7 @@ export function FieldInspector({
                 </label>
                 <button
                   type="button"
-                  className="text-button danger"
+                  className="text-button"
                   onClick={() => editor.current?.deleteNode(selection.pos)}
                 >
                   Remove clause slot
@@ -266,7 +262,7 @@ export function FieldInspector({
                 </label>
                 <button
                   type="button"
-                  className="text-button danger"
+                  className="text-button"
                   onClick={() => editor.current?.deleteNode(selection.pos)}
                 >
                   Remove signature block
@@ -373,7 +369,7 @@ export function FieldInspector({
       )}
 
       <section className="inspector-section" aria-labelledby={id + '-fields'}>
-        <h3 id={id + '-fields'}>Fields ({fields.length})</h3>
+        <h3 id={id + '-fields'}>Fields</h3>
         {fields.length ? (
           <ul className="field-list">
             {fields.map((field) => {
@@ -415,7 +411,7 @@ export function FieldInspector({
             })}
           </ul>
         ) : (
-          <p className="metadata">No fields yet.</p>
+          <p className="metadata">No fields yet</p>
         )}
       </section>
     </aside>

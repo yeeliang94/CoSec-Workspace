@@ -1,0 +1,175 @@
+/* Refresh QA fixes: job area. See DESIGN.md. Desktop only. */
+
+/* Job header: title and one record-number line, with at most one primary action */
+.job-heading {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+.job-heading h1 {
+  margin: 0;
+}
+.job-primary .action-form,
+.job-primary .actions {
+  margin: 0;
+}
+.job-primary .actions {
+  justify-content: flex-end;
+}
+.job-primary .feedback {
+  max-width: 360px;
+  margin: 8px 0 0;
+}
+.job-primary .confirmation {
+  max-width: 360px;
+}
+
+/* Job record layout: tabs, then main column and details panel */
+.job-split {
+  margin-top: 0;
+}
+.job-split > .split-main > :first-child,
+.job-split > .split-main > :first-child > :first-child {
+  margin-top: 0;
+}
+.job-facts dd {
+  font-size: calc(14px * var(--scale));
+}
+.detail-aside .job-settings {
+  margin-top: 28px;
+}
+.detail-aside .job-settings .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.detail-aside .job-settings .form-stack {
+  gap: 28px;
+}
+.job-history > li + li {
+  margin-top: 16px;
+}
+
+/* Warnings as one quiet line, with a section link at the end */
+.outstanding-line .section-link {
+  display: inline-flex;
+  min-height: 0;
+  margin-left: 6px;
+  padding: 0;
+  font-size: calc(13px * var(--scale));
+  vertical-align: baseline;
+}
+.outstanding-line .section-link:hover {
+  background: transparent;
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.outstanding-list {
+  margin: -8px 0 20px;
+  padding-left: 24px;
+  list-style: none;
+}
+.outstanding-list li {
+  padding: 0;
+  border: 0;
+}
+.outstanding-list li + li {
+  margin-top: 4px;
+}
+
+/* Case notes editor: no grey toolbar fill, one hairline */
+.case-notes .editor-toolbar {
+  background: transparent;
+  padding: 4px 6px;
+}
+.case-notes .editor-toolbar button.active {
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Multi-choice evidence lists: no "Select…" placeholder as a choosable option */
+.section-content select[multiple] > option[value=''] {
+  display: none;
+}
+
+/* Checkbox options as hairline rows (Forms without boxes) */
+.check-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+.check-rows > legend {
+  margin-bottom: 8px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 500;
+}
+.check-rows > label.inline {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--row-border);
+  font-weight: 400;
+  font-size: calc(14px * var(--scale));
+  gap: 12px;
+}
+.check-rows > legend + label.inline {
+  border-top: 1px solid var(--row-border);
+}
+
+/* My work: results line beside the toolbar */
+.toolbar .results-line {
+  margin: 0 0 9px auto;
+  color: var(--muted);
+  font-size: calc(13px * var(--scale));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* My work table: give names room so Company, Job and Status rarely wrap at 1280px */
+.work-table:not(.compact) th:nth-child(1) {
+  width: 17%;
+}
+.work-table:not(.compact) th:nth-child(2) {
+  width: 1%;
+}
+.work-table:not(.compact) th:nth-child(3) {
+  width: 18%;
+}
+.work-table:not(.compact) th:nth-child(4) {
+  width: 12%;
+}
+.work-table:not(.compact) th:nth-child(5) {
+  width: auto;
+}
+.work-table th:nth-last-child(2) {
+  width: 1%;
+}
+.work-table th:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+.work-table td.nowrap,
+.work-table th:nth-child(2) {
+  white-space: nowrap;
+}
+.work-table.compact th:nth-child(1) {
+  width: 24%;
+}
+.work-table.compact th:nth-child(2) {
+  width: 16%;
+}
+
+/* Action buttons in table cells line up with the row text and column header */
+.record-split td > button,
+.record-split td > .action-form .actions > button {
+  min-height: 24px;
+  height: auto;
+  margin: -4px 0;
+  padding: 3px 0;
+  border-color: transparent;
+  background: transparent;
+  vertical-align: top;
+}
+.record-split td > button:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

@@ -45,7 +45,7 @@ export type Draft = {
 const SECTIONS = [
   ['content', 'Content'],
   ['signatures', 'Signatures and layout'],
-  ['starters', 'Starting paragraphs'],
+  ['starters', 'Starting wording'],
   ['details', 'Details'],
   ['preview', 'Preview'],
   ['versions', 'Versions'],
@@ -76,9 +76,9 @@ export function AssemblyEditor({ id }: { id: string }) {
   if (!page.state)
     return (
       <>
-        <Link href="/templates#assemblies" className="back-link">
+        <Link href="/templates?tab=layouts" className="back-link">
           <Icon kind="back" />
-          Clause library
+          Templates
         </Link>
         <LoadState
           loading={page.loading}
@@ -255,9 +255,9 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
 
   return (
     <>
-      <Link href="/templates#assemblies" className="back-link">
+      <Link href="/templates?tab=layouts" className="back-link">
         <Icon kind="back" />
-        Clause library
+        Templates
       </Link>
       <header className="record-heading">
         <h1>{template.name}</h1>
@@ -629,7 +629,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                           {(() => {
                             const c = state.otherClauses.find((x) => x.id === cid);
                             const v = c && latest(c.versions);
-                            return v ? ` · latest v${v.version} ${v.status.toLowerCase()}` : '';
+                            return v ? `, latest v${v.version} ${v.status.toLowerCase()}` : '';
                           })()}
                         </div>
                       </div>
@@ -655,7 +655,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                           </button>
                           <button
                             type="button"
-                            className="quiet danger"
+                            className="quiet"
                             aria-label={`Remove ${clauseName(cid)}`}
                             onClick={() =>
                               change({
@@ -684,7 +684,7 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                       .filter((c) => !draft.starterClauseIds.includes(c.id))
                       .map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.category} · {c.name}
+                          {c.category}, {c.name}
                         </option>
                       ))}
                   </select>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Capability, CatalogueVersion, Company, Preferences } from '@/domain/model';
 import { ROLE_LABELS, roleOf } from '@/domain/model';
-import { useWorkspace, PageHeader, request, formatDate } from '@/components/workspace';
+import { useWorkspace, PageHeader, request, formatDate, Empty } from '@/components/workspace';
 import { ActionForm, canLeaveEditing } from '@/components/forms';
 function Personal() {
   const { data, refresh } = useWorkspace();
@@ -88,7 +88,7 @@ function Personal() {
         </label>
       </div>
       <div className="actions">
-        <button disabled={pending} className="primary" onClick={() => void save(preferences)}>
+        <button disabled={pending} onClick={() => void save(preferences)}>
           {pending ? 'Saving…' : 'Save preferences'}
         </button>
         <button
@@ -140,7 +140,7 @@ function CataloguePreview({
     <div className="form-section">
       <div className="page-header">
         <h3>
-          {version.name} · v{version.version}
+          {version.name} v{version.version}
         </h3>
         <button type="button" onClick={onClose}>
           Close preview
@@ -162,23 +162,27 @@ function CataloguePreview({
         </div>
       ) : preview ? (
         <>
-          <div className="warning">Illustrative preview · {preview.effect}</div>
+          <div className="warning">Illustrative preview, {preview.effect}</div>
           <div
             className="template-preview prose"
             dangerouslySetInnerHTML={{ __html: preview.sampleHtml }}
           />
-          <details className="disclosure">
-            <summary>Affected open work ({preview.affectedJobs.length})</summary>
-            <div>
-              <ul className="list-plain">
-                {preview.affectedJobs.map((job) => (
-                  <li key={job.id}>
-                    <Link href={'/jobs/' + job.id}>{job.title}</Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </details>
+          {preview.affectedJobs.length ? (
+            <details className="disclosure">
+              <summary>Affected open work</summary>
+              <div>
+                <ul className="list-plain">
+                  {preview.affectedJobs.map((job) => (
+                    <li key={job.id}>
+                      <Link href={'/jobs/' + job.id}>{job.title}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
+          ) : (
+            <p className="muted">No open work affected</p>
+          )}
           {version.status === 'Draft' && data.actor.capabilities.includes('review_pack') ? (
             <ActionForm
               url="/api/settings"
@@ -202,6 +206,17 @@ function CataloguePreview({
     </div>
   );
 }
+const PLACEHOLDERS: [string, string][] = [
+  ['company.name', 'Company name'],
+  ['company.registrationNumber', 'Company registration number'],
+  ['company.address', 'Company registered address'],
+  ['job.title', 'Job title'],
+  ['job.year', 'Job year'],
+  ['job.anniversaryDate', 'Anniversary date'],
+  ['job.effectiveDate', 'Effective date'],
+  ['firm.name', 'Firm name'],
+  ['today', "Today's date"],
+];
 function Catalogues() {
   const { data } = useWorkspace();
   const [selected, setSelected] = useState<CatalogueVersion | null>(null);
@@ -212,40 +227,41 @@ function Catalogues() {
   return (
     <section>
       <h2>Templates, checklists and rules</h2>
-      <div className="table-wrap">
-        <table>
-          <caption className="sr-only">Versioned internal catalogues</caption>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Kind</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Effective</th>
-              <th>Review</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.settings.catalogue.map((version) => (
-              <tr key={version.id}>
-                <td>{version.name}</td>
-                <td className="event-route">{version.kind}</td>
-                <td>v{version.version}</td>
-                <td>{version.status}</td>
-                <td>{formatDate(version.effectiveDate)}</td>
-                <td>
-                  <button className="text-button" onClick={() => setSelected(version)}>
-                    Preview and review
-                  </button>
-                </td>
+      {data.settings.catalogue.length ? (
+        <div className="table-wrap">
+          <table>
+            <caption className="sr-only">Versioned internal catalogues</caption>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Kind</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Effective</th>
+                <th>Review</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!data.settings.catalogue.length ? (
-        <p className="muted catalogue-empty">No catalogue versions</p>
-      ) : null}
+            </thead>
+            <tbody>
+              {data.settings.catalogue.map((version) => (
+                <tr key={version.id}>
+                  <td>{version.name}</td>
+                  <td className="event-route">{version.kind}</td>
+                  <td>v{version.version}</td>
+                  <td>{version.status}</td>
+                  <td className="nowrap tabular">{formatDate(version.effectiveDate)}</td>
+                  <td>
+                    <button className="text-button" onClick={() => setSelected(version)}>
+                      Preview and review
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <Empty>No catalogue versions</Empty>
+      )}
       {selected ? (
         <CataloguePreview
           version={data.settings.catalogue.find((v) => v.id === selected.id) || selected}
@@ -321,24 +337,26 @@ function Catalogues() {
           />
           <details className="disclosure">
             <summary>Template placeholders</summary>
-            <div>
-              <ul className="compact-list">
-                {[
-                  'company.name',
-                  'company.registrationNumber',
-                  'company.address',
-                  'job.title',
-                  'job.year',
-                  'job.anniversaryDate',
-                  'job.effectiveDate',
-                  'firm.name',
-                  'today',
-                ].map((field) => (
-                  <li key={field}>
-                    <code>{'{{' + field + '}}'}</code>
-                  </li>
-                ))}
-              </ul>
+            <div className="table-wrap">
+              <table className="placeholder-table">
+                <caption className="sr-only">Placeholders available in catalogue templates</caption>
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Placeholder</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PLACEHOLDERS.map(([field, label]) => (
+                    <tr key={field}>
+                      <td>{label}</td>
+                      <td className="muted">
+                        <code>{'{{' + field + '}}'}</code>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </details>
         </div>
@@ -404,6 +422,7 @@ function Users() {
           <thead>
             <tr>
               <th>Staff member</th>
+              <th>Email</th>
               <th>Role</th>
               <th>Companies</th>
               <th>Status</th>
@@ -413,10 +432,8 @@ function Users() {
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td>
-                  {user.name}
-                  <div className="metadata">{user.email}</div>
-                </td>
+                <td>{user.name}</td>
+                <td className="user-email">{user.email}</td>
                 <td>{ROLE_LABELS[roleOf(user.capabilities)]}</td>
                 <td>{user.companyIds.length}</td>
                 <td>{user.active ? 'Active' : 'Inactive'}</td>
@@ -544,9 +561,7 @@ function Users() {
               </fieldset>
             </div>
             <div className="actions">
-              <button className="primary" disabled={pending}>
-                {pending ? 'Saving…' : 'Save account access'}
-              </button>
+              <button disabled={pending}>{pending ? 'Saving…' : 'Save account access'}</button>
             </div>
           </form>
         </div>
@@ -554,9 +569,20 @@ function Users() {
     </section>
   );
 }
+const tabParams: Record<string, string> = {
+  Personal: 'personal',
+  'Work defaults': 'work-defaults',
+  Catalogues: 'catalogues',
+  Users: 'users',
+};
 export default function Settings() {
   const { data } = useWorkspace();
   const [tab, setTab] = useState('Personal');
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('tab');
+    const initial = Object.keys(tabParams).find((key) => tabParams[key] === param);
+    if (initial) setTab(initial);
+  }, []);
   if (!data) return null;
   const catalogue = data.actor.capabilities.includes('manage_catalogue');
   const admin = data.actor.capabilities.includes('manage_users');
@@ -565,19 +591,20 @@ export default function Settings() {
     ...(catalogue ? ['Work defaults', 'Catalogues'] : []),
     ...(admin ? ['Users'] : []),
   ];
+  const active = tabs.includes(tab) ? tab : 'Personal';
   return (
     <>
       <PageHeader title="Settings">
         {data.actor.capabilities.includes('manage_templates') ||
         data.actor.capabilities.includes('view_audit') ? (
-          <div className="header-actions">
+          <div className="header-actions header-links">
             {data.actor.capabilities.includes('manage_templates') ? (
-              <Link className="button" href="/templates">
-                Clause library
+              <Link className="section-link" href="/templates">
+                Templates
               </Link>
             ) : null}
             {data.actor.capabilities.includes('view_audit') ? (
-              <Link className="button" href="/audit">
+              <Link className="section-link" href="/audit">
                 Audit log
               </Link>
             ) : null}
@@ -588,10 +615,15 @@ export default function Settings() {
         {tabs.map((item) => (
           <button
             key={item}
-            className={tab === item ? 'active' : ''}
-            aria-current={tab === item ? 'page' : undefined}
+            className={active === item ? 'active' : ''}
+            aria-current={active === item ? 'page' : undefined}
             onClick={async () => {
-              if (await canLeaveEditing()) setTab(item);
+              if (item === active || !(await canLeaveEditing())) return;
+              setTab(item);
+              const url = new URL(window.location.href);
+              if (item === 'Personal') url.searchParams.delete('tab');
+              else url.searchParams.set('tab', tabParams[item]);
+              window.history.replaceState(window.history.state, '', url.pathname + url.search);
             }}
           >
             {item}
@@ -599,16 +631,15 @@ export default function Settings() {
         ))}
       </nav>
       <div className="settings-sections">
-        {tab === 'Personal' ? (
+        {active === 'Personal' ? (
           <Personal />
-        ) : tab === 'Work defaults' ? (
+        ) : active === 'Work defaults' ? (
           <section>
             <h2>Firm and work defaults</h2>
             <ActionForm
               url="/api/settings"
               action="defaults"
               label="Save work defaults"
-              primary
               extra={{ expectedRevision: data.settings.revision }}
               fields={[
                 {
@@ -653,7 +684,7 @@ export default function Settings() {
               </div>
             </dl>
           </section>
-        ) : tab === 'Catalogues' ? (
+        ) : active === 'Catalogues' ? (
           <Catalogues />
         ) : (
           <Users />

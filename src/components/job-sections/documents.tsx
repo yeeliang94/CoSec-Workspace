@@ -14,7 +14,7 @@ export function Documents({ job, data }: Props) {
   return (
     <>
       <section className="section">
-        <h2>Current pack · v{version}</h2>
+        <h2>Current pack v{version}</h2>
         <dl className="record-meta">
           <div>
             <dt>Document state</dt>
@@ -225,9 +225,9 @@ export function Documents({ job, data }: Props) {
           <ul className="list-plain">
             {[...job.packs].reverse().map((p) => (
               <li key={p.version}>
-                <strong>Version {p.version}</strong> · {p.state}
+                <strong>Version {p.version}</strong>, {p.state}
                 <p className="metadata">
-                  {formatDate(p.createdAt)} · {data.users.find((u) => u.id === p.createdBy)?.name}
+                  {formatDate(p.createdAt)}, {data.users.find((u) => u.id === p.createdBy)?.name}
                 </p>
                 <p>{p.notes}</p>
                 <RecordVersion snapshot={p.recordSnapshot} />

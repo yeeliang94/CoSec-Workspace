@@ -51,7 +51,7 @@ export function ClauseEditor({ id }: { id: string }) {
       <>
         <Link href="/templates" className="back-link">
           <Icon kind="back" />
-          Clause library
+          Templates
         </Link>
         <LoadState
           loading={page.loading}
@@ -196,7 +196,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
     <>
       <Link href="/templates" className="back-link">
         <Icon kind="back" />
-        Clause library
+        Templates
       </Link>
       <header className="record-heading">
         <h1>{template.name}</h1>
@@ -321,7 +321,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                 >
                   {type.name}
                   {!draft.wordings[type.id]?.length ? (
-                    <span className="metadata"> · no wording</span>
+                    <span className="metadata">, no wording</span>
                   ) : null}
                 </button>
               ))}
@@ -378,7 +378,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                   {draft.wordings[tab]?.length ? (
                     <button
                       type="button"
-                      className="quiet danger"
+                      className="quiet"
                       onClick={async () => {
                         if (
                           !(await confirmAction({

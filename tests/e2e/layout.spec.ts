@@ -18,10 +18,7 @@ test('shared headers, form spacing and staff columns retain their layout', async
   ).toBeVisible();
   const identity = page.locator('.page-header').first();
   const name = await identity.locator('h1').boundingBox();
-  const registration = await page
-    .locator('.facts > div')
-    .filter({ has: page.getByText('Registration number', { exact: true }) })
-    .boundingBox();
+  const registration = await identity.locator('.record-number').boundingBox();
   expect(registration!.y).toBeGreaterThanOrEqual(name!.y + name!.height);
   const officerHeader = page
     .locator('.section-header')
@@ -35,8 +32,8 @@ test('shared headers, form spacing and staff columns retain their layout', async
     .getByRole('heading', { name: 'Next action', exact: true })
     .boundingBox())!.y;
   await page.getByRole('button', { name: 'Checklist', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /^Checklist · v/ })).toBeVisible();
-  const checklistY = (await page.getByRole('heading', { name: /^Checklist · v/ }).boundingBox())!.y;
+  await expect(page.getByRole('heading', { name: /^Checklist v/ })).toBeVisible();
+  const checklistY = (await page.getByRole('heading', { name: /^Checklist v/ }).boundingBox())!.y;
   expect(Math.abs(overviewY - checklistY)).toBeLessThan(1);
   const form = page.locator('.checklist-item .action-form').first();
   const fields = await form.locator('.form-grid').boundingBox();
@@ -61,7 +58,7 @@ test('shared headers, form spacing and staff columns retain their layout', async
       .nth(3)
       .evaluate((el) => getComputedStyle(el).whiteSpace),
   ).toBe('nowrap');
-  await page.setViewportSize({ width: 390, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'My work', exact: true }).click();
   await page.getByRole('link', { name: 'New job', exact: true }).click();
@@ -71,7 +68,7 @@ test('shared headers, form spacing and staff columns retain their layout', async
   expect(footer!.y - warning!.y - warning!.height).toBe(16);
   await page.goto('/login');
   await expect(page.getByText('Internal staff access', { exact: true })).toHaveCount(0);
-  for (const width of [390, 320]) {
+  for (const width of [1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

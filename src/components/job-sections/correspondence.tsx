@@ -14,10 +14,10 @@ export function Correspondence({ job, data }: Props) {
             {[...job.correspondence].reverse().map((entry) => (
               <li key={entry.id}>
                 <h3>
-                  {entry.direction} · {entry.counterparty}
+                  {entry.direction}, {entry.counterparty}
                 </h3>
                 <p className="metadata">
-                  {entry.channel} · {formatDate(entry.date)} ·{' '}
+                  {entry.channel}, {formatDate(entry.date)},{' '}
                   {data.users.find((u) => u.id === entry.ownerId)?.name}
                 </p>
                 <p>{entry.summary}</p>

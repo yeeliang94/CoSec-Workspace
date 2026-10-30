@@ -137,6 +137,45 @@ export function Icon({ kind }: { kind: string }) {
     </svg>
   );
 }
+const APP_NAME = 'CoSec Workspace';
+const pageTitles: [RegExp, string][] = [
+  [/^\/work(\/|$)/, 'My work'],
+  [/^\/companies\/?$/, 'Companies'],
+  [/^\/companies\//, 'Company'],
+  [/^\/people(\/|$)/, 'People'],
+  [/^\/reviews(\/|$)/, 'Reviews'],
+  [/^\/calendar(\/|$)/, 'Calendar'],
+  [/^\/documents(\/|$)/, 'Documents'],
+  [/^\/resolutions\/?$/, 'Resolutions'],
+  [/^\/resolutions\//, 'Resolution'],
+  [/^\/jobs\//, 'Job'],
+  [/^\/templates\/?$/, 'Templates'],
+  [/^\/templates\//, 'Templates'],
+  [/^\/billing(\/|$)/, 'Billing'],
+  [/^\/settings(\/|$)/, 'Settings'],
+  [/^\/audit(\/|$)/, 'Audit log'],
+  [/^\/login(\/|$)/, 'Sign in'],
+];
+/** Page name for a pathname, used for the document title. */
+export function pageTitleFor(pathname: string) {
+  return pageTitles.find(([pattern]) => pattern.test(pathname))?.[1] || '';
+}
+function composeTitle(title: string) {
+  return title ? `${title} – ${APP_NAME}` : APP_NAME;
+}
+const TitleOverrideContext = createContext<(title: string | null) => void>(() => {});
+/**
+ * Overrides the document title for the current page, for example with a record name.
+ * Pass an empty value while the record loads to keep the section title.
+ */
+export function useDocumentTitle(title: string | null | undefined) {
+  const setOverride = useContext(TitleOverrideContext);
+  useEffect(() => {
+    if (!title) return;
+    setOverride(title);
+    return () => setOverride(null);
+  }, [title, setOverride]);
+}
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,6 +189,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const login = pathname === '/login';
   useEffect(installEditGuards, []);
+  const [titleOverride, setTitleOverride] = useState<string | null>(null);
 
   const workMemory = useRef({ href: '/work', scrollY: 0, focusId: '' });
   const restorePending = useRef(false);
@@ -202,116 +242,220 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     <WorkspaceContext.Provider
       value={{ data, loading, error, refresh, workHref, rememberWork, restoreWork }}
     >
-      <div
-        className={`application text-${prefs?.textSize || 'default'} density-${prefs?.density || 'comfortable'} ${prefs?.reducedMotion ? 'reduce-motion' : ''}`}
-      >
-        {login ? (
-          children
-        ) : (
-          <>
-            <a href="#main" className="skip-link">
-              Skip to content
-            </a>
-            <aside className="sidebar">
-              <Link href="/work" className="brand">
-                CoSec<span>Workspace</span>
-              </Link>
-              <div className="nav-label">Workspace</div>
-              <nav aria-label="Main navigation">
-                {navigation.map(([href, label, icon]) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    aria-current={
-                      navigationPath === href || navigationPath.startsWith(href + '/')
-                        ? 'page'
-                        : undefined
-                    }
-                  >
-                    <Icon kind={icon} />
-                    {label}
-                  </Link>
-                ))}
-              </nav>
-              <div className="sidebar-bottom">
-                <Link
-                  href="/settings"
-                  aria-current={navigationPath === '/settings' ? 'page' : undefined}
-                >
-                  <Icon kind="settings" />
-                  Settings
+      <TitleOverrideContext.Provider value={setTitleOverride}>
+        <title>{composeTitle(titleOverride || pageTitleFor(pathname))}</title>
+        <div
+          className={`application text-${prefs?.textSize || 'default'} density-${prefs?.density || 'comfortable'} ${prefs?.reducedMotion ? 'reduce-motion' : ''}`}
+        >
+          {login ? (
+            children
+          ) : (
+            <>
+              <a href="#main" className="skip-link">
+                Skip to content
+              </a>
+              <aside className="sidebar">
+                <Link href="/work" className="brand">
+                  CoSec<span>Workspace</span>
                 </Link>
-              </div>
-            </aside>
-            <div className="workspace-main">
-              <header className="topbar">
-                <span>{data?.settings.firmName || 'CoSec Workspace'}</span>
-                <div className="account">
-                  <span>{data?.actor.name || 'Loading…'}</span>
-                  <button
-                    type="button"
-                    className="quiet"
-                    onClick={async () => {
-                      if (!(await canLeaveEditing())) return;
-                      await request('/api/auth/sign-out', {});
-                      workMemory.current = { href: '/work', scrollY: 0, focusId: '' };
-                      setWorkHref('/work');
-                      setData(null);
-                      router.push('/login');
-                    }}
+                <div className="nav-label">Workspace</div>
+                <nav aria-label="Main navigation">
+                  {navigation.map(([href, label, icon]) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={
+                        navigationPath === href || navigationPath.startsWith(href + '/')
+                          ? 'page'
+                          : undefined
+                      }
+                    >
+                      <Icon kind={icon} />
+                      {label}
+                    </Link>
+                  ))}
+                </nav>
+                <div className="sidebar-bottom">
+                  <Link
+                    href="/settings"
+                    aria-current={navigationPath === '/settings' ? 'page' : undefined}
                   >
-                    Sign out
-                  </button>
-                </div>
-              </header>
-              <main id="main" tabIndex={-1}>
-                {error ? (
-                  <div className="feedback error" role="alert">
-                    {error}{' '}
-                    <button type="button" onClick={() => void refresh()}>
-                      Retry
+                    <Icon kind="settings" />
+                    Settings
+                  </Link>
+                  <div className="sidebar-account">
+                    <span>{data?.actor.name || 'Loading…'}</span>
+                    <button
+                      type="button"
+                      className="sidebar-signout"
+                      onClick={async () => {
+                        if (!(await canLeaveEditing())) return;
+                        await request('/api/auth/sign-out', {});
+                        workMemory.current = { href: '/work', scrollY: 0, focusId: '' };
+                        setWorkHref('/work');
+                        setData(null);
+                        router.push('/login');
+                      }}
+                    >
+                      Sign out
                     </button>
                   </div>
-                ) : null}
-                {loading && !data ? (
-                  <div className="loading" role="status">
-                    <div className="skeleton heading" />
-                    <div className="skeleton" />
-                    <div className="skeleton" />
-                    <div className="skeleton" />
-                    <span className="sr-only">Loading workspace</span>
-                  </div>
-                ) : data ? (
-                  children
-                ) : null}
-              </main>
-            </div>
-          </>
-        )}
-      </div>
+                </div>
+              </aside>
+              <div className="workspace-main">
+                <main id="main" tabIndex={-1}>
+                  {error ? (
+                    <div className="feedback error" role="alert">
+                      {error}{' '}
+                      <button type="button" onClick={() => void refresh()}>
+                        Retry
+                      </button>
+                    </div>
+                  ) : null}
+                  {loading && !data ? (
+                    <div className="loading" role="status">
+                      <div className="skeleton heading" />
+                      <div className="skeleton" />
+                      <div className="skeleton" />
+                      <div className="skeleton" />
+                      <span className="sr-only">Loading workspace</span>
+                    </div>
+                  ) : data ? (
+                    children
+                  ) : null}
+                </main>
+              </div>
+            </>
+          )}
+        </div>
+      </TitleOverrideContext.Provider>
     </WorkspaceContext.Provider>
   );
 }
-export function formatDate(value: string | null | undefined) {
-  if (!value) return '—';
-  const date = new Date(value.length === 10 ? value + 'T00:00:00' : value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        ...(value.length > 10
-          ? ({
-              timeZone: 'Asia/Kuala_Lumpur',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-              timeZoneName: 'short',
-            } as const)
-          : {}),
-      }).format(date);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const klParts = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Kuala_Lumpur',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+/** Calendar fields of an instant in Kuala Lumpur time. */
+function klFields(date: Date) {
+  const parts = Object.fromEntries(klParts.formatToParts(date).map((p) => [p.type, p.value]));
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: parts.hour,
+    minute: parts.minute,
+    second: parts.second,
+  };
 }
+/**
+ * Formats a date ("2026-11-05" → "5 Nov 2026") or a timestamp
+ * ("2026-11-05T06:30:00Z" → "5 Nov 2026, 14:30", Kuala Lumpur time, no zone suffix).
+ * Pass `{ seconds: true }` to include seconds on a timestamp.
+ */
+export function formatDate(value: string | null | undefined, options?: { seconds?: boolean }) {
+  if (!value) return '—';
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (dateOnly) {
+    const [year, month, day] = value.split('-').map(Number);
+    if (month < 1 || month > 12) return value;
+    return `${day} ${MONTHS[month - 1]} ${year}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const f = klFields(date);
+  return `${f.day} ${MONTHS[f.month - 1]} ${f.year}, ${f.hour}:${f.minute}${options?.seconds ? ':' + f.second : ''}`;
+}
+const AUDIT_ENTITY_LABELS: Record<string, string> = Object.fromEntries([
+  ['person', 'Person'],
+  ['company_relationship', 'Company relationship'],
+  ['company_profile', 'Company profile'],
+  ['record_field', 'Custom field definition'],
+  ['resolution_case', 'Resolution'],
+  ['clause_template', 'Wording'],
+  ['clause_version', 'Wording version'],
+  ['assembly', 'Layout'],
+  ['assembly_version', 'Layout version'],
+  ['output_type', 'Document type'],
+  ['document_generation', 'Generated document'],
+  ['user', 'User'],
+  ['relationship', 'Company relationship'],
+  ['director', 'Director'],
+  ['document', 'Document'],
+  ['company', 'Company'],
+  ['job', 'Job'],
+  ['record', 'Record'],
+  ['settings', 'Settings'],
+  ['preferences', 'Preferences'],
+]);
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  'person.projected': 'Person added from officer register',
+  'relationship.projected': 'Directorship updated from officer register',
+  'relationship.projection_skipped': 'Directorship not updated from officer register',
+  'resolution_case.family_created': 'Resolution document started',
+  'document_generation.execution_recorded': 'Signed document recorded',
+  'document.stored': 'Document uploaded',
+  'record.posted': 'Record entry posted',
+  'audit.exported': 'Audit log exported',
+  'bo.register.read': 'Beneficial ownership register viewed',
+  'document.download': 'Document downloaded',
+};
+/** Past-tense wording for imperative action names such as "save_answers". */
+const AUDIT_VERBS: Record<string, string> = {
+  save_answers: 'answers saved',
+  set_selection: 'wording selection changed',
+  set_citation: 'citation changed',
+  set_capacity: 'capacity changed',
+  set_custom: 'custom value recorded',
+  link_job: 'linked to job',
+  record_decision: 'decision recorded',
+  send_for_review: 'sent for review',
+  review: 'reviewed',
+  reopen: 'reopened',
+  cancel: 'cancelled',
+  complete: 'completed',
+  archive: 'archived',
+  create: 'created',
+  update: 'updated',
+  update_details: 'details updated',
+  add: 'added',
+  end: 'ended',
+  add_step: 'step added',
+  update_step: 'step updated',
+  resolution_attached: 'resolution attached',
+  document_generated: 'document generated',
+  read: 'viewed',
+};
+
+/** Turns an identifier such as "draft_saved" or "fullName" into sentence case. */
+export function sentenceCase(text: string) {
+  const words = text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replaceAll(/[._]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** A readable, sentence-case label for a stored audit action such as "assembly_version.draft_saved". */
+export function auditActionLabel(action: string) {
+  if (AUDIT_ACTION_LABELS[action]) return AUDIT_ACTION_LABELS[action];
+  const dot = action.indexOf('.');
+  if (dot < 0) return sentenceCase(action);
+  const entity = AUDIT_ENTITY_LABELS[action.slice(0, dot)];
+  const rest = action.slice(dot + 1);
+  const verb = AUDIT_VERBS[rest] || sentenceCase(rest).toLowerCase();
+  return entity ? `${entity} ${verb}` : sentenceCase(action);
+}
+
 export function currentDate() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kuala_Lumpur',

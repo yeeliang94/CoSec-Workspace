@@ -2,18 +2,27 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Company, Officer, OfficerEvent } from '@/domain/model';
-import { useWorkspace, formatDate, currentDate, Empty, BackToWork } from '@/components/workspace';
+import {
+  useWorkspace,
+  useDocumentTitle,
+  formatDate,
+  currentDate,
+  Empty,
+  BackToWork,
+  Icon,
+} from '@/components/workspace';
 import {
   MembersRegister,
   BeneficialOwnershipRegister,
 } from '@/components/registers/company-registers';
 import { ActionForm } from '@/components/forms';
-import { WorkTable } from '@/components/work-list';
+import { WorkTable, readCompanyOrigin, type CompanyOrigin } from '@/components/work-list';
 import { CompanyRelationships } from '@/components/resolution/relationships';
 import { formatYearEnd, industryLabel } from '@/domain/company';
 export default function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data } = useWorkspace();
+  useDocumentTitle(data?.companies.find((c) => c.id === id)?.name);
   const [asAt, setAsAt] = useState(currentDate());
   const [record, setRecord] = useState<{
     company: Company;
@@ -21,6 +30,9 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
     events?: OfficerEvent[];
   } | null>(null);
   const [error, setError] = useState('');
+  // Back goes to where the file was opened from: My work (or Reviews), a job, or Companies.
+  const [origin, setOrigin] = useState<CompanyOrigin | null>(null);
+  useEffect(() => setOrigin(readCompanyOrigin(id)), [id]);
   useEffect(() => {
     let active = true;
     setError('');
@@ -41,56 +53,35 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
   const company = data.companies.find((c) => c.id === id);
   if (!company) return <Empty>Company unavailable</Empty>;
   const jobs = data.jobs.filter((j) => j.companyId === id);
+  const originJob =
+    origin?.from === 'job' ? data.jobs.find((job) => job.id === origin.jobId) : undefined;
   return (
     <>
-      <BackToWork />
+      {origin?.from === 'work' ? (
+        <BackToWork />
+      ) : originJob ? (
+        <Link href={'/jobs/' + originJob.id} className="back-link">
+          <Icon kind="back" />
+          {originJob.title}
+        </Link>
+      ) : (
+        <Link href="/companies" className="back-link" aria-label="Back to companies">
+          <Icon kind="back" />
+          Companies
+        </Link>
+      )}
       <div className="page-header">
         <div>
           <h1 className="company-title">{company.name}</h1>
+          <p className="record-number">{company.registrationNumber}</p>
         </div>
         {data.actor.capabilities.includes('prepare_job') ? (
-          <Link className="button" href={'/jobs/new?company=' + id}>
+          <Link className="button primary" href={'/jobs/new?company=' + id}>
+            <Icon kind="plus" />
             New job
           </Link>
         ) : null}
       </div>
-      <dl className="facts">
-        <div>
-          <dt>Registration number</dt>
-          <dd>{company.registrationNumber}</dd>
-        </div>
-        <div>
-          <dt>Legal status</dt>
-          <dd>{company.legalStatus}</dd>
-        </div>
-        <div>
-          <dt>Engagement status</dt>
-          <dd>{company.engagementStatus}</dd>
-        </div>
-        <div>
-          <dt>Opening verification</dt>
-          <dd>{company.verification}</dd>
-        </div>
-        <div>
-          <dt>Incorporation date</dt>
-          <dd>{formatDate(company.incorporationDate)}</dd>
-        </div>
-        <div>
-          <dt>Financial year end</dt>
-          <dd>{formatYearEnd(company.financialYearEnd)}</dd>
-        </div>
-        <div>
-          <dt>Industry</dt>
-          <dd>
-            {industryLabel(company.industry)}
-            {company.activity ? <div className="metadata">{company.activity}</div> : null}
-          </dd>
-        </div>
-        <div>
-          <dt>Registered address</dt>
-          <dd>{company.address}</dd>
-        </div>
-      </dl>
       {company.verification === 'Unverified' ? (
         <div className="warning">Opening company information is unverified.</div>
       ) : null}
@@ -125,82 +116,126 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
           </div>
         </details>
       ) : null}
-      {asAt !== currentDate() ? <p className="warning">Historical view · read only</p> : null}
-      {error ? (
-        <div className="feedback error" role="alert">
-          {error}
+      {asAt !== currentDate() ? <p className="warning">Historical view, read only</p> : null}
+      <div className="split record-split">
+        <div className="split-main">
+          {error ? (
+            <div className="feedback error" role="alert">
+              {error}
+            </div>
+          ) : null}
+          <CompanyRelationships companyId={id} asAt={asAt} onAsAtChange={setAsAt} />
+          <MembersRegister companyId={id} asAt={asAt} />
+          {data.actor.capabilities.includes('view_bo') ? (
+            <BeneficialOwnershipRegister companyId={id} asAt={asAt} />
+          ) : null}
+          <section className="section">
+            <h2>Jobs</h2>
+            {jobs.length ? (
+              <WorkTable jobs={jobs} data={data} showCompany={false} />
+            ) : (
+              <p className="muted">No jobs</p>
+            )}
+          </section>
+          <section className="section">
+            <h2>Documents</h2>
+            <ul className="document-list">
+              {data.documents
+                .filter((d) => d.companyId === id)
+                .map((document) => (
+                  <li key={document.id}>
+                    <div>
+                      <a href={'/api/documents/' + document.id}>{document.title}</a>
+                      <details className="file-details">
+                        <summary>File details</summary>
+                        <dl className="record-meta">
+                          <div>
+                            <dt>Filename</dt>
+                            <dd>{document.originalName}</dd>
+                          </div>
+                          <div>
+                            <dt>Uploaded</dt>
+                            <dd>{formatDate(document.createdAt)}</dd>
+                          </div>
+                        </dl>
+                      </details>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          </section>
+          {record?.events?.length ? (
+            <section className="section">
+              <h2>Officer record history</h2>
+              <ul className="list-plain">
+                {record.events.map((event) => (
+                  <li key={event.id}>
+                    <strong>{event.personName}</strong>,{' '}
+                    <span className="event-route">{event.route.replaceAll('_', ' ')}</span>
+                    <p className="metadata">
+                      Effective {formatDate(event.effectiveDate)}, entered{' '}
+                      {formatDate(event.recordedAt)}
+                    </p>
+                    {data.jobs.some((job) => job.id === event.jobId) ? (
+                      <Link href={'/jobs/' + event.jobId}>Open event job</Link>
+                    ) : (
+                      event.evidenceIds
+                        .filter((evidenceId) =>
+                          data.documents.some((document) => document.id === evidenceId),
+                        )
+                        .map((evidenceId) => (
+                          <a
+                            className="evidence-link"
+                            key={evidenceId}
+                            href={'/api/documents/' + evidenceId}
+                          >
+                            View source evidence
+                          </a>
+                        ))
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
-      ) : null}
-      <CompanyRelationships companyId={id} asAt={asAt} onAsAtChange={setAsAt} />
-      <MembersRegister companyId={id} asAt={asAt} />
-      {data.actor.capabilities.includes('view_bo') ? (
-        <BeneficialOwnershipRegister companyId={id} asAt={asAt} />
-      ) : null}
-      <section className="section">
-        <h2>Jobs</h2>
-        {jobs.length ? <WorkTable jobs={jobs} data={data} /> : <p className="muted">No jobs</p>}
-      </section>
-      <section className="section">
-        <h2>Documents</h2>
-        <ul className="document-list">
-          {data.documents
-            .filter((d) => d.companyId === id)
-            .map((document) => (
-              <li key={document.id}>
-                <div>
-                  <a href={'/api/documents/' + document.id}>{document.title}</a>
-                  <details className="file-details">
-                    <summary>File details</summary>
-                    <dl className="record-meta">
-                      <div>
-                        <dt>Filename</dt>
-                        <dd>{document.originalName}</dd>
-                      </div>
-                      <div>
-                        <dt>Uploaded</dt>
-                        <dd>{formatDate(document.createdAt)}</dd>
-                      </div>
-                    </dl>
-                  </details>
-                </div>
-              </li>
-            ))}
-        </ul>
-      </section>
-      {record?.events?.length ? (
-        <section className="section">
-          <h2>Officer record history</h2>
-          <ul className="list-plain">
-            {record.events.map((event) => (
-              <li key={event.id}>
-                <strong>{event.personName}</strong> ·{' '}
-                <span className="event-route">{event.route.replaceAll('_', ' ')}</span>
-                <p className="metadata">
-                  Effective {formatDate(event.effectiveDate)} · entered{' '}
-                  {formatDate(event.recordedAt)}
-                </p>
-                {data.jobs.some((job) => job.id === event.jobId) ? (
-                  <Link href={'/jobs/' + event.jobId}>Open event job</Link>
-                ) : (
-                  event.evidenceIds
-                    .filter((evidenceId) =>
-                      data.documents.some((document) => document.id === evidenceId),
-                    )
-                    .map((evidenceId) => (
-                      <a
-                        className="evidence-link"
-                        key={evidenceId}
-                        href={'/api/documents/' + evidenceId}
-                      >
-                        View source evidence
-                      </a>
-                    ))
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        <aside className="detail-aside">
+          <h2>Details</h2>
+          <dl className="facts stacked">
+            <div>
+              <dt>Legal status</dt>
+              <dd>{company.legalStatus}</dd>
+            </div>
+            <div>
+              <dt>Engagement status</dt>
+              <dd>{company.engagementStatus}</dd>
+            </div>
+            <div>
+              <dt>Opening verification</dt>
+              <dd>{company.verification}</dd>
+            </div>
+            <div>
+              <dt>Incorporation date</dt>
+              <dd>{formatDate(company.incorporationDate)}</dd>
+            </div>
+            <div>
+              <dt>Financial year end</dt>
+              <dd>{formatYearEnd(company.financialYearEnd)}</dd>
+            </div>
+            <div>
+              <dt>Industry</dt>
+              <dd>
+                {industryLabel(company.industry)}
+                {company.activity ? <div className="metadata">{company.activity}</div> : null}
+              </dd>
+            </div>
+            <div>
+              <dt>Registered address</dt>
+              <dd>{company.address}</dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
     </>
   );
 }

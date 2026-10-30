@@ -81,11 +81,11 @@ export function ClauseLibrary({
       ) : null}
       <div className="toolbar">
         <label className="search">
-          <span className="sr-only">Search clauses</span>
+          <span className="sr-only">Search wording</span>
           <Icon kind="search" />
           <input
             type="search"
-            placeholder="Search standard wording"
+            placeholder="Search wording"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -146,12 +146,14 @@ export function ClauseLibrary({
             <h2 id={'cat-' + group.name}>{group.name}</h2>
             <div className="table-wrap">
               <table className="library-table stack-table">
-                <caption className="sr-only">{group.name} clauses</caption>
+                <caption className="sr-only">{group.name} wording</caption>
                 <thead>
                   <tr>
-                    <th>Paragraph</th>
+                    <th>Wording</th>
+                    {showHidden ? <th>Availability</th> : null}
                     <th>Version</th>
                     <th>Act</th>
+                    <th>Updated</th>
                     {canManage ? <th>Actions</th> : null}
                   </tr>
                 </thead>
@@ -162,43 +164,22 @@ export function ClauseLibrary({
                       <tr key={clause.id}>
                         <td>
                           <Link href={'/templates/clauses/' + clause.id}>{clause.name}</Link>
-                          {clause.hidden || clause.archived ? (
-                            <div className="state">
-                              {clause.archived ? 'Archived' : 'Hidden from new resolutions'}
-                            </div>
-                          ) : null}
-                          {clause.description || last ? (
-                            <details className="file-details">
-                              <summary>Details</summary>
-                              <dl className="record-meta">
-                                {clause.description ? (
-                                  <div>
-                                    <dt>Description</dt>
-                                    <dd>{clause.description}</dd>
-                                  </div>
-                                ) : null}
-                                {last ? (
-                                  <div>
-                                    <dt>Updated</dt>
-                                    <dd>{formatDate(last.updatedAt.slice(0, 10))}</dd>
-                                  </div>
-                                ) : null}
-                              </dl>
-                            </details>
-                          ) : null}
                         </td>
-                        <td data-label="Version">
-                          {last ? `v${last.version} · ${last.status}` : '—'}
-                          {published && published.id !== last?.id ? (
-                            <dl className="record-meta">
-                              <div>
-                                <dt>Published</dt>
-                                <dd>v{published.version}</dd>
-                              </div>
-                            </dl>
-                          ) : null}
+                        {showHidden ? (
+                          <td data-label="Availability">
+                            {clause.archived ? 'Archived' : clause.hidden ? 'Hidden' : 'Available'}
+                          </td>
+                        ) : null}
+                        <td data-label="Version" className="nowrap">
+                          {last ? `v${last.version}, ${last.status}` : '—'}
+                          {published && published.id !== last?.id
+                            ? ` (v${published.version} published)`
+                            : ''}
                         </td>
                         <td data-label="Act">{clause.governingAct || '—'}</td>
+                        <td data-label="Updated" className="nowrap tabular">
+                          {last ? formatDate(last.updatedAt.slice(0, 10)) : '—'}
+                        </td>
                         {canManage ? (
                           <td>
                             <div className="row-actions">
@@ -259,7 +240,6 @@ export function ClauseLibrary({
                                 <span className="inline-confirm">
                                   <button
                                     type="button"
-                                    className="danger"
                                     onClick={() => {
                                       setConfirmArchive('');
                                       void update(
@@ -285,7 +265,7 @@ export function ClauseLibrary({
                               ) : (
                                 <button
                                   type="button"
-                                  className="quiet danger"
+                                  className="quiet"
                                   aria-label={`Archive ${clause.name}`}
                                   onClick={() => setConfirmArchive(clause.id)}
                                 >
@@ -304,16 +284,7 @@ export function ClauseLibrary({
           </section>
         ))
       ) : (
-        <Empty>
-          {filtered ? 'No matching paragraphs' : 'No paragraphs yet'}
-          {!filtered && canManage ? (
-            <div>
-              <button type="button" className="primary" onClick={() => onCreating(true)}>
-                New clause
-              </button>
-            </div>
-          ) : null}
-        </Empty>
+        <Empty>{filtered ? 'No matching wording' : 'No wording yet'}</Empty>
       )}
     </>
   );
@@ -369,7 +340,7 @@ function CreateClause({
   const [form, setForm] = useState(initialForm);
   return (
     <section className="new-resolution" aria-labelledby="new-clause">
-      <h2 id="new-clause">New paragraph</h2>
+      <h2 id="new-clause">New wording</h2>
       <form
         className="form-grid"
         data-dirty={JSON.stringify(form) !== JSON.stringify(initialForm) ? 'true' : 'false'}
@@ -389,7 +360,7 @@ function CreateClause({
                 description: form.description.trim(),
                 usageContexts: form.usageContexts,
               }),
-            'Clause created',
+            'Wording created',
           );
           if (created) {
             formElement.setAttribute('data-dirty', 'false');
@@ -452,7 +423,7 @@ function CreateClause({
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
-              Create clause
+              Create wording
             </button>
             <button type="button" onClick={onCancel}>
               Cancel

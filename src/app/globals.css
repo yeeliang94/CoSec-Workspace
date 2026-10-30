@@ -2753,5 +2753,260 @@ dialog.confirm-dialog .actions {
 }
 .cancel-link {
   margin-top: 16px;
-  color: var(--danger, #a83230);
+}
+
+/* Refresh rules (30 October 2026). See DESIGN.md. Desktop only. */
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar-account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 14px 13px 0;
+  border-top: 1px solid #40515e;
+  color: #e2e9ee;
+  font-weight: 500;
+}
+.sidebar-account .sidebar-signout {
+  min-height: 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--navigation-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+.sidebar-account .sidebar-signout:hover {
+  background: transparent;
+  color: #fff;
+  text-decoration: underline;
+}
+main#main {
+  padding-top: 36px;
+}
+.record-number {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: calc(13px * var(--scale));
+  font-variant-numeric: tabular-nums;
+}
+.record-number a {
+  font-weight: 500;
+}
+.record-heading > .record-number {
+  margin-top: 6px;
+}
+.record-heading h1 {
+  margin-top: 0;
+}
+
+/* Tables: no header fill, flush first and last columns */
+th {
+  background: transparent;
+}
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+tbody tr:hover {
+  background: var(--row-hover);
+}
+.work-table td {
+  font-size: calc(13px * var(--scale));
+}
+.work-table th:nth-child(n) {
+  width: auto;
+}
+.work-table .work-group th {
+  padding: 36px 0 8px;
+  font-size: calc(15px * var(--scale));
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 0;
+  white-space: normal;
+}
+.work-table tbody:first-of-type .work-group th {
+  padding-top: 14px;
+}
+.work-table tr.work-group:hover {
+  background: transparent;
+}
+
+/* Navigation and filters carry no counts */
+.filter small {
+  display: none;
+}
+
+/* Sections are separated by whitespace, not rules */
+.section + .section {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 48px;
+}
+.form-section,
+.disclosure,
+.question-section {
+  border-top: 0;
+}
+.next-action,
+.track-facts {
+  border-top: 0;
+  border-bottom: 0;
+}
+.split {
+  gap: 48px;
+}
+.record-split {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  margin-top: 8px;
+}
+.detail-aside {
+  padding-left: 40px;
+}
+.detail-aside h2 {
+  font-size: calc(17px * var(--scale));
+}
+.facts.stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin: 0;
+}
+.split-main > .section:first-child,
+.split-main > :first-child {
+  margin-top: 0;
+}
+
+/* Warnings: one quiet line with an outlined icon */
+.warning {
+  position: relative;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 0 24px;
+}
+.warning::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 15px;
+  height: 15px;
+  background: var(--warning-text);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l9.5 17h-19z'/%3E%3Cpath d='M12 10v4M12 17.5v.01'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l9.5 17h-19z'/%3E%3Cpath d='M12 10v4M12 17.5v.01'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* No micro tags */
+.tag {
+  background: none;
+  padding: 0;
+  font-size: calc(12px * var(--scale));
+  color: var(--muted);
+}
+
+/* Section links: the third action tier */
+.section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 500;
+  white-space: nowrap;
+}
+.section-link::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* Forms without boxes: options are hairline rows */
+fieldset {
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+}
+legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: calc(14px * var(--scale));
+  font-weight: 600;
+}
+.question fieldset {
+  gap: 0;
+}
+.question fieldset > label.inline {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--row-border);
+  font-weight: 400;
+  font-size: calc(14px * var(--scale));
+  gap: 12px;
+}
+.question fieldset > legend + label.inline {
+  border-top: 1px solid var(--row-border);
+}
+
+/* Disclosures: a section-link style label with a chevron that turns when open */
+details:not(.overflow-menu) > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  min-height: 28px;
+  color: var(--primary);
+  font-size: calc(13px * var(--scale));
+  font-weight: 500;
+  cursor: pointer;
+}
+details:not(.overflow-menu) > summary::-webkit-details-marker {
+  display: none;
+}
+details:not(.overflow-menu) > summary::after {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition: transform 150ms ease-out;
+}
+details[open]:not(.overflow-menu) > summary::after {
+  transform: rotate(180deg);
+}
+details:not(.overflow-menu) > summary:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reduce-motion details > summary::after {
+  transition: none;
+}
+.inspector-disclosure > summary {
+  color: var(--ink);
+  font-size: calc(14px * var(--scale));
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  details > summary::after {
+    transition: none;
+  }
 }

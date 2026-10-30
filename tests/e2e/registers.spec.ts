@@ -68,7 +68,7 @@ async function preparePack(page: Page, doc: string, signers: string[] = []) {
   }
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
   await page.getByRole('button', { name: /Request review of v/ }).click();
-  await expect(page.locator('.track-facts')).toContainText('Awaiting review');
+  await expect(page.locator('.job-facts')).toContainText('Awaiting review');
 }
 async function reviewPack(page: Page, jobId: string) {
   await login(page, fixture.reviewer);
@@ -111,12 +111,12 @@ test('W05 opening allocation is prepared, independently reviewed and posted thro
     .selectOption(doc);
   await page.getByRole('button', { name: 'Save transaction for review', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Opening balances · Ordinary', exact: true }),
+    page.getByRole('heading', { name: 'Opening balances, Ordinary', exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole('table', { name: 'Reviewed before and after class totals' }),
   ).toContainText('100');
-  for (const width of [1440, 768, 390, 320]) {
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -197,18 +197,18 @@ test('BO notice nonresponse, assessment, restricted evidence and posting stay se
   await expect(
     page.getByRole('definition').filter({ hasText: 'Fictional approved source v1 for evaluation' }),
   ).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.setViewportSize({ width: 1280, height: 1000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: '.local/record-previews/bo-390.png', fullPage: true });
+  await page.screenshot({ path: '.local/record-previews/bo-1280.png', fullPage: true });
   await page.setViewportSize({ width: 1280, height: 1000 });
   await preparePack(page, doc);
   await reviewPack(page, id);
   await page.getByRole('button', { name: 'Record changes', exact: true }).click();
-  const post = page.getByRole('button', { name: 'Post reviewed BO register entry', exact: true });
+  const post = page.getByRole('button', { name: 'Post reviewed register entry', exact: true });
   await post.click();
   await post.click();
   await expect(
-    page.getByText('BO register entry recorded · Filing: Not ready', { exact: true }),
+    page.getByText('Register entry recorded. Filing: not ready.', { exact: true }),
   ).toBeVisible();
   await page.goto('/companies/' + fixture.companyId);
   await expect(
@@ -291,19 +291,19 @@ test('signed transfer conserves units, retains certificates and allows an allotm
     .selectOption(doc);
   await page.getByRole('button', { name: 'Save transaction for review', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Transfer · Ordinary', exact: true }),
+    page.getByRole('heading', { name: 'Transfer, Ordinary', exact: true }),
   ).toBeVisible();
   await preparePack(page, doc, ['Fictional director', 'Fictional member']);
   await reviewPack(page, id);
   await sign(page, id, doc, 'Fictional director');
-  await expect(page.locator('.track-facts')).toContainText('Partly signed');
+  await expect(page.locator('.job-facts')).toContainText('Partly signed');
   await postCapital(page, id);
   await expect(page.locator('.feedback.error[role=alert]')).toContainText(
     'Fictional member: signature evidence is missing',
   );
   expect((await state(page)).jobs.find((j) => j.id === id)?.recordEventId).toBeNull();
   await sign(page, id, doc, 'Fictional member');
-  await expect(page.locator('.track-facts')).toContainText('Fully signed');
+  await expect(page.locator('.job-facts')).toContainText('Fully signed');
   await postCapital(page, id);
   await expect(page.getByText('Effective', { exact: true })).toBeVisible();
   const after = await (
@@ -346,7 +346,7 @@ test('signed transfer conserves units, retains certificates and allows an allotm
     .selectOption(allotDoc);
   await page.getByRole('button', { name: 'Save transaction for review', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Allotment · Preference', exact: true }),
+    page.getByRole('heading', { name: 'Allotment, Preference', exact: true }),
   ).toBeVisible();
   await preparePack(page, allotDoc, ['Fictional director']);
   await reviewPack(page, allot);

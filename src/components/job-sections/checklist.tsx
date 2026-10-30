@@ -6,13 +6,13 @@ export function Checklist({ job, data }: Props) {
   const { evidence } = jobFields(job, data);
   return (
     <section>
-      <h2>Checklist · v{pack?.version}</h2>
+      <h2>Checklist v{pack?.version}</h2>
       {pack?.checklist.map((item) => (
         <div className="checklist-item" key={item.id}>
           <h3>{item.label}</h3>
           <p className="check-state">
             {item.notApplicable
-              ? 'Not applicable · ' + item.notApplicable.reason
+              ? 'Not applicable, ' + item.notApplicable.reason
               : item.evidenceIds.length
                 ? 'Evidence linked'
                 : item.required

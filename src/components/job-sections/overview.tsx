@@ -2,41 +2,33 @@
 import type { JobSectionProps as Props } from './shared';
 import Link from 'next/link';
 import { formatDate } from '../workspace';
-import { jobFields, JobAction, EvidenceLinks } from './shared';
-export function Overview({ job, data }: Props) {
-  const { evidence, users, version } = jobFields(job, data);
+import { jobFields, JobAction, EvidenceLinks, readableDates, reviewRequestReady } from './shared';
+export function Overview({ job, data, openTab }: Props) {
+  const { evidence, version } = jobFields(job, data);
   const prepare = data.actor.capabilities.includes('prepare_job');
   const review = data.actor.capabilities.includes('review_pack');
+  const outstanding = (job.blockers || []).filter((blocker) => blocker !== job.nextAction);
   return (
     <>
       <section className="section">
         <h2>Next action</h2>
-        <p>{job.nextAction || 'Prepare supporting evidence'}</p>
-        {job.blockers?.some((blocker) => blocker !== job.nextAction) ? (
-          <div className="warning">
-            <ul>
-              {job.blockers
-                .filter((blocker) => blocker !== job.nextAction)
-                .map((blocker) => (
-                  <li key={blocker}>{blocker}</li>
-                ))}
-            </ul>
-          </div>
+        <p>{readableDates(job.nextAction || 'Prepare supporting evidence')}</p>
+        {outstanding.length ? (
+          <p className="warning outstanding-line">
+            {outstanding.length === 1
+              ? '1 item outstanding before this job can complete.'
+              : `${outstanding.length} items outstanding before this job can complete.`}{' '}
+            {openTab ? (
+              <button
+                type="button"
+                className="section-link text-button"
+                onClick={() => openTab('Checklist')}
+              >
+                View checklist
+              </button>
+            ) : null}
+          </p>
         ) : null}
-        <dl className="facts">
-          <div>
-            <dt>Owner</dt>
-            <dd>{data.users.find((u) => u.id === job.ownerId)?.name}</dd>
-          </div>
-          <div>
-            <dt>Internal target</dt>
-            <dd>{formatDate(job.internalTarget)}</dd>
-          </div>
-          <div>
-            <dt>Statutory deadline</dt>
-            <dd>{job.statutoryDue ? formatDate(job.statutoryDue) : 'No approved date'}</dd>
-          </div>
-        </dl>
         {job.deadlineReviewRequired ? (
           <div className="warning">
             Manual deadline requires review.
@@ -75,7 +67,7 @@ export function Overview({ job, data }: Props) {
           ) : null}
           {job.snapshotNeedsReview ? (
             <div className="warning">
-              <p>{job.snapshotNeedsReview.reason}</p>
+              <p>{readableDates(job.snapshotNeedsReview.reason)}</p>
               {prepare && !job.filingAttempts.length ? (
                 <JobAction
                   job={job}
@@ -89,7 +81,7 @@ export function Overview({ job, data }: Props) {
           {job.snapshot ? (
             <>
               <p>
-                As at {formatDate(job.snapshot?.asAt)} · captured{' '}
+                As at {formatDate(job.snapshot?.asAt)}, captured{' '}
                 {formatDate(job.snapshot?.capturedAt)}
               </p>
               <dl className="facts">
@@ -120,7 +112,7 @@ export function Overview({ job, data }: Props) {
                         <ul className="list-plain">
                           {job.snapshot.members.classes.map((c) => (
                             <li key={c.id}>
-                              {c.name} · {c.units} units · {c.currency} {c.issuedAmount} issued ·{' '}
+                              {c.name}, {c.units} units, {c.currency} {c.issuedAmount} issued,{' '}
                               {c.currency} {c.paidAmount} paid up
                             </li>
                           ))}
@@ -136,12 +128,12 @@ export function Overview({ job, data }: Props) {
           ) : null}
           {job.snapshotHistory?.length ? (
             <details className="disclosure">
-              <summary>Previous anniversary snapshots ({job.snapshotHistory.length})</summary>
+              <summary>Previous anniversary snapshots</summary>
               <div>
                 {job.snapshotHistory.map((entry, index) => (
                   <section className="section" key={index}>
                     <h3>
-                      Pack v{entry.packVersion} · as at {formatDate(entry.snapshot.asAt)}
+                      Pack v{entry.packVersion}, as at {formatDate(entry.snapshot.asAt)}
                     </h3>
                     <p>{entry.snapshot.company.name}</p>
                     <p>{entry.snapshot.company.address}</p>
@@ -193,7 +185,7 @@ export function Overview({ job, data }: Props) {
                 <li key={id}>
                   <Link href={'/jobs/' + id}>{dep?.title || 'Linked job'}</Link>
                   <p className="metadata">
-                    {dep?.state} · filing {dep?.filingState}
+                    {dep?.state}, filing {dep?.filingState}
                   </p>
                 </li>
               );
@@ -236,13 +228,13 @@ export function Overview({ job, data }: Props) {
             {[...job.reviews].reverse().map((r) => (
               <li key={r.id}>
                 <strong>
-                  {r.scope.replaceAll('_', ' ')} · v{r.version}
-                </strong>{' '}
-                · {r.decision}
+                  {r.scope.replaceAll('_', ' ')} v{r.version}
+                </strong>
+                , {r.decision}
                 <p className="metadata">
-                  {data.users.find((u) => u.id === r.actorId)?.name || r.actorId} ·{' '}
+                  {data.users.find((u) => u.id === r.actorId)?.name || r.actorId},{' '}
                   {formatDate(r.at)}
-                  {r.version !== version ? ' · Earlier version' : ''}
+                  {r.version !== version ? ', earlier version' : ''}
                 </p>
                 <p>{r.reason}</p>
               </li>
@@ -251,7 +243,7 @@ export function Overview({ job, data }: Props) {
         ) : (
           <p className="muted">No decisions recorded</p>
         )}
-        {prepare ? (
+        {prepare && !reviewRequestReady(job, data) ? (
           <JobAction job={job} action="request_review" label={'Request review of v' + version} />
         ) : null}
         {review ? (
@@ -299,14 +291,14 @@ export function Overview({ job, data }: Props) {
         ) : null}
       </section>
       {prepare ? (
-        <section className="section">
+        <section className="section case-notes">
           <h2>Case notes</h2>
           <ul className="list-plain">
             {job.notes.map((note) => (
               <li key={note.id}>
                 <div className="prose" dangerouslySetInnerHTML={{ __html: note.html }} />
                 <p className="metadata">
-                  {data.users.find((u) => u.id === note.actorId)?.name} · {formatDate(note.at)}
+                  {data.users.find((u) => u.id === note.actorId)?.name}, {formatDate(note.at)}
                 </p>
               </li>
             ))}
@@ -319,12 +311,9 @@ export function Overview({ job, data }: Props) {
           />
         </section>
       ) : null}
-      <section className="section">
-        <h2>Completion</h2>
-        <p>
-          Job: {job.state} · Filing: {job.filingState}
-        </p>
-        {prepare && !['Complete', 'Cancelled'].includes(job.state) ? (
+      {prepare && !['Complete', 'Cancelled'].includes(job.state) ? (
+        <section className="section">
+          <h2>Completion</h2>
           <JobAction
             job={job}
             action="complete"
@@ -332,91 +321,97 @@ export function Overview({ job, data }: Props) {
             extra={{ confirmed: true }}
             confirmation={`Complete ${job.title}? All required evidence, decisions and filing outcomes will be checked.`}
           />
-        ) : null}
-      </section>
-      {prepare ? (
-        <details className="disclosure">
-          <summary>Assignment, dates and billing</summary>
-          <div className="form-stack">
-            <JobAction
-              job={job}
-              action="assign"
-              label="Reassign job"
-              fields={[
-                {
-                  name: 'ownerId',
-                  label: 'Owner',
-                  type: 'select',
-                  value: job.ownerId,
-                  options: users,
-                  required: true,
-                },
-                { name: 'reason', label: 'Reassignment reason', required: true },
-              ]}
-            />
-            <JobAction
-              job={job}
-              action="dates"
-              label="Save dates"
-              fields={[
-                {
-                  name: 'internalTarget',
-                  label: 'Internal target',
-                  type: 'date',
-                  value: job.internalTarget || '',
-                },
-                {
-                  name: 'statutoryDue',
-                  label: 'Manual statutory deadline',
-                  type: 'date',
-                  value: job.statutoryDue || '',
-                },
-                {
-                  name: 'manualDateBasis',
-                  label: 'Source and calculation basis',
-                  type: 'textarea',
-                  value: job.manualDateBasis,
-                },
-                {
-                  name: 'manualDateEvidenceId',
-                  label: 'Deadline evidence',
-                  type: 'select',
-                  options: evidence,
-                  value: job.manualDateEvidenceId || '',
-                },
-              ]}
-            />
-            <JobAction
-              job={job}
-              action="billing"
-              label="Update billing handoff"
-              fields={[
-                {
-                  name: 'state',
-                  label: 'Billing state',
-                  type: 'select',
-                  value: job.billingState,
-                  required: true,
-                  options: ['Not ready', 'Ready to bill', 'Handed off', 'Invoiced'].map(
-                    (value) => ({ value, label: value }),
-                  ),
-                },
-                { name: 'reason', label: 'Reason or handoff reference', required: true },
-              ]}
-            />
-            {!['Complete', 'Cancelled'].includes(job.state) ? (
-              <JobAction
-                job={job}
-                action="cancel"
-                label="Cancel job"
-                fields={[{ name: 'reason', label: 'Cancellation reason', required: true }]}
-                extra={{ confirmed: true }}
-                confirmation={`Cancel ${job.title}? Effective records and incurred filing obligations are retained; unresolved obligations prevent cancellation.`}
-              />
-            ) : null}
-          </div>
-        </details>
+        </section>
       ) : null}
     </>
+  );
+}
+/** Assignment, dates, billing and cancellation, shown in the job's details panel. */
+export function JobSettings({ job, data }: Props) {
+  const { evidence, users } = jobFields(job, data);
+  if (!data.actor.capabilities.includes('prepare_job')) return null;
+  return (
+    <details className="disclosure job-settings">
+      <summary>Assignment, dates and billing</summary>
+      <div className="form-stack">
+        <JobAction
+          job={job}
+          action="assign"
+          label="Reassign job"
+          fields={[
+            {
+              name: 'ownerId',
+              label: 'Owner',
+              type: 'select',
+              value: job.ownerId,
+              options: users,
+              required: true,
+            },
+            { name: 'reason', label: 'Reassignment reason', required: true },
+          ]}
+        />
+        <JobAction
+          job={job}
+          action="dates"
+          label="Save dates"
+          fields={[
+            {
+              name: 'internalTarget',
+              label: 'Internal target',
+              type: 'date',
+              value: job.internalTarget || '',
+            },
+            {
+              name: 'statutoryDue',
+              label: 'Manual statutory deadline',
+              type: 'date',
+              value: job.statutoryDue || '',
+            },
+            {
+              name: 'manualDateBasis',
+              label: 'Source and calculation basis',
+              type: 'textarea',
+              value: job.manualDateBasis,
+            },
+            {
+              name: 'manualDateEvidenceId',
+              label: 'Deadline evidence',
+              type: 'select',
+              options: evidence,
+              value: job.manualDateEvidenceId || '',
+            },
+          ]}
+        />
+        <JobAction
+          job={job}
+          action="billing"
+          label="Update billing handoff"
+          fields={[
+            {
+              name: 'state',
+              label: 'Billing state',
+              type: 'select',
+              value: job.billingState,
+              required: true,
+              options: ['Not ready', 'Ready to bill', 'Handed off', 'Invoiced'].map((value) => ({
+                value,
+                label: value,
+              })),
+            },
+            { name: 'reason', label: 'Reason or handoff reference', required: true },
+          ]}
+        />
+        {!['Complete', 'Cancelled'].includes(job.state) ? (
+          <JobAction
+            job={job}
+            action="cancel"
+            label="Cancel job"
+            fields={[{ name: 'reason', label: 'Cancellation reason', required: true }]}
+            extra={{ confirmed: true }}
+            confirmation={`Cancel ${job.title}? Effective records and incurred filing obligations are retained; unresolved obligations prevent cancellation.`}
+          />
+        ) : null}
+      </div>
+    </details>
   );
 }

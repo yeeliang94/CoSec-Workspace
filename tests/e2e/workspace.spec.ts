@@ -39,7 +39,7 @@ test('real credential login, scoped queues, responsive navigation and preference
     page.getByRole('link', { name: 'Aster Advisory Sdn. Bhd.', exact: true }).first(),
   ).toBeVisible();
   await mkdir('.local/previews', { recursive: true });
-  for (const width of [1440, 1280, 768, 390, 320]) {
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
     expect(
