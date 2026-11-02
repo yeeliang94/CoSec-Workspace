@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { connect } from 'node:net';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
+import { connect, createServer, type AddressInfo } from 'node:net';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+// A dev server on the real port must not change these results, so the fixture uses a free port.
+const port = await new Promise<number>((resolve) => {
+  const server = createServer().listen(0, '127.0.0.1', () => {
+    const { port } = server.address() as AddressInfo;
+    server.close(() => resolve(port));
+  });
+});
 const roots: string[] = [];
 const launchers: ChildProcess[] = [];
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,7 +24,7 @@ async function waitFor(check: () => boolean | Promise<boolean>) {
 }
 async function listening() {
   return new Promise<boolean>((resolve) => {
-    const socket = connect(4300, '127.0.0.1');
+    const socket = connect(port, '127.0.0.1');
     socket.once('connect', () => {
       socket.destroy();
       resolve(true);
@@ -29,7 +36,10 @@ function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'cosec-launcher-'));
   roots.push(root);
   for (const folder of ['scripts', 'bin', 'node_modules', '.next']) mkdirSync(join(root, folder));
-  copyFileSync(resolve('scripts/start.mjs'), join(root, 'scripts/start.mjs'));
+  writeFileSync(
+    join(root, 'scripts/start.mjs'),
+    readFileSync(resolve('scripts/start.mjs'), 'utf8').replaceAll('4300', String(port)),
+  );
   writeFileSync(join(root, 'package-lock.json'), '{}');
   writeFileSync(join(root, 'node_modules/.package-lock.json'), '{}');
   writeFileSync(join(root, '.env'), 'BETTER_AUTH_URL=http://127.0.0.1:4300\n');
@@ -56,7 +66,7 @@ if (command === 'run build') {
 }
 if (command === 'run start' || command === 'run worker') {
   const code = command === 'run start'
-    ? "require('node:net').createServer().listen(4300, '127.0.0.1')"
+    ? "require('node:net').createServer().listen(${port}, '127.0.0.1')"
     : "setInterval(() => {}, 1000)";
   const child = spawn(process.execPath, ['-e', code], { stdio: 'ignore' });
   fs.appendFileSync('pids', child.pid + '\\n');

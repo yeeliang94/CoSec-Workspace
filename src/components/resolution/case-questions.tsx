@@ -5,6 +5,7 @@ import type { AnswerValue, Answers, SignerSelection } from '@/domain/resolution/
 import {
   ApiError,
   getJson,
+  issueFields,
   newRequestId,
   plainIssue,
   postJson,
@@ -12,6 +13,7 @@ import {
   type FormField,
   type FormModel,
   type Issue,
+  type IssueField,
 } from './api';
 import type { CaseApi } from './case-workspace';
 import { LoadState, useLoad } from './use-load';
@@ -230,7 +232,7 @@ function QuestionForm({
   // Form issues carry the unit (clause entry key, or 'case') and the field id.
   const allIssues = [...issues, ...saveIssues];
   const shownIssues = attempted ? allIssues : saveIssues;
-  const allFields = [...form.shared, ...form.clauses.flatMap((c) => c.fields)];
+  const allFields = issueFields(form);
   const issuesFor = (field: FormField, unit: string) =>
     shownIssues.filter(
       (issue) =>
@@ -427,7 +429,7 @@ function FieldGroup({
   values: Answers;
   onChange: (unit: string, fieldId: string, value: AnswerValue | Answers) => void;
   issuesFor: (field: FormField) => Issue[];
-  fieldsForIssues: FormField[];
+  fieldsForIssues: IssueField[];
 }) {
   const visible = fields.filter((f) => f.active !== false);
   const perRow = visible.filter((f) => f.repeatScope);
