@@ -1,5 +1,6 @@
 'use client';
 import { useId, useState } from 'react';
+import Link from 'next/link';
 import type { AnswerValue, Answers, PersonSnapshot, SignerRole } from '@/domain/resolution/model';
 import { formatDate } from '@/components/workspace';
 import { type FormField, type Issue } from './api';
@@ -518,18 +519,29 @@ export function PerRowTable({
   );
 }
 
+const EMPTY_POOL: Record<SignerRole, string> = {
+  directors: 'No directors',
+  members: 'No members (shareholders)',
+  certifiers: 'No people',
+};
+
 export function SignerList({
   role,
   label,
   pool,
   value,
   onChange,
+  companyId,
+  asAt,
 }: {
   role: SignerRole;
   label: string;
   pool: PersonSnapshot[];
   value: string[];
   onChange: (ids: string[]) => void;
+  companyId: string;
+  /** The resolution date the pool is taken from. */
+  asAt: string;
 }) {
   return (
     <div className="signer-role" data-field-ids={`signers_${role}`}>
@@ -539,7 +551,14 @@ export function SignerList({
         pool={pool}
         value={value}
         onChange={onChange}
-        help={null}
+        help={
+          pool.length ? null : (
+            <p className="metadata">
+              {EMPTY_POOL[role]} on {formatDate(asAt)}.{' '}
+              <Link href={'/companies/' + companyId}>Add on company page</Link>
+            </p>
+          )
+        }
         errors={null}
       />
     </div>

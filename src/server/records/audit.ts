@@ -74,11 +74,10 @@ function firmLevel(actor: Actor): SQL {
 
 /**
  * Rows the actor may read: their companies' rows, rows whose fixed scope overlaps their
- * companies, and firm-level rows by entity type (see `firmLevel`). Without `view_bo`, BO rows
- * and legacy rows about W06 jobs or BO documents are excluded.
+ * companies, and firm-level rows by entity type (see `firmLevel`). Rows from the retired
+ * beneficial-ownership feature (BO rows, W06 jobs, BO documents) stay hidden from everyone.
  */
 function visibility(actor: Actor): SQL {
-  const has = (c: Actor['capabilities'][number]) => actor.capabilities.includes(c);
   const scopes: SQL[] = [];
   if (actor.companyIds.length) {
     scopes.push(sql`a.company_id IN (${list(actor.companyIds)})`);
@@ -88,7 +87,6 @@ function visibility(actor: Actor): SQL {
   }
   scopes.push(firmLevel(actor));
   const scope = scopes.length ? sql`(${sql.join(scopes, sql` OR `)})` : sql`FALSE`;
-  if (has('view_bo')) return scope;
   return sql`${scope} AND a.sensitivity <> 'BO' AND a.action NOT LIKE 'bo.%'
     AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = a.subject_id
       AND json_extract(j.data, '$.activity') = 'W06')

@@ -38,7 +38,7 @@ async function linkedCompanyIds(personId: string, tx: Transaction) {
 }
 
 /**
- * People search: a plain read (projections are refreshed when W04 posts). The first
+ * People search: a plain read (projections are refreshed when director events post). The first
  * `SEARCH_LIMIT` matches by name are returned; `truncated` says more matched.
  */
 export async function listPeople(actor: Actor, options: { q?: string; companyId?: string }) {

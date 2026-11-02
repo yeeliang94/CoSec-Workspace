@@ -2,14 +2,21 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Company, Officer, OfficerEvent } from '@/domain/model';
-import { useWorkspace, formatDate, currentDate, Empty, BackLink } from '@/components/workspace';
+import type { ResolutionCase } from '@/domain/resolution/model';
+import { caseStatus } from '@/domain/resolution/cases';
 import {
-  MembersRegister,
-  BeneficialOwnershipRegister,
-} from '@/components/registers/company-registers';
+  useWorkspace,
+  formatDate,
+  currentDate,
+  Empty,
+  BackLink,
+  Icon,
+} from '@/components/workspace';
 import { ActionForm } from '@/components/forms';
-import { WorkTable } from '@/components/work-list';
 import { CompanyRelationships } from '@/components/resolution/relationships';
+import { getJson, kindLabel } from '@/components/resolution/api';
+import { LoadState, useLoad } from '@/components/resolution/use-load';
+import { NewResolution } from '@/components/resolution/new-resolution';
 import { formatYearEnd, industryLabel } from '@/domain/company';
 export default function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,6 +28,16 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
     events?: OfficerEvent[];
   } | null>(null);
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  // Bumped after a people change so officer history reloads with it.
+  const [recordVersion, setRecordVersion] = useState(0);
+  const resolutions = useLoad(
+    () =>
+      getJson<{ cases: ResolutionCase[] }>(
+        '/api/resolution-cases?companyId=' + encodeURIComponent(id),
+      ),
+    [id],
+  );
   useEffect(() => {
     let active = true;
     setError('');
@@ -36,22 +53,23 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
     return () => {
       active = false;
     };
-  }, [id, asAt]);
+  }, [id, asAt, recordVersion]);
   if (!data) return null;
   const company = data.companies.find((c) => c.id === id);
   if (!company) return <Empty>Company unavailable</Empty>;
-  const jobs = data.jobs.filter((j) => j.companyId === id);
   return (
     <>
       <BackLink href="/companies" label="Companies" />
       <div className="page-header">
         <h1>{company.name}</h1>
-        {data.actor.capabilities.includes('prepare_job') ? (
-          <Link className="button" href={'/jobs/new?company=' + id}>
-            New job
-          </Link>
+        {data.actor.capabilities.some((c) => c === 'generate_documents' || c === 'prepare_job') ? (
+          <button type="button" className="primary" onClick={() => setCreating(true)}>
+            <Icon kind="plus" />
+            New resolution
+          </button>
         ) : null}
       </div>
+      {creating ? <NewResolution companyId={id} onCancel={() => setCreating(false)} /> : null}
       <dl className="facts">
         <div>
           <dt>Registration number</dt>
@@ -149,18 +167,57 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
           {error}
         </div>
       ) : null}
-      <CompanyRelationships companyId={id} asAt={asAt} onAsAtChange={setAsAt} />
-      <MembersRegister companyId={id} asAt={asAt} />
-      {data.actor.capabilities.includes('view_bo') ? (
-        <BeneficialOwnershipRegister companyId={id} asAt={asAt} />
-      ) : null}
+      <CompanyRelationships
+        companyId={id}
+        asAt={asAt}
+        onAsAtChange={setAsAt}
+        onChanged={() => setRecordVersion((v) => v + 1)}
+      />
       <section className="section">
-        <h2>Jobs</h2>
-        {jobs.length ? (
-          <WorkTable jobs={jobs} data={data} hideCompany />
-        ) : (
-          <p className="muted">No jobs</p>
-        )}
+        <h2>Resolutions</h2>
+        <LoadState
+          loading={resolutions.loading && !resolutions.data}
+          error={resolutions.error}
+          reload={() => void resolutions.reload()}
+          label="resolutions"
+        />
+        {resolutions.data ? (
+          resolutions.data.cases.length ? (
+            <div className="table-wrap">
+              <table className="resolution-table stack-table">
+                <caption className="sr-only">Resolutions for {company.name}</caption>
+                <thead>
+                  <tr>
+                    <th>Resolution</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resolutions.data.cases.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <Link href={'/resolutions/' + item.id}>{item.title}</Link>
+                        <div className="state">{kindLabel(item.kind)}</div>
+                      </td>
+                      <td data-label="Status">
+                        {caseStatus(
+                          item,
+                          (userId) => data.users.find((u) => u.id === userId)?.name || userId,
+                        )}
+                      </td>
+                      <td data-label="Updated" className="nowrap">
+                        {formatDate(item.updatedAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="muted">No resolutions</p>
+          )
+        ) : null}
       </section>
       <section className="section">
         <h2>Documents</h2>
@@ -201,23 +258,19 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
                   Effective {formatDate(event.effectiveDate)} · entered{' '}
                   {formatDate(event.recordedAt)}
                 </p>
-                {data.jobs.some((job) => job.id === event.jobId) ? (
-                  <Link href={'/jobs/' + event.jobId}>Open event job</Link>
-                ) : (
-                  event.evidenceIds
-                    .filter((evidenceId) =>
-                      data.documents.some((document) => document.id === evidenceId),
-                    )
-                    .map((evidenceId) => (
-                      <a
-                        className="evidence-link"
-                        key={evidenceId}
-                        href={'/api/documents/' + evidenceId}
-                      >
-                        View source evidence
-                      </a>
-                    ))
-                )}
+                {event.evidenceIds
+                  .filter((evidenceId) =>
+                    data.documents.some((document) => document.id === evidenceId),
+                  )
+                  .map((evidenceId) => (
+                    <a
+                      className="evidence-link"
+                      key={evidenceId}
+                      href={'/api/documents/' + evidenceId}
+                    >
+                      View source evidence
+                    </a>
+                  ))}
               </li>
             ))}
           </ul>

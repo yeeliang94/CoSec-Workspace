@@ -10,10 +10,9 @@ import {
   lockCompany,
   personUnavailable,
   systemActor,
-  visiblePersonIds,
 } from './scope';
 import { assertCompany, DomainError, today } from '../../domain/access';
-import { officersAt } from '../../domain/workflows';
+import { officersAt } from '../../domain/officers';
 import type { Actor, OfficerEvent } from '../../domain/model';
 import type {
   CompanyRelationship,
@@ -30,10 +29,6 @@ export type ProjectionResult = {
   /** Existing people not linked because this company's events name them differently. */
   peopleSkipped: string[];
 };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** Longest person id the people and relationship tables store. */
-export const PERSON_ID_MAX = 64;
 
 /**
  * Brings the company's director relationships in line with its posted officer events. Officer
@@ -247,56 +242,6 @@ export async function syncDirectorProjection(
   return result;
 }
 
-/**
- * W04 person checks at job creation. An existing person must be visible to the actor (for an
- * appointment) or related to this company (for a cessation), and the proposal must use the
- * person's recorded name. An id with no person record is a new appointee and must be a fresh
- * UUID, or, for a cessation, an officer of this company whose projection is still pending. Every
- * failure gives the same not-found response so ids from other companies are not disclosed.
- */
-/**
- * The W04 person must be one the actor may act on. At posting (`posting: true`) a still-unlinked
- * person is also accepted, since the preparer chose them and linking exposes them only to this
- * company; a person linked elsewhere must be visible to the poster.
- */
-export async function assertDirectorChangePerson(
-  actor: Actor,
-  input: { companyId: string; route: string; personId: string; personName: string },
-  tx?: Transaction,
-  posting = false,
-) {
-  const { companyId, route, personId, personName } = input;
-  if (personId.length > PERSON_ID_MAX) throw personUnavailable();
-  const [row] = await (tx ?? db)
-    .select({ fullName: s.people.fullName })
-    .from(s.people)
-    .where(eq(s.people.id, personId));
-  if (row) {
-    const visible = await visiblePersonIds(
-      actor,
-      route === 'appointment' ? { ids: [personId] } : { ids: [personId], companyId },
-      tx,
-    );
-    if (row.fullName !== personName) throw personUnavailable();
-    if (visible.length) return;
-    if (posting && route === 'appointment') {
-      const [linked] = await (tx ?? db)
-        .select({ id: s.companyRelationships.id })
-        .from(s.companyRelationships)
-        .where(eq(s.companyRelationships.personId, personId))
-        .limit(1);
-      if (!linked) return;
-    }
-    throw personUnavailable();
-  }
-  if (route === 'appointment') {
-    if (!UUID.test(personId)) throw personUnavailable();
-    return;
-  }
-  if (!(await listOfficerEvents(companyId, tx)).some((e) => e.personId === personId))
-    throw personUnavailable();
-}
-
 export type RelationshipView = CompanyRelationship & { personName: string };
 /** Relationships of one company with person names. Caller has checked company access. */
 export async function companyRelationships(companyId: string, tx?: Transaction) {
@@ -341,7 +286,7 @@ export async function directorsAsAt(
 }
 
 /**
- * A plain read: projections are refreshed when W04 posts (and by the people migration), so no
+ * A plain read: projections are refreshed when director events post (and by the people migration), so no
  * company lock or projection sync happens here. One transaction gives a consistent snapshot.
  */
 export async function listCompanyRelationships(actor: Actor, companyId: string, asAt: string) {
@@ -372,6 +317,8 @@ type RelationshipInput =
       requestId: string;
       endDate: string;
       reason: string;
+      /** How a director's appointment ended; other roles ignore it. */
+      cessation?: 'resignation' | 'removal' | 'other_cessation';
     }
   | {
       action: 'set_capacity';
@@ -463,7 +410,7 @@ export async function changeRelationship(
           actor,
           companyId,
           before.personId,
-          'other_cessation',
+          input.cessation ?? 'other_cessation',
           { effectiveDate: input.endDate, reason: input.reason },
           tx,
         );

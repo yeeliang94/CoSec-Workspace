@@ -27,14 +27,3 @@ export function today() {
     day: '2-digit',
   }).format(new Date());
 }
-
-export function canReadJob(actor: Actor, job: { companyId: string; activity: string }) {
-  return (
-    actor.companyIds.includes(job.companyId) &&
-    (job.activity !== 'W06' || actor.capabilities.includes('view_bo'))
-  );
-}
-export function assertJobAccess(actor: Actor, job: { companyId: string; activity: string }) {
-  if (!canReadJob(actor, job))
-    throw new DomainError('Job access is unavailable.', 'NOT_FOUND', 404);
-}

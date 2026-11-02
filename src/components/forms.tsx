@@ -222,7 +222,7 @@ export function ActionForm({
     </form>
   );
 }
-export function UploadForm({ companyId, jobId }: { companyId: string; jobId?: string }) {
+export function UploadForm({ companyId }: { companyId: string }) {
   const { refresh } = useWorkspace();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -240,7 +240,6 @@ export function UploadForm({ companyId, jobId }: { companyId: string; jobId?: st
         const form = event.currentTarget;
         const data = new FormData(form);
         data.set('companyId', companyId);
-        if (jobId) data.set('jobId', jobId);
         setPending(true);
         setError('');
         setSaved('');

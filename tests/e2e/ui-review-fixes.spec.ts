@@ -48,7 +48,7 @@ test('document type drafts survive cancelled closes and reset after accepted dis
     const drawer = page.getByRole('dialog', { name: 'New document type', exact: true });
     const name = closeMethod === 'Escape' ? '' : 'Fictional unsaved document type';
     await drawer.getByLabel('Name', { exact: true }).fill(name);
-    await drawer.getByLabel('Body', { exact: true }).selectOption('members');
+    await drawer.getByRole('combobox', { name: 'Body', exact: true }).selectOption('members');
     const close = () =>
       closeMethod === 'Escape'
         ? drawer.press('Escape')
@@ -56,13 +56,17 @@ test('document type drafts survive cancelled closes and reset after accepted dis
     await close();
     await answerPrompt(page, false);
     await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue(name);
-    await expect(drawer.getByLabel('Body', { exact: true })).toHaveValue('members');
+    await expect(drawer.getByRole('combobox', { name: 'Body', exact: true })).toHaveValue(
+      'members',
+    );
     await close();
     await answerPrompt(page, true);
     await expect(drawer).toHaveCount(0);
     await page.getByRole('button', { name: 'New document type', exact: true }).click();
     await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue('');
-    await expect(drawer.getByLabel('Body', { exact: true })).toHaveValue('directors');
+    await expect(drawer.getByRole('combobox', { name: 'Body', exact: true })).toHaveValue(
+      'directors',
+    );
     await drawer.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(drawer).toHaveCount(0);
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
@@ -79,7 +83,6 @@ test('relationship drawers protect date-only, role-only and evidence-only edits'
   const evidence: Document = {
     id: 'fictional-drawer-evidence',
     companyId,
-    jobId: null,
     title: 'Fictional drawer evidence',
     originalName: 'fictional.txt',
     mimeType: 'text/plain',
@@ -147,12 +150,14 @@ test('relationship drawers protect date-only, role-only and evidence-only edits'
     await page.getByRole('button', { name: 'Add person', exact: true }).click();
     const adding = page.getByRole('dialog', { name: 'Add a person', exact: true });
     if (field === 'role')
-      await adding.getByLabel('Role', { exact: true }).selectOption('secretary');
+      await adding.getByRole('combobox', { name: 'Role', exact: true }).selectOption('secretary');
     else await adding.getByRole('checkbox', { name: evidence.title, exact: true }).check();
     await adding.getByRole('button', { name: 'Cancel', exact: true }).click();
     await answerPrompt(page, false);
     if (field === 'role')
-      await expect(adding.getByLabel('Role', { exact: true })).toHaveValue('secretary');
+      await expect(adding.getByRole('combobox', { name: 'Role', exact: true })).toHaveValue(
+        'secretary',
+      );
     else
       await expect(
         adding.getByRole('checkbox', { name: evidence.title, exact: true }),
@@ -161,7 +166,9 @@ test('relationship drawers protect date-only, role-only and evidence-only edits'
     await answerPrompt(page, true);
     await expect(adding).toHaveCount(0);
     await page.getByRole('button', { name: 'Add person', exact: true }).click();
-    await expect(adding.getByLabel('Role', { exact: true })).toHaveValue('director');
+    await expect(adding.getByRole('combobox', { name: 'Role', exact: true })).toHaveValue(
+      'director',
+    );
     await expect(
       adding.getByRole('checkbox', { name: evidence.title, exact: true }),
     ).not.toBeChecked();
@@ -221,6 +228,7 @@ test('relationship conflict reload preserves entries and retries with the latest
     exact: true,
   });
   await drawer.getByLabel('End date', { exact: true }).fill('2026-10-01');
+  await drawer.getByLabel('How the appointment ended', { exact: true }).selectOption('resignation');
   await drawer.getByLabel('Reason', { exact: true }).fill('Fictional cessation evidence');
   await drawer.getByRole('button', { name: 'End relationship', exact: true }).click();
   await expect(drawer.getByRole('alert')).toContainText('This relationship changed.');
@@ -241,22 +249,4 @@ test('relationship conflict reload preserves entries and retries with the latest
   await drawer.getByRole('button', { name: 'End relationship', exact: true }).click();
   await expect(drawer).toHaveCount(0);
   expect(submissions.map((submission) => submission.expectedRevision)).toEqual([1, 2]);
-});
-
-test('job creation labels follow the selected activity rather than the entry URL', async ({
-  page,
-}) => {
-  await login(page);
-  await page.goto('/jobs/new?activity=W05');
-  await expect(
-    page.getByRole('heading', { name: 'New share transaction', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('combobox', { name: 'Activity', exact: true }).selectOption('W06');
-  await expect(page.getByRole('heading', { name: 'New BO assessment', exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Create BO assessment', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('combobox', { name: 'Activity', exact: true }).selectOption('W03');
-  await expect(page.getByRole('heading', { name: 'New job', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create job', exact: true })).toBeVisible();
 });

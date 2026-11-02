@@ -1,5 +1,5 @@
 import { requireActor } from '@/server/auth';
-import { endpoint } from '@/server/http';
+import { attachment, endpoint } from '@/server/http';
 import { previewTemplate, previewTemplateDocx } from '@/server/resolution/template-preview';
 
 /** JSON preview of a saved version or an unsaved draft, with fictional values only. */
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   return new Response(new Uint8Array(file.bytes), {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+      'Content-Disposition': attachment(file.fileName),
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },

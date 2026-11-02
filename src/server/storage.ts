@@ -5,13 +5,12 @@ import { TextDecoder } from 'node:util';
 import { z } from 'zod';
 import { assertCompany, DomainError } from '../domain/access';
 import type { Actor, Document } from '../domain/model';
-import { audit, getDocument, getJob, insertDocument, type Transaction } from './repository';
+import { audit, getDocument, insertDocument, type Transaction } from './repository';
 import * as schema from './schema';
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const metadataSchema = z.object({
   companyId: z.string().min(1).max(64),
-  jobId: z.string().min(1).max(64).optional(),
   title: z.string().trim().min(1).max(200),
 });
 const root = () =>
@@ -69,21 +68,12 @@ export function safeStoragePath(storageKey: string) {
 
 export async function storeUpload(
   actor: Actor,
-  input: { companyId: string; jobId?: string; title: string; file: File },
+  input: { companyId: string; title: string; file: File },
 ) {
   const meta = metadataSchema.parse(input);
   assertCompany(actor, meta.companyId);
-  if (
-    !actor.capabilities.some((cap) => ['prepare_job', 'review_pack', 'record_filing'].includes(cap))
-  )
+  if (!actor.capabilities.some((cap) => ['prepare_job', 'review_pack'].includes(cap)))
     throw new DomainError('You do not have permission to attach evidence.', 'FORBIDDEN', 403);
-  let classification: Document['classification'] = 'General';
-  if (meta.jobId) {
-    const job = await getJob(actor, meta.jobId);
-    if (job.activity === 'W06') classification = 'BO';
-    if (job.companyId !== meta.companyId)
-      throw new DomainError('The job and evidence must belong to the same company.');
-  }
   if (!input.file || typeof input.file.arrayBuffer !== 'function')
     throw new DomainError('Choose a file to upload.');
   if (input.file.size > MAX_UPLOAD_BYTES) throw new DomainError('Files must be 15 MiB or smaller.');
@@ -93,7 +83,6 @@ export async function storeUpload(
   const doc: Document = {
     id: randomUUID(),
     companyId: meta.companyId,
-    jobId: meta.jobId || null,
     title: meta.title,
     originalName: path
       .basename(input.file.name)
@@ -105,7 +94,7 @@ export async function storeUpload(
     storageKey,
     createdBy: actor.id,
     createdAt: new Date().toISOString(),
-    classification,
+    classification: 'General',
   };
   await mkdir(root(), { recursive: true, mode: 0o700 });
   const destination = safeStoragePath(storageKey);
@@ -157,7 +146,6 @@ export async function stageGenerated(
   actor: Actor,
   input: {
     companyId: string;
-    jobId: string | null;
     title: string;
     fileName: string;
     bytes: Buffer;
@@ -178,7 +166,6 @@ export async function stageGenerated(
   const doc: Document = {
     id: randomUUID(),
     companyId: input.companyId,
-    jobId: input.jobId,
     title: metadataSchema.shape.title.parse(input.title.slice(0, 200)),
     originalName: path
       .basename(input.fileName)

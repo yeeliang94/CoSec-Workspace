@@ -89,7 +89,7 @@ function referencedPeople(
   return ids;
 }
 /**
- * The context as stored with a generation: company, case, job and firm values in full, but each
+ * The context as stored with a generation: company, case and firm values in full, but each
  * selector pool reduced to the people this document actually uses. The preparer's wider pools
  * (for example people visible only through another company) are never persisted or returned.
  */
@@ -286,8 +286,6 @@ export async function generateDocument(
         predecessorId: predecessor?.id ?? null,
         caseId: rc.id,
         companyId: rc.companyId,
-        jobId: rc.jobId,
-        packVersion: ctx.job?.packVersion ?? null,
         outputTypeId: template.outputType.id,
         assemblyVersionId: template.assembly.version.id,
         clauseVersionIds: template.clauses.map((c) => c.version.id),
@@ -425,7 +423,6 @@ async function finalise(actor: Actor, generation: DocumentGeneration, deps: Gene
     const title = `${generation.resolved!.title} — ${caseRow?.data.title ?? 'Resolution'}`;
     const document = await deps.stage(actor, {
       companyId: generation.companyId,
-      jobId: generation.jobId,
       title,
       fileName: `${safeName(title)}.docx`,
       bytes,

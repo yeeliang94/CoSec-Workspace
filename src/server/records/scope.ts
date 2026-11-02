@@ -106,11 +106,16 @@ export async function companyEvidence(
 }
 
 /** Active users who can act for the company (for owners of case steps). */
-export async function assertAssignable(userId: string, companyId: string, tx: Transaction) {
+export async function assertAssignable(
+  userId: string,
+  companyId: string,
+  tx: Transaction,
+  role: 'owner' | 'reviewer' = 'owner',
+) {
   const [u] = await tx
     .select({ companyIds: s.user.companyIds, active: s.user.active })
     .from(s.user)
     .where(eq(s.user.id, userId));
   if (!u || !u.active || !u.companyIds.includes(companyId))
-    throw new DomainError('Choose an active owner with access to this company.');
+    throw new DomainError(`Choose an active ${role} with access to this company.`);
 }

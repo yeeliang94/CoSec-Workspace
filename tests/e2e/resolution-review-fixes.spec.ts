@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { signIn } from './sign-in';
-import type { Job, Workspace } from '../../src/domain/model';
+import type { Workspace } from '../../src/domain/model';
 import type {
   ClauseVersion,
   CompanyProfile,
@@ -59,7 +59,7 @@ test('closing a company person drawer preserves an unsaved draft until discard i
   await page.waitForURL(/\/people$/);
 });
 
-test('per-person multi-choice answers save and generate, then attach the exact document to a W04 pack', async ({
+test('per-person multi-choice answers save and generate, then record a signed copy', async ({
   page,
 }) => {
   await login(page);
@@ -77,16 +77,6 @@ test('per-person multi-choice answers save and generate, then attach the exact d
       effectiveDate: '2020-01-01',
       reason: 'Fictional E2E source',
     });
-  const job = await post<Job>(page, '/api/jobs', {
-    companyId,
-    activity: 'W04',
-    ownerId: workspace.actor.id,
-    route: 'appointment',
-    personId: crypto.randomUUID(),
-    personName: 'E2E Review Appointee (fictional)',
-    effectiveDate: today,
-    routeBasis: 'Fictional E2E appointment',
-  });
   const created = await post<{ id: string; versions: ClauseVersion[] }>(
     page,
     '/api/clause-templates',
@@ -170,8 +160,7 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   let item = await post<ResolutionCase>(page, '/api/resolution-cases', {
     companyId,
     kind: 'board',
-    title: `E2E choice and attachment ${Date.now()}`,
-    jobId: job.id,
+    title: `E2E choice and signed copy ${Date.now()}`,
     resolutionDate: today,
   });
   let clauses: ClausesResponse = await (
@@ -229,27 +218,14 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   await page.getByRole('button', { name: 'Word documents', exact: true }).click();
   await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
-  for (const width of [390, 768, 1440]) {
+  for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(
-      page.getByRole('button', { name: 'Attach to director change pack', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
-  await page.getByRole('button', { name: 'Attach to director change pack', exact: true }).click();
-  const newPack = job.packs.at(-1)!.version + 1;
-  await page.getByRole('button', { name: `Attach to pack v${newPack}`, exact: true }).click();
-  await expect(
-    page.getByText(`Attached to pack v${newPack}`, { exact: true }).first(),
-  ).toBeVisible();
-  const latest: Workspace = await (await page.request.get('/api/workspace')).json();
-  const updated = latest.jobs.find((item) => item.id === job.id)!;
   const detail = await (await page.request.get(`/api/resolution-cases/${item.id}`)).json();
-  expect(updated.packs.at(-1)!.documentIds).toContain(detail.generations[0].documentId);
-  expect(updated.packs.at(-1)!.state).toBe('Draft');
-  expect(updated.reviews.filter((review) => review.version === newPack)).toEqual([]);
   const uploaded = await page.request.post('/api/documents', {
     headers: { Origin: origin },
     multipart: {
@@ -272,7 +248,7 @@ test('per-person multi-choice answers save and generate, then attach the exact d
   await expect(page.getByLabel('Capacity', { exact: true })).toHaveValue('Director');
   await page.getByLabel('Signed on', { exact: true }).fill(today);
   await page.getByRole('combobox', { name: 'Signed copy', exact: true }).selectOption(evidence.id);
-  for (const width of [390, 768, 1440]) {
+  for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole('combobox', { name: 'Signer', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -347,4 +323,126 @@ test('conditional fee questions and per-person inputs update before saving and r
   ).json();
   expect(stored.case.revision).toBe(item.revision);
   expect(stored.case.answers.clauses).toEqual({});
+});
+
+test('retired job fields become answerable questions and generate without changing the wording version', async ({
+  page,
+}) => {
+  await login(page);
+  const workspace: Workspace = await (await page.request.get('/api/workspace')).json();
+  const companyId = workspace.companies[0].id;
+  const created = await post<{ id: string; versions: ClauseVersion[] }>(
+    page,
+    '/api/clause-templates',
+    {
+      action: 'create',
+      name: `Existing job wording ${Date.now()}`,
+      category: 'Other',
+      governingAct: 'Fictional evaluation',
+      usageContexts: ['board'],
+    },
+  );
+  const path = `/api/clause-templates/${created.id}/versions/${created.versions[0].id}`;
+  const fields: ClauseVersion['fields'] = [
+    {
+      id: 'retired_name',
+      label: 'Director name',
+      valueType: 'text',
+      scope: 'clause',
+      required: true,
+      source: { kind: 'binding', path: 'job.personName' },
+    },
+    {
+      id: 'retired_date',
+      label: 'Change date',
+      valueType: 'date',
+      scope: 'clause',
+      required: true,
+      source: { kind: 'binding', path: 'job.effectiveDate' },
+    },
+    {
+      id: 'retired_route',
+      label: 'Change route',
+      valueType: 'text',
+      scope: 'clause',
+      required: true,
+      source: { kind: 'binding', path: 'job.route' },
+    },
+  ];
+  let { version } = await post<{ version: ClauseVersion }>(page, path, {
+    action: 'save_draft',
+    expectedRevision: created.versions[0].revision,
+    source: 'Fictional legacy fixture',
+    effectiveDate: '2020-01-01',
+    fields,
+    wordings: {
+      directors_written: [
+        {
+          type: 'paragraph',
+          content: fields.map((field) => ({ type: 'field', fieldId: field.id })),
+        },
+      ],
+    },
+  });
+  ({ version } = await post<{ version: ClauseVersion }>(page, path, {
+    action: 'submit',
+    expectedRevision: version.revision,
+  }));
+  await login(page, 'admin');
+  await post(page, path, { action: 'publish', expectedRevision: version.revision, confirm: true });
+  await login(page);
+  let item = await post<ResolutionCase>(page, '/api/resolution-cases', {
+    companyId,
+    kind: 'board',
+    title: 'Existing wording migration',
+    resolutionDate: today,
+  });
+  const response: ClausesResponse = await (
+    await page.request.get(`/api/resolution-cases/${item.id}/clauses`)
+  ).json();
+  const layout = response.available.assemblies.find(
+    (a) => a.outputTypeId === 'directors_written' && a.name === "Directors' written resolution",
+  )!;
+  item = await post<ResolutionCase>(page, `/api/resolution-cases/${item.id}/clauses`, {
+    action: 'set_selection',
+    expectedRevision: item.revision,
+    outputTypeId: 'directors_written',
+    assemblyVersionId: layout.assemblyVersionId,
+    clauses: [{ clauseId: created.id, clauseVersionId: version.id }],
+  });
+  const form: ClausesResponse = await (
+    await page.request.get(`/api/resolution-cases/${item.id}/clauses`)
+  ).json();
+  const director = form.form!.signers.find((role) => role.role === 'directors')!.pool[0];
+  item = await post<ResolutionCase>(page, `/api/resolution-cases/${item.id}/clauses`, {
+    action: 'save_answers',
+    expectedRevision: item.revision,
+    selectionRevision: item.selection!.revision,
+    shared: { resolution_date: today },
+    clauses: {},
+    signers: { directors: [director.id], members: [], certifiers: [] },
+  });
+  await mkdir('.local/previews', { recursive: true });
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/resolutions/${item.id}`);
+    await expect(page.getByRole('textbox', { name: /^Director name \(required\)/ })).toBeEditable();
+    await expect(page.getByLabel(/^Change date \(required\)/)).toBeEditable();
+    await page
+      .getByRole('textbox', { name: /^Director name \(required\)/ })
+      .fill(`Fictional Nora Director ${width}`);
+    await page.getByLabel(/^Change date \(required\)/).fill(today);
+    await page.getByRole('textbox', { name: /^Change route \(required\)/ }).fill('Appointment');
+    await page.getByRole('button', { name: 'Save answers', exact: true }).first().click();
+    await expect(page.locator('.question-save [aria-live]')).toHaveText('Answers saved');
+    await page.screenshot({ path: `.local/previews/retired-fields-${width}.png`, fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
+  await page.getByRole('button', { name: 'Word documents', exact: true }).click();
+  await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
+  const stored: { version: ClauseVersion } = await (await page.request.get(path)).json();
+  expect(stored.version.fields).toEqual(fields);
 });

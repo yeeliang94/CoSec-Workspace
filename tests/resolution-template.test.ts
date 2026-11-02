@@ -24,7 +24,11 @@ import {
 } from '../src/domain/resolution/schema';
 import { MAX_RUNS } from '../src/domain/resolution/compile';
 import { DomainError } from '../src/domain/access';
-import { bindingInfo, resolveBinding } from '../src/domain/resolution/bindings';
+import {
+  bindingInfo,
+  fieldForCurrentRecords,
+  resolveBinding,
+} from '../src/domain/resolution/bindings';
 import { isCalendarDate } from '../src/domain/resolution/records';
 import {
   sharedFieldConflicts,
@@ -1284,5 +1288,95 @@ describe('calendar dates', () => {
     expect(isCalendarDate('2026-13-01')).toBe(false);
     expect(isCalendarDate('2026-02-30')).toBe(false);
     expect(isCalendarDate('2026-02-28')).toBe(true);
+  });
+});
+
+describe('templates with retired record sources', () => {
+  const fields: FieldDefinition[] = [
+    {
+      id: 'legacy_person',
+      label: 'Director name',
+      scope: 'clause',
+      valueType: 'text',
+      required: true,
+      source: { kind: 'binding', path: 'job.personName' },
+    },
+    {
+      id: 'legacy_date',
+      label: 'Effective date',
+      scope: 'clause',
+      valueType: 'date',
+      required: true,
+      source: { kind: 'binding', path: 'job.effectiveDate' },
+    },
+    {
+      id: 'legacy_route',
+      label: 'Route',
+      scope: 'clause',
+      valueType: 'text',
+      required: true,
+      source: { kind: 'binding', path: 'job.route' },
+    },
+  ];
+  const part: ClausePart = {
+    key: 'legacy',
+    name: 'Existing director wording',
+    version: {
+      id: 'legacy-v1',
+      fields,
+      wordings: { directors_written: [p(...fields.map((field) => f(field.id)))] },
+    },
+  };
+  it('asks for retired sources, retains the field ids, and generates from the answers', () => {
+    const input = caseInput('directors', [part], { resolution_date: '2026-10-26' });
+    const form = buildForm(input);
+    expect(form.clauses[0].fields.map((field) => [field.id, field.readOnly])).toEqual(
+      fields.map((field) => [field.id, false]),
+    );
+    expect(errors(validateClause(part.name, part.version))).toEqual([]);
+    expect(errors(compileDocument(input, 'final').issues).length).toBeGreaterThan(0);
+    input.answers.clauses.legacy = {
+      legacy_person: 'Nora Director',
+      legacy_date: '2026-11-01',
+      legacy_route: 'appointment',
+    };
+    const output = compileDocument(input, 'final');
+    expect(errors(output.issues)).toEqual([]);
+    expect(resolvedText(output.resolved)).toContain('Nora Director');
+    expect(resolvedText(output.resolved)).toContain('1 November 2026');
+    expect(fields[0].source).toEqual({ kind: 'binding', path: 'job.personName' });
+  });
+  it('uses frozen job values only when re-reading a historical generation snapshot', () => {
+    const input = caseInput('directors', [part], { resolution_date: '2026-10-26' });
+    input.ctx = {
+      ...input.ctx,
+      job: { personName: 'Recorded Director', effectiveDate: '2025-02-01', route: 'appointment' },
+    };
+    const output = compileDocument(input, 'final');
+    expect(errors(output.issues)).toEqual([]);
+    expect(resolvedText(output.resolved)).toContain('Recorded Director');
+    expect(resolvedText(output.resolved)).toContain('1 February 2025');
+  });
+  it('still rejects unknown record sources', () => {
+    const unknown = structuredClone(part.version);
+    unknown.fields[0].source = { kind: 'binding', path: 'toString' };
+    expect(
+      errors(validateClause(part.name, unknown)).some((issue) =>
+        issue.message.includes('not an allowed record value'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('retired job bindings', () => {
+  it('stay mandatory when they become questions', () => {
+    const field = fieldForCurrentRecords({
+      id: 'person',
+      label: 'Person',
+      valueType: 'text',
+      source: { kind: 'binding', path: 'job.personName' },
+    } as FieldDefinition);
+    expect(field.source).toEqual({ kind: 'question' });
+    expect(field.required).toBe(true);
   });
 });

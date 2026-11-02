@@ -127,7 +127,7 @@ test('wording tabs support roving keyboard focus and wrap in both directions', a
   );
 });
 
-test('larger text scales template controls and keeps the mobile page within its viewport', async ({
+test('larger text scales template controls and keeps the desktop page within its viewport', async ({
   page,
 }) => {
   await login(page);
@@ -168,7 +168,7 @@ test('larger text scales template controls and keeps the mobile page within its 
     await expect
       .poll(() => selector.evaluate((element) => parseFloat(getComputedStyle(element).fontSize)))
       .toBeGreaterThan(baseline);
-    for (const width of [390, 768]) {
+    for (const width of [1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth))

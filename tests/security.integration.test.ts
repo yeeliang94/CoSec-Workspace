@@ -5,8 +5,8 @@ import { eq, inArray, like } from 'drizzle-orm';
 import { closeDatabase, writerDb } from '../src/server/db';
 import * as tables from '../src/server/schema';
 import { defaultPreferences, type Actor, type Company } from '../src/domain/model';
-import { createJob } from '../src/server/workflows';
-import { getActorById, getJob } from '../src/server/repository';
+import { createCase, getCaseDetail } from '../src/server/records/cases';
+import { getActorById } from '../src/server/repository';
 import { readUsers } from '../src/server/users';
 
 const companyIds = [randomUUID(), randomUUID()];
@@ -33,12 +33,11 @@ const company = (id: string, index: number): Company => ({
   revision: 1,
 });
 const companyFixtures = companyIds.map(company);
-const input = (companyId: string) => ({
+const input = (companyId: string, requestId: string) => ({
+  requestId,
   companyId,
-  activity: 'W03' as const,
-  ownerId: actor.id,
-  year: 2026,
-  anniversaryDate: '2026-01-15',
+  kind: 'board' as const,
+  title: 'Scope regression resolution',
 });
 
 describe('scope regression security against SQLite', () => {
@@ -60,18 +59,19 @@ describe('scope regression security against SQLite', () => {
       await writerDb.insert(tables.companies).values({ id: data.id, data });
   });
   afterAll(async () => {
-    await writerDb.delete(tables.reminders).where(inArray(tables.reminders.companyId, companyIds));
-    await writerDb.delete(tables.jobs).where(inArray(tables.jobs.companyId, companyIds));
+    await writerDb
+      .delete(tables.resolutionCases)
+      .where(inArray(tables.resolutionCases.companyId, companyIds));
     await writerDb.delete(tables.requests).where(like(tables.requests.id, `${actor.id}:%`));
     await writerDb.delete(tables.auditEvents).where(eq(tables.auditEvents.actorId, actor.id));
     await writerDb.delete(tables.companies).where(inArray(tables.companies.id, companyIds));
     await writerDb.delete(tables.user).where(eq(tables.user.id, actor.id));
     closeDatabase();
   });
-  it('does not replay an out-of-scope company snapshot when a creation request id is reused', async () => {
+  it('does not replay an out-of-scope company record when a creation request id is reused', async () => {
     const requestId = randomUUID();
-    const first = await createJob(actor, input(companyIds[0]), requestId);
-    const replay = await createJob(actor, input(companyIds[0]), requestId);
+    const first = await createCase(actor, input(companyIds[0], requestId));
+    const replay = await createCase(actor, input(companyIds[0], requestId));
     expect(replay.id).toBe(first.id);
     // Simulate the authoritative scope update, then establish the fresh actor used on every request.
     await writerDb
@@ -80,14 +80,13 @@ describe('scope regression security against SQLite', () => {
       .where(eq(tables.user.id, actor.id));
     const restricted = await getActorById(actor.id);
     expect(restricted?.companyIds).toEqual([companyIds[1]]);
-    const second = await createJob(restricted!, input(companyIds[1]), requestId);
+    const second = await createCase(restricted!, input(companyIds[1], requestId));
     expect(second.id).not.toBe(first.id);
     expect(second.companyId).toBe(companyIds[1]);
-    expect(second.snapshot?.company.address).toBe(companyFixtures[1].address);
-    await expect(createJob(restricted!, input(companyIds[0]), requestId)).rejects.toMatchObject({
+    await expect(createCase(restricted!, input(companyIds[0], requestId))).rejects.toMatchObject({
       status: 404,
     });
-    await expect(getJob(restricted!, first.id)).rejects.toMatchObject({ status: 404 });
+    await expect(getCaseDetail(restricted!, first.id)).rejects.toMatchObject({ status: 404 });
   });
   it('exposes only minimal company picker identities to an administrator without company scope', async () => {
     const admin = {

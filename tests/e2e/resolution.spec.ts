@@ -144,8 +144,8 @@ test('author writes a clause with a bound value, reused question and two wording
   await page.locator('.field-editor').getByText('Field references', { exact: true }).click();
   await expect(page.getByText(/From records: company\.name/)).toBeVisible();
 
-  await noOverflow(page, 768);
-  await noOverflow(page, 390);
+  await noOverflow(page, 1440);
+  await noOverflow(page, 1280);
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await page.getByRole('button', { name: 'Submit v1 for review' }).click();
@@ -265,8 +265,8 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
 
   for (const section of ['Prepare', 'Word documents']) {
     await page.getByRole('button', { name: section, exact: true }).click();
-    await noOverflow(page, 768);
-    await noOverflow(page, 390);
+    await noOverflow(page, 1440);
+    await noOverflow(page, 1280);
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
 
@@ -309,42 +309,4 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await page.getByRole('link', { name: 'v2', exact: true }).click();
   await expect(page.locator('.lifecycle-state')).toContainText('v2 · Draft');
   await expect(canvas).not.toContainText('Unsaved version-history regression.');
-});
-
-test('an unlinked director resolution can link its W04 job from Prepare', async ({ page }) => {
-  await as(page, 'owner');
-  const workspace = await (await page.request.get('/api/workspace')).json();
-  const job = workspace.jobs.find(
-    (item: { activity: string; route: string }) =>
-      item.activity === 'W04' && item.route === 'appointment',
-  );
-  expect(job, 'seeded appointment job').toBeTruthy();
-  const response = await page.request.post('/api/resolution-cases', {
-    headers: { Origin: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4300' },
-    data: {
-      requestId: crypto.randomUUID(),
-      companyId: job.companyId,
-      kind: 'director_appointment',
-      title: `E2E unlinked director ${stamp}`,
-    },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
-  const item = await response.json();
-  await page.goto('/resolutions/' + item.id);
-  const section = page.getByRole('region', { name: 'Link director change', exact: true });
-  await noOverflow(page, 390);
-  await noOverflow(page, 768);
-  await section
-    .getByRole('combobox', { name: 'Director change (W04)', exact: true })
-    .selectOption(job.id);
-  await section.getByRole('button', { name: 'Link W04 job', exact: true }).click();
-  await expect(section).toHaveCount(0);
-  await expect(page.locator('.track-facts')).toContainText(job.title);
-  const result = await (await page.request.get('/api/resolution-cases/' + item.id)).json();
-  expect(result.case).toMatchObject({
-    jobId: job.id,
-    personId: job.personId,
-    effectiveDate: job.effectiveDate,
-  });
-  await noOverflow(page, 390);
 });

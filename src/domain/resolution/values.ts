@@ -1,4 +1,4 @@
-import { bindingInfo, resolveBinding } from './bindings';
+import { bindingInfo, fieldForCurrentRecords, resolveBinding } from './bindings';
 import type {
   AnswerValue,
   Answers,
@@ -149,7 +149,11 @@ export class ValueResolver {
     units: Unit[],
     readonly answers: CaseAnswers,
   ) {
-    for (const unit of units) {
+    for (const stored of units) {
+      const unit = {
+        ...stored,
+        fields: stored.fields.map((field) => fieldForCurrentRecords(field, ctx.job)),
+      };
       this.units.set(unit.key, unit);
       for (const field of unit.fields)
         if ((field.scope === 'case' || unit.key === ASSEMBLY_KEY) && !this.shared.has(field.id))

@@ -1,5 +1,5 @@
 import { requireActor } from '@/server/auth';
-import { endpoint } from '@/server/http';
+import { attachment, endpoint } from '@/server/http';
 import { downloadGeneration } from '@/server/resolution/generation-records';
 
 /** Stored bytes of a Ready generation only; hash-checked and audited. */
@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return new Response(new Uint8Array(bytes), {
     headers: {
       'Content-Type': document.mimeType,
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(document.originalName)}`,
+      'Content-Disposition': attachment(document.originalName),
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },

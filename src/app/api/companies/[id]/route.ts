@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { requireActor } from '@/server/auth';
 import { endpoint } from '@/server/http';
 import { getCompany, listOfficerEvents, reviewOpening } from '@/server/repository';
-import { officersAt } from '@/domain/workflows';
+import { officersAt } from '@/domain/officers';
 import { assertCompany, today } from '@/domain/access';
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return endpoint(request, async () => {

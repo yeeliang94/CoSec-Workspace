@@ -11,7 +11,6 @@ import {
   type Company,
   type Actor,
 } from '../src/domain/model';
-import { createJob, applyJobAction } from '../src/server/workflows';
 import { ROLE_CAPABILITIES } from '../src/domain/model';
 import { storeUpload } from '../src/server/storage';
 import { syncDirectorProjection } from '../src/server/records/relationships';
@@ -78,10 +77,7 @@ for (const def of definitions) {
 await writerDb.insert(s.settings).values({
   id: 'firm',
   revision: 1,
-  data: {
-    ...defaultSettings,
-    defaultOwnerId: credentials.find((c) => c.key === 'executive')!.id,
-  },
+  data: defaultSettings,
 });
 const names = [
   'Aster Advisory Sdn. Bhd.',
@@ -161,43 +157,6 @@ for (let i = 0; i < companies.length; i++) {
     await lockCompany(company.id, tx);
     await syncDirectorProjection(company.id, tx);
   });
-  const job = await createJob(
-    actor,
-    {
-      companyId: company.id,
-      activity: i % 2 === 0 ? 'W03' : 'W04',
-      ownerId: actor.id,
-      ...(i % 2 === 0
-        ? { year: 2026, anniversaryDate: `2026-${company.incorporationDate.slice(5)}` }
-        : {
-            route: i === 3 ? 'resignation' : 'appointment',
-            personId: i === 3 ? `person-${i + 1}` : randomUUID(),
-            personName: i === 3 ? 'Nadia Aziz' : ['', 'Rina Wong', '', '', '', 'Arif Zain'][i],
-            effectiveDate: '2026-10-20',
-            routeBasis:
-              i === 3
-                ? 'Fictional resignation instructions; route evidence requires review.'
-                : 'Fictional appointment instructions; consent and authority require review.',
-            sourceEvidenceIds: [document.id],
-          }),
-      internalTarget: i < 2 ? '2026-10-19' : '2026-11-05',
-    },
-    randomUUID(),
-  );
-  if (i === 0)
-    await applyJobAction(actor, job.id, {
-      action: 'correspondence',
-      expectedRevision: job.revision,
-      requestId: randomUUID(),
-      direction: 'Outgoing',
-      counterparty: 'Client contact',
-      channel: 'Email (sent externally)',
-      date: '2026-10-15',
-      summary: 'Requested confirmation of anniversary particulars.',
-      ownerId: actor.id,
-      evidenceIds: [document.id],
-      nextChaseDate: '2026-10-22',
-    });
 }
 await mkdir('.local', { recursive: true });
 await writeFile('.local/accounts.json', JSON.stringify(credentials, null, 2), { mode: 0o600 });
@@ -208,7 +167,5 @@ await writeFile(
     '\n',
   { mode: 0o600 },
 );
-console.log(
-  'Seeded six fictional companies and six jobs. Credentials saved privately in .local/ACCOUNTS.md.',
-);
+console.log('Seeded six fictional companies. Credentials saved privately in .local/ACCOUNTS.md.');
 closeDatabase();

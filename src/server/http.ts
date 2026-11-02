@@ -55,3 +55,16 @@ export async function endpoint<T>(request: Request, fn: () => Promise<T>) {
     );
   }
 }
+/**
+ * An attachment header that keeps the file name. RFC 5987 forbids ' ( ) * unescaped, which
+ * encodeURIComponent leaves alone; browsers then fall back to "download". The plain `filename`
+ * is an ASCII fallback for older clients.
+ */
+export function attachment(fileName: string) {
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase(),
+  );
+  const ascii = fileName.replace(/[^\x20-\x7e]|["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}

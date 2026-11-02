@@ -15,6 +15,7 @@ import {
 import type { CaseApi } from './case-workspace';
 import { LoadState, useLoad } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
+import { currentDate } from '@/components/workspace';
 import { PerRowTable, Question, SignerList } from './case-question';
 
 type Draft = { shared: Answers; clauses: Record<string, Answers>; signers: SignerSelection };
@@ -25,7 +26,13 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
   const selection = api.detail.case.selection;
   const load = useLoad(
     () => getJson<ClausesResponse>(`/api/resolution-cases/${id}/clauses`),
-    [id, selection?.revision ?? 0, selection?.assemblyVersionId ?? ''],
+    // The resolution date decides who is a director or member, so a new date reloads the lists.
+    [
+      id,
+      selection?.revision ?? 0,
+      selection?.assemblyVersionId ?? '',
+      api.detail.case.resolutionDate ?? '',
+    ],
   );
   if (!load.data)
     return (
@@ -283,6 +290,8 @@ function QuestionForm({
                 label={role.label}
                 pool={role.pool}
                 value={draft.signers[role.role] ?? []}
+                companyId={item.companyId}
+                asAt={item.resolutionDate ?? currentDate()}
                 onChange={(ids) => {
                   markDirty();
                   setDraft((current) => ({

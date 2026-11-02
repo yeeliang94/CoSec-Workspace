@@ -99,8 +99,7 @@ export async function readCase(actor: Actor, id: string, tx?: Transaction) {
 }
 
 /**
- * The single write path for resolution cases. Locks the company then the case (the same order
- * as jobs), replays a repeated request, rejects stale revisions and audits before/after.
+ * The single write path for resolution cases. Locks the company then the case, replays a repeated request, rejects stale revisions and audits before/after.
  * `operation` returns the new case plus a short history detail.
  */
 export async function mutateCase(
@@ -135,7 +134,7 @@ export async function mutateCase(
     ];
     await tx
       .update(s.resolutionCases)
-      .set({ data: next, revision: next.revision, jobId: next.jobId })
+      .set({ data: next, revision: next.revision })
       .where(eq(s.resolutionCases.id, id));
     const beforeRest = omit(current, 'history');
     const afterRest = omit(next, 'history');

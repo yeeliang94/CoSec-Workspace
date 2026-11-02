@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { canLeaveEditing, installEditGuards } from './edit-guard';
@@ -10,18 +10,12 @@ type Context = {
   loading: boolean;
   error: string;
   refresh: () => Promise<void>;
-  workHref: string;
-  rememberWork: (focusId: string) => void;
-  restoreWork: () => void;
 };
 const WorkspaceContext = createContext<Context>({
   data: null,
   loading: true,
   error: '',
   refresh: async () => {},
-  workHref: '/work',
-  rememberWork: () => {},
-  restoreWork: () => {},
 });
 export function useWorkspace() {
   return useContext(WorkspaceContext);
@@ -50,49 +44,21 @@ export async function request<T = unknown>(
   return result as T;
 }
 const navigation = [
-  ['/work', 'My work', 'work'],
+  ['/resolutions', 'Resolutions', 'resolution'],
   ['/companies', 'Companies', 'company'],
   ['/people', 'People', 'people'],
-  ['/reviews', 'Reviews', 'review'],
-  ['/calendar', 'Calendar', 'calendar'],
   ['/documents', 'Documents', 'document'],
-  ['/resolutions', 'Resolutions', 'resolution'],
-  ['/billing', 'Billing', 'billing'],
 ] as const;
 export function Icon({ kind }: { kind: string }) {
   const paths: Record<string, React.ReactNode> = {
-    work: (
-      <>
-        <rect x="3" y="5" width="18" height="15" rx="1" />
-        <path d="M8 5V3h8v2M3 10h18M9 10v3h6v-3" />
-      </>
-    ),
     company: (
       <>
         <path d="M4 21V5l8-2v18M12 8h8v13M2 21h20M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2" />
       </>
     ),
-    review: (
-      <>
-        <rect x="5" y="4" width="14" height="17" rx="1" />
-        <path d="M9 4V2h6v2M8 13l3 3 5-6" />
-      </>
-    ),
-    calendar: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="1" />
-        <path d="M7 3v5M17 3v5M3 10h18M7 14h3M14 14h3M7 18h3" />
-      </>
-    ),
     document: (
       <>
         <path d="M5 2h9l5 5v15H5zM14 2v6h5M8 12h8M8 16h8" />
-      </>
-    ),
-    billing: (
-      <>
-        <rect x="3" y="5" width="18" height="15" rx="1" />
-        <path d="M3 10h18M6 15h5M16 15h2" />
       </>
     ),
     settings: (
@@ -151,29 +117,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const login = pathname === '/login';
   useEffect(installEditGuards, []);
 
-  const workMemory = useRef({ href: '/work', scrollY: 0, focusId: '' });
-  const restorePending = useRef(false);
-  const [workHref, setWorkHref] = useState('/work');
-  function rememberWork(focusId: string) {
-    if (!['/work', '/reviews'].includes(window.location.pathname)) return;
-    const href = window.location.pathname + window.location.search;
-    workMemory.current = { href, scrollY: window.scrollY, focusId };
-    setWorkHref(href);
-  }
-  function restoreWork() {
-    restorePending.current = true;
-  }
-  useEffect(() => {
-    if (!restorePending.current || !data || pathname !== workMemory.current.href.split('?')[0])
-      return;
-    restorePending.current = false;
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        window.scrollTo(0, workMemory.current.scrollY);
-        document.getElementById(workMemory.current.focusId)?.focus({ preventScroll: true });
-      }),
-    );
-  }, [pathname, data]);
   const refresh = useCallback(async () => {
     try {
       const response = await fetch('/api/workspace', { cache: 'no-store' });
@@ -199,9 +142,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [login, refresh]);
   const prefs = data?.actor.preferences;
   return (
-    <WorkspaceContext.Provider
-      value={{ data, loading, error, refresh, workHref, rememberWork, restoreWork }}
-    >
+    <WorkspaceContext.Provider value={{ data, loading, error, refresh }}>
       <div
         className={`application text-${prefs?.textSize || 'default'} density-${prefs?.density || 'comfortable'} ${prefs?.reducedMotion ? 'reduce-motion' : ''}`}
       >
@@ -213,7 +154,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
               Skip to content
             </a>
             <aside className="sidebar">
-              <Link href="/work" className="brand">
+              <Link href="/resolutions" className="brand">
                 CoSec<span>Workspace</span>
               </Link>
               <div className="nav-label">Workspace</div>
@@ -254,8 +195,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     onClick={async () => {
                       if (!(await canLeaveEditing())) return;
                       await request('/api/auth/sign-out', {});
-                      workMemory.current = { href: '/work', scrollY: 0, focusId: '' };
-                      setWorkHref('/work');
                       setData(null);
                       router.push('/login');
                     }}
@@ -349,16 +288,6 @@ export function BackLink({ href, label }: { href: string; label: string }) {
     <Link href={href} className="back-link">
       <Icon kind="back" />
       {label}
-    </Link>
-  );
-}
-
-export function BackToWork() {
-  const { workHref, restoreWork } = useWorkspace();
-  return (
-    <Link href={workHref} className="back-link" onClick={restoreWork}>
-      <Icon kind="back" />
-      {workHref.startsWith('/reviews') ? 'Reviews' : 'My work'}
     </Link>
   );
 }

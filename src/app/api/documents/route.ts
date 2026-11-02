@@ -17,7 +17,6 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) throw new DomainError('Choose a file.');
     return storeUpload(actor, {
       companyId: String(form.get('companyId') ?? ''),
-      jobId: form.get('jobId') ? String(form.get('jobId')) : undefined,
       title: String(form.get('title') ?? ''),
       file,
     });

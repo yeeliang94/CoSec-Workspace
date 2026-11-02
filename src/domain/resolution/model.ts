@@ -285,6 +285,7 @@ export type CompanyProfile = {
 // ---------------------------------------------------------------- resolution cases
 export type CaseKind = 'board' | 'director_appointment' | 'director_resignation';
 export type StepState = 'Pending' | 'In progress' | 'Waiting' | 'Complete' | 'Not applicable';
+/** 'registration' remains only on cases opened while director-change jobs existed. */
 export type StepKind =
   'instruction' | 'preparation' | 'review' | 'execution' | 'registration' | 'custom';
 export type CaseStep = {
@@ -310,7 +311,7 @@ export type CaseClauseSelection = {
   outputTypeId: string;
   assemblyVersionId: string;
   clauses: ClauseEntry[];
-  /** Reasons recorded when a default clause was removed from a W04-linked case. */
+  /** Reasons recorded when a default clause was removed from a case linked to a retired director-change job. */
   removals: { clauseId: string; reason: string; actorId: string; at: string }[];
 };
 export type ExecutionRequirement = { personId: string; role: SignerRole };
@@ -336,8 +337,6 @@ export type ResolutionCase = {
   companyId: string;
   kind: CaseKind;
   title: string;
-  /** Linked W04 job, when the case prepares a director change. */
-  jobId: string | null;
   personId: string | null;
   ownerId: string;
   state: 'Open' | 'Complete' | 'Cancelled';
@@ -372,6 +371,8 @@ export type PersonSnapshot = {
   ceasedOn: string | null;
 };
 export type ResolutionContext = {
+  /** Historical generation snapshots only. Live resolutions never load retired jobs. */
+  job?: { personName: string | null; effectiveDate: string | null; route: string | null } | null;
   asAt: string;
   /** Preparation date in Asia/Kuala_Lumpur, frozen independently of the record as-at date. */
   preparedOn: string;
@@ -397,15 +398,6 @@ export type ResolutionContext = {
     resolutionDate: string | null;
     effectiveDate: string | null;
     custom: Record<string, string | boolean | null>;
-  };
-  job: null | {
-    id: string;
-    revision: number;
-    route: string | null;
-    personId: string | null;
-    personName: string | null;
-    effectiveDate: string | null;
-    packVersion: number | null;
   };
   /** Selector pools. Only these ids may be chosen for the matching record context. */
   directors: PersonSnapshot[];
@@ -448,8 +440,6 @@ export type DocumentGeneration = {
   predecessorId: string | null;
   caseId: string;
   companyId: string;
-  jobId: string | null;
-  packVersion: number | null;
   outputTypeId: string;
   assemblyVersionId: string;
   clauseVersionIds: string[];
@@ -462,7 +452,7 @@ export type DocumentGeneration = {
   answers: { shared: Answers; clauses: Record<string, Answers> };
   /**
    * Exactly the authorised values used, with ids/revisions for provenance. Selector pools hold only
-   * the people the answers, signers or linked job refer to (never the preparer's wider pools).
+   * the people the answers or signers refer to (never the preparer's wider pools).
    */
   snapshot: ResolutionContext;
   resolvedValues: Record<string, string>;

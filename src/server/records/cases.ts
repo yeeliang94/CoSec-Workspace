@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { db, transaction, type Transaction } from '../db';
+import { db, transaction } from '../db';
 import * as s from '../schema';
-import { getJob, prior, remember, requestKey } from '../repository';
+import { prior, remember, requestKey } from '../repository';
 import { auditChange, mutateCase, readCase } from '../resolution/shared';
 import { generationView } from '../resolution/generation';
 import { generationRequirements } from '../resolution/generation-signers';
@@ -30,7 +30,6 @@ import {
   defaultSteps,
   emptyDecision,
   MAX_STEPS,
-  routeMatches,
   updateStep,
   validateDependencies,
   type StepPatch,
@@ -38,25 +37,6 @@ import {
 import { omit } from '../../domain/objects';
 
 const CASE_WRITERS = ['generate_documents', 'prepare_job'] as const;
-
-/** Canonical company and route checks for a case's immutable W04 association. */
-async function linkedJob(
-  actor: Actor,
-  companyId: string,
-  kind: CaseKind,
-  jobId: string,
-  tx: Transaction,
-) {
-  const job = await getJob(actor, jobId, tx);
-  if (job.companyId !== companyId || job.activity !== 'W04')
-    throw new DomainError('Link a W04 director-change job of the same company.');
-  if (job.state === 'Cancelled') throw new DomainError('A cancelled W04 job cannot be linked.');
-  if (!routeMatches(kind, job.route))
-    throw new DomainError(
-      `This job's route (${job.route}) does not match a ${kind.replace('_', ' ')} case.`,
-    );
-  return job;
-}
 
 export async function listCases(actor: Actor, companyId?: string) {
   if (companyId) assertCompany(actor, companyId);
@@ -118,7 +98,6 @@ export type CreateCaseInput = {
   companyId: string;
   kind: CaseKind;
   title: string;
-  jobId?: string | null;
   personId?: string | null;
   instructionDate?: string | null;
   resolutionDate?: string | null;
@@ -133,31 +112,23 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
     await lockCompany(input.companyId, tx);
     const old = await prior(tx, key);
     if (old) return readCase(actor, old.id, tx);
-    let personId = input.personId ?? null;
-    let effectiveDate = input.effectiveDate ?? null;
-    if (input.jobId) {
-      const job = await linkedJob(actor, input.companyId, input.kind, input.jobId, tx);
-      if (personId && job.personId && personId !== job.personId)
-        throw new DomainError('The person must be the person named in the linked W04 job.');
-      personId = job.personId;
-      effectiveDate = effectiveDate ?? job.effectiveDate;
-    } else if (personId) await assertPersonVisible(actor, personId, tx);
+    const personId = input.personId ?? null;
+    if (personId) await assertPersonVisible(actor, personId, tx);
     const now = new Date().toISOString();
     const resolutionCase: ResolutionCase = {
       id: randomUUID(),
       companyId: input.companyId,
       kind: input.kind,
       title: input.title.trim(),
-      jobId: input.jobId ?? null,
       personId,
       ownerId: actor.id,
       state: 'Open',
       cancellationReason: null,
       instructionDate: input.instructionDate ?? null,
       resolutionDate: input.resolutionDate ?? null,
-      effectiveDate,
+      effectiveDate: input.effectiveDate ?? null,
       customValues: {},
-      steps: defaultSteps(input.kind, actor.id, randomUUID),
+      steps: defaultSteps(actor.id, randomUUID),
       selection: null,
       answers: { selectionRevision: 0, shared: {}, clauses: {} },
       signers: { directors: [], members: [], certifiers: [] },
@@ -174,7 +145,6 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
     await tx.insert(s.resolutionCases).values({
       id: resolutionCase.id,
       companyId: resolutionCase.companyId,
-      jobId: resolutionCase.jobId,
       revision: 1,
       data: resolutionCase,
     });
@@ -186,7 +156,7 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
       action: 'resolution_case.created',
       before: null,
       after,
-      detail: { kind: resolutionCase.kind, jobId: resolutionCase.jobId },
+      detail: { kind: resolutionCase.kind },
       requestId: input.requestId,
     });
     await remember(tx, key, { id: resolutionCase.id, revision: 1 });
@@ -197,7 +167,6 @@ export async function createCase(actor: Actor, input: CreateCaseInput): Promise<
 type Base = { expectedRevision: number; requestId: string };
 export type CaseAction = Base &
   (
-    | { action: 'link_job'; jobId: string }
     | {
         action: 'update_details';
         title?: string;
@@ -248,18 +217,6 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
     async (c, tx) => {
       const now = new Date().toISOString();
       switch (input.action) {
-        case 'link_job': {
-          assertEditable(c);
-          if (c.jobId) throw new DomainError('This case is already linked to a W04 job.');
-          const job = await linkedJob(actor, c.companyId, c.kind, input.jobId, tx);
-          c.jobId = job.id;
-          c.personId = job.personId;
-          c.effectiveDate = job.effectiveDate;
-          return {
-            next: c,
-            detail: `Linked W04 job ${job.id}; person and effective date taken from the job.`,
-          };
-        }
         case 'update_details': {
           assertEditable(c);
           if (input.title !== undefined) c.title = input.title.trim();
@@ -271,8 +228,6 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
             c.ownerId = input.ownerId;
           }
           if (input.personId !== undefined && input.personId !== c.personId) {
-            if (c.jobId)
-              throw new DomainError('The person of a W04-linked case comes from the job.');
             if (input.personId) await assertPersonVisible(actor, input.personId, tx);
             c.personId = input.personId;
           }
@@ -314,16 +269,8 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
           if (fields.ownerId !== undefined) await assertAssignable(fields.ownerId, c.companyId, tx);
           if (fields.evidenceIds !== undefined)
             fields.evidenceIds = await companyEvidence(actor, c.companyId, fields.evidenceIds, tx);
-          // Read inside the write transaction, so a record event the job posted is visible.
-          const [jobRow] = c.jobId
-            ? await tx.select().from(s.jobs).where(eq(s.jobs.id, c.jobId))
-            : [];
-          const job = jobRow?.data ?? null;
           const before = c.steps.find((st) => st.id === stepId)?.state;
-          const step = updateStep(c, stepId, fields, {
-            recordEventId: job?.recordEventId ?? null,
-            now,
-          });
+          const step = updateStep(c, stepId, fields, now);
           return {
             next: c,
             detail:
@@ -367,7 +314,7 @@ export async function changeCase(actor: Actor, id: string, input: CaseAction) {
           if (!c.selection) throw new DomainError('Choose the wording before sending for review.');
           if (input.reviewerId === actor.id)
             throw new DomainError('Choose someone else to review your work.');
-          await assertAssignable(input.reviewerId, c.companyId, tx);
+          await assertAssignable(input.reviewerId, c.companyId, tx, 'reviewer');
           c.review = {
             status: 'With reviewer',
             reviewerId: input.reviewerId,

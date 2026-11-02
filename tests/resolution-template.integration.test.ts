@@ -11,7 +11,6 @@ import {
   defaultPreferences,
   type Actor,
   type Company,
-  type Job,
   type OfficerEvent,
 } from '../src/domain/model';
 import type {
@@ -34,7 +33,6 @@ import { applyClauseAction, getCaseClauses, previewCase } from '../src/server/re
 import { generateDocument, reconcilePendingGenerations } from '../src/server/resolution/generation';
 import {
   applyGenerationAction,
-  attachGenerationToPack,
   downloadGeneration,
   getGeneration,
 } from '../src/server/resolution/generation-records';
@@ -43,11 +41,6 @@ import { canonical, sha256 } from '../src/server/resolution/templates';
 import { listCompanyRelationships } from '../src/server/records/relationships';
 import { loadResolutionContext } from '../src/server/records/context';
 import { insertDocument } from '../src/server/repository';
-import { reviewActions } from '../src/server/job-actions/review';
-import {
-  generatedExecutionStatus,
-  reviewedExecutionState,
-} from '../src/server/resolution/execution';
 import { DOCX_MIME, safeStoragePath, validateFile } from '../src/server/storage';
 import { STARTER_ASSEMBLIES, STARTER_CLAUSES } from '../src/server/resolution/samples';
 
@@ -85,7 +78,6 @@ const directors = [
 ];
 const outputTypeId = `tt_${tag}`;
 const templateIds: { kind: Kind; id: string }[] = [];
-const jobId = randomUUID();
 let storageDirectory = '';
 const previousStorage = process.env.STORAGE_DIR;
 
@@ -407,7 +399,6 @@ describe('resolution templates, selection and generation against SQLite', () => 
     await writerDb.delete(s.documentGenerations).where(eq(s.documentGenerations.companyId, X));
     await writerDb.delete(s.documents).where(inArray(s.documents.companyId, [X, Y]));
     await writerDb.delete(s.resolutionCases).where(inArray(s.resolutionCases.companyId, [X, Y]));
-    await writerDb.delete(s.jobs).where(eq(s.jobs.id, jobId));
     for (const { kind, id } of templateIds)
       if (kind === 'clause') {
         await writerDb
@@ -805,7 +796,6 @@ describe('resolution templates, selection and generation against SQLite', () => 
     await insertDocument(author, {
       id: evidenceId,
       companyId: X,
-      jobId: null,
       title: 'Signed copy (fictional)',
       originalName: 'signed.txt',
       mimeType: 'text/plain',
@@ -1278,263 +1268,17 @@ describe('resolution templates, selection and generation against SQLite', () => 
     });
   });
 
-  it('starts a director-change case from the starter assembly and requires a reason to remove its director clause', async () => {
-    const now = new Date().toISOString();
-    const job = {
-      id: jobId,
-      companyId: X,
-      activity: 'W04',
-      title: 'Fictional appointment',
-      year: null,
-      anniversaryDate: null,
-      snapshot: null,
-      route: 'appointment',
-      personId: null,
-      personName: 'Aminah binti Yusof (fictional)',
-      effectiveDate: '2026-11-01',
-      routeBasis: '',
-      sourceEvidenceIds: [],
-      recordEventId: null,
-      ownerId: author.id,
-      createdBy: author.id,
-      state: 'Preparing',
-      revision: 1,
-      createdAt: now,
-      updatedAt: now,
-      internalTarget: null,
-      statutoryDue: null,
-      manualDateBasis: '',
-      manualDateEvidenceId: null,
-      deadlineReviewRequired: false,
-      ruleVersionId: null,
-      dependencyIds: [],
-      packs: [],
-      reviews: [],
-      correspondence: [],
-      clientConfirmed: false,
-      clientConfirmationEvidenceId: null,
-      filingState: 'Not ready',
-      filingNotRequiredReason: null,
-      filingAttempts: [],
-      billingState: 'Not ready',
-      notes: [],
-      history: [],
-    } as unknown as Job;
-    await writerDb
-      .insert(s.jobs)
-      .values({ id: jobId, companyId: X, periodKey: null, revision: 1, data: job });
-    let rc = await newCase('director_appointment', { jobId });
+  it('starts a director-change case from the starter assembly and removes its director clause without a reason', async () => {
+    let rc = await newCase('director_appointment');
     rc = await select(rc, [], lib.appointmentAssembly.versionId);
     expect(rc.selection!.clauses.map((c) => c.clauseId)).toEqual([
       lib.appointment.templateId,
       lib.authority.templateId,
     ]);
-    const withoutReason = await errorOf(
-      select(rc, [rc.selection!.clauses[1]], lib.appointmentAssembly.versionId),
-    );
-    expect(withoutReason.code).toBe('REASON_REQUIRED');
     const kept = rc.selection!.clauses[1];
-    rc = await select(rc, [kept], lib.appointmentAssembly.versionId, 'directors_written', {
-      removalReasons: {
-        [lib.appointment.templateId]: 'Appointment handled in a separate resolution (test).',
-      },
-    });
-    expect(rc.selection!.removals).toEqual([
-      expect.objectContaining({
-        clauseId: lib.appointment.templateId,
-        actorId: author.id,
-        reason: 'Appointment handled in a separate resolution (test).',
-      }),
-    ]);
-    expect(rc.selection!.clauses[0].key).toBe(kept.key);
-  });
-
-  it('M9/A15/A18: binds a W04 appointment, attaches the exact document to a new pack version and blocks stale use', async () => {
-    const appointeeId = `tt-appointee-${tag}`;
-    const [row] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-    const job: Job = {
-      ...row.data,
-      personId: appointeeId,
-      revision: row.revision + 1,
-      packs: [
-        {
-          version: 1,
-          createdAt: new Date().toISOString(),
-          createdBy: author.id,
-          notes: '',
-          documentIds: [],
-          checklist: [],
-          requiredSigners: [],
-          signatures: [],
-          templateVersionId: null,
-          state: 'Draft',
-        },
-      ],
-    };
-    await writerDb
-      .update(s.jobs)
-      .set({ data: job, revision: job.revision })
-      .where(eq(s.jobs.id, jobId));
-    let rc = await newCase('director_appointment', { jobId });
-    rc = await select(rc, [], lib.appointmentAssembly.versionId);
-    const appointment = rc.selection!.clauses.find(
-      (c) => c.clauseId === lib.appointment.templateId,
-    )!;
-    // The job's proposed person and effective date are bound into the director clause.
-    expect(rc.answers.clauses[appointment.key]).toEqual({
-      appointee: appointeeId,
-      appointment_date: '2026-11-01',
-    });
-    rc = await answer(rc, {
-      appointment: rc.answers.clauses[appointment.key] as Record<string, unknown>,
-      authority: answers.authority,
-    });
-    const generation = await generate(rc);
-    expect(generation.status).toBe('Ready');
-    const text = plain(documentXml((await downloadGeneration(author, generation.id)).bytes));
-    expect(text).toContain('Aminah binti Yusof (fictional)');
-    expect(text).toContain('1 November 2026');
-
-    const self = await errorOf(
-      attachGenerationToPack(reviewer, generation.id, {
-        action: 'attach_to_pack',
-        requestId: rid(),
-        expectedJobRevision: job.revision,
-      }),
-    );
-    expect(self.code).toBe('FORBIDDEN'); // reviewer lacks prepare_job
-    const attached = (await attachGenerationToPack(author, generation.id, {
-      action: 'attach_to_pack',
-      requestId: rid(),
-      expectedJobRevision: job.revision,
-    })) as Job;
-    expect(attached.packs.at(-1)).toMatchObject({ version: 2, state: 'Draft' });
-    expect(attached.packs.at(-1)!.documentIds).toEqual([generation.documentId]);
-    expect(attached.history.at(-1)!.action).toBe('resolution_attached');
-    // Approvals of pack v1 do not carry to v2: the new version starts unreviewed.
-    expect(attached.reviews.filter((r) => r.version === 2)).toEqual([]);
-
-    // A generic pack signature cannot satisfy the three named signers of this exact document.
-    const signedCopy = {
-      ...(await downloadGeneration(author, generation.id)).document,
-      id: rid(),
-      generationId: undefined,
-      title: 'Signed resolution evidence (fictional)',
-    };
-    await insertDocument(author, signedCopy);
-    const reviewed = structuredClone(attached);
-    reviewed.sourceEvidenceIds = [signedCopy.id];
-    reviewed.routeBasis = 'Fictional authority';
-    // Posting re-checks the appointee; the fixture's placeholder id stands for a new person.
-    reviewed.personId = randomUUID();
-    const reviewedPack = reviewed.packs.at(-1)!;
-    reviewedPack.requiredSigners = ['Legacy signer'];
-    reviewedPack.signatures = [
-      { signer: 'Legacy signer', evidenceId: signedCopy.id, receivedDate: '2026-10-26' },
-    ];
-    reviewed.reviews = ['pack', 'record'].map((scope) => ({
-      id: rid(),
-      version: reviewedPack.version,
-      scope: scope as 'pack' | 'record',
-      decision: 'Approved',
-      actorId: reviewer.id,
-      at: new Date().toISOString(),
-      reason: 'Fictional independent review',
-    }));
-    const poster = {
-      ...reviewer,
-      capabilities: [...reviewer.capabilities, 'confirm_record' as const],
-    };
-    const post = () =>
-      transaction(async (tx) =>
-        reviewActions.post_record.run(
-          {
-            actor: poster,
-            job: reviewed,
-            tx,
-            now: new Date().toISOString(),
-            input: { confirmed: true },
-          },
-          { confirmed: true },
-        ),
-      );
-    expect((await errorOf(post())).message).toMatch(/signature evidence is missing for generation/);
-    // The stored pack is reviewed before signing; each recorded signature refreshes its state.
-    reviewedPack.state = 'Reviewed';
-    await writerDb.update(s.jobs).set({ data: reviewed }).where(eq(s.jobs.id, jobId));
-    const storedState = async () =>
-      (await db.select().from(s.jobs).where(eq(s.jobs.id, jobId)))[0]!.data.packs.at(-1)!.state;
-    for (const [i, director] of directors.entries()) {
-      await applyGenerationAction(author, generation.id, {
-        action: 'record_execution',
-        requestId: rid(),
-        signerPersonId: director.id,
-        signerRole: 'directors',
-        capacity: 'Director',
-        signedDate: '2026-10-26',
-        evidenceId: signedCopy.id,
-      });
-      const status = await transaction((tx) => generatedExecutionStatus(poster, reviewed, tx));
-      expect(status).toMatchObject({ required: 3, signed: i + 1 });
-      expect(status.blockers).toHaveLength(2 - i);
-      if (i < 2) {
-        expect((await errorOf(post())).message).toMatch(
-          /signature evidence is missing for generation/,
-        );
-        expect(await transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
-          'Partly signed',
-        );
-      }
-      expect(await storedState()).toBe(i < 2 ? 'Partly signed' : 'Fully signed');
-    }
-    await writerDb
-      .update(s.jobs)
-      .set({ data: attached, revision: attached.revision })
-      .where(eq(s.jobs.id, jobId));
-    expect(await transaction((tx) => reviewedExecutionState(poster, reviewed, tx))).toBe(
-      'Fully signed',
-    );
-    // Exercise actual posting, then roll its event/projection/audit back to preserve this fixture.
-    const rollback = new Error('rollback verified posting');
-    await expect(
-      transaction(async (tx) => {
-        await reviewActions.post_record.run(
-          {
-            actor: poster,
-            job: reviewed,
-            tx,
-            now: new Date().toISOString(),
-            input: { confirmed: true },
-          },
-          { confirmed: true },
-        );
-        expect(reviewed.recordEventId).toBeTruthy();
-        throw rollback;
-      }),
-    ).rejects.toBe(rollback);
-    const again = await errorOf(
-      attachGenerationToPack(author, generation.id, {
-        action: 'attach_to_pack',
-        requestId: rid(),
-        expectedJobRevision: attached.revision,
-      }),
-    );
-    expect(again.message).toMatch(/already in the current pack/);
-
-    // A later change to the proposed date makes this generation stale for the pack.
-    const changed = { ...attached, effectiveDate: '2026-11-02', revision: attached.revision + 1 };
-    await writerDb
-      .update(s.jobs)
-      .set({ data: changed, revision: changed.revision })
-      .where(eq(s.jobs.id, jobId));
-    const stale = await errorOf(
-      attachGenerationToPack(author, generation.id, {
-        action: 'attach_to_pack',
-        requestId: rid(),
-        expectedJobRevision: changed.revision,
-      }),
-    );
-    expect(stale.code).toBe('STALE');
+    rc = await select(rc, [kept], lib.appointmentAssembly.versionId);
+    expect(rc.selection!.removals).toEqual([]);
+    expect(rc.selection!.clauses.map((c) => c.key)).toEqual([kept.key]);
   });
 
   it('execution follows rendered roles, requires each capacity, and handles legacy generations safely', async () => {
@@ -1576,10 +1320,9 @@ describe('resolution templates, selection and generation against SQLite', () => 
         title: 'Signed roles (fictional)',
       };
       await insertDocument(author, signedCopy);
-      const [jobRow] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-      const job = structuredClone(jobRow.data);
-      job.packs.at(-1)!.documentIds = [generation.documentId!];
-      const status = () => transaction((tx) => generatedExecutionStatus(author, job, tx));
+      const executions = async () =>
+        (await getGeneration(author, generation.id)).records.filter((r) => r.kind === 'execution')
+          .length;
       const record = (signerRole: 'directors' | 'certifiers') =>
         applyGenerationAction(author, generation.id, {
           action: 'record_execution',
@@ -1591,11 +1334,8 @@ describe('resolution templates, selection and generation against SQLite', () => 
           evidenceId: signedCopy.id,
         });
       await record('directors');
-      expect(await status()).toMatchObject({ required: twoRoles ? 2 : 1, signed: 1 });
-      if (!twoRoles) {
-        expect((await status()).blockers).toEqual([]);
-        await expect(record('certifiers')).rejects.toMatchObject({ status: 400 });
-      } else expect((await status()).blockers).toHaveLength(1);
+      expect(await executions()).toBe(1);
+      if (!twoRoles) await expect(record('certifiers')).rejects.toMatchObject({ status: 400 });
       // Existing immutable rows have no frozen requirements or explicit role on old evidence.
       const legacy = { ...generation };
       delete legacy.executionRequirements;
@@ -1617,99 +1357,11 @@ describe('resolution templates, selection and generation against SQLite', () => 
       expect((await getGeneration(author, generation.id)).executionRequirements).toHaveLength(
         twoRoles ? 2 : 1,
       );
-      expect(await status()).toMatchObject({
-        required: twoRoles ? 2 : 1,
-        signed: twoRoles ? 0 : 1,
-      });
       if (twoRoles) {
         await record('directors');
         await record('certifiers');
-        expect(await status()).toMatchObject({ required: 2, signed: 2, blockers: [] });
+        expect(await executions()).toBe(3);
       }
-    }
-  });
-
-  it('attach rejects director answers that differ from the job, replaces earlier family versions and never reopens a closed job', async () => {
-    const appointeeId = `tt-appointee-${tag}`;
-    const [row] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-    let job: Job = {
-      ...row.data,
-      personId: appointeeId,
-      effectiveDate: '2026-11-01',
-      state: 'Preparing',
-      revision: row.revision + 1,
-    };
-    await writerDb
-      .update(s.jobs)
-      .set({ data: job, revision: job.revision })
-      .where(eq(s.jobs.id, jobId));
-    const otherFamilyDocs = job.packs.at(-1)!.documentIds;
-
-    let rc = await newCase('director_appointment', { jobId });
-    rc = await select(rc, [], lib.appointmentAssembly.versionId);
-    const key = rc.selection!.clauses.find((c) => c.clauseId === lib.appointment.templateId)!.key;
-    const bound = rc.answers.clauses[key] as Record<string, unknown>;
-    // The preparer changes the prefilled date after binding: the job itself is unchanged.
-    rc = await answer(rc, {
-      appointment: { ...bound, appointment_date: '2026-11-05' },
-      authority: answers.authority,
-    });
-    const drifted = await generate(rc);
-    expect(drifted.status).toBe('Ready');
-    const mismatch = await errorOf(
-      attachGenerationToPack(author, drifted.id, {
-        action: 'attach_to_pack',
-        requestId: rid(),
-        expectedJobRevision: job.revision,
-      }),
-    );
-    expect(mismatch).toMatchObject({ code: 'STALE', status: 409 });
-    expect(mismatch.message).toMatch(/effective date/);
-
-    // A8: every generation advances the case revision, so a duplicate on the old revision is stale.
-    const duplicate = await errorOf(generate(rc, { familyId: drifted.familyId }));
-    expect(duplicate).toMatchObject({ code: 'STALE', status: 409 });
-
-    rc = await readCase(author, rc.id);
-    rc = await answer(rc, { appointment: bound, authority: answers.authority });
-    const first = await generate(rc, { familyId: drifted.familyId });
-    job = (await attachGenerationToPack(author, first.id, {
-      action: 'attach_to_pack',
-      requestId: rid(),
-      expectedJobRevision: job.revision,
-    })) as Job;
-    expect(job.packs.at(-1)!.documentIds).toEqual([...otherFamilyDocs, first.documentId]);
-
-    rc = await readCase(author, rc.id);
-    const second = await generate(rc, { familyId: first.familyId });
-    expect(second.predecessorId).toBe(first.id);
-    job = (await attachGenerationToPack(author, second.id, {
-      action: 'attach_to_pack',
-      requestId: rid(),
-      expectedJobRevision: job.revision,
-    })) as Job;
-    // The newer version replaces the earlier one of the same family; other documents stay.
-    expect(job.packs.at(-1)!.documentIds).toEqual([...otherFamilyDocs, second.documentId]);
-    expect(job.history.at(-1)!.detail).toMatch(/replacing 1 earlier version/);
-
-    for (const state of ['Complete', 'Cancelled'] as const) {
-      const closed = { ...job, state, revision: job.revision + 1 };
-      await writerDb
-        .update(s.jobs)
-        .set({ data: closed, revision: closed.revision })
-        .where(eq(s.jobs.id, jobId));
-      job = closed;
-      const refused = await errorOf(
-        attachGenerationToPack(author, first.id, {
-          action: 'attach_to_pack',
-          requestId: rid(),
-          expectedJobRevision: job.revision,
-        }),
-      );
-      expect(refused).toMatchObject({ code: 'CONFLICT', status: 409 });
-      const [after] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-      expect(after.data.state).toBe(state);
-      expect(after.revision).toBe(job.revision);
     }
   });
 

@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { ResolutionCase } from '@/domain/resolution/model';
-import { caseStatus, isEditable, routeMatches } from '@/domain/resolution/cases';
-import { canLeaveEditing, hasUnsavedEdits } from '@/components/edit-guard';
+import { caseStatus, isEditable } from '@/domain/resolution/cases';
+import { canLeaveEditing, confirmAction, hasUnsavedEdits } from '@/components/edit-guard';
 import {
   Empty,
   formatDate,
@@ -73,7 +73,6 @@ export function CaseWorkspace({ id }: { id: string }) {
   const detail = load.data;
   const item = detail.case;
   const company = data.companies.find((c) => c.id === item.companyId);
-  const job = item.jobId ? data.jobs.find((j) => j.id === item.jobId) : null;
   const caps = data.actor.capabilities;
   const canEdit =
     isEditable(item) && (caps.includes('generate_documents') || caps.includes('prepare_job'));
@@ -131,15 +130,8 @@ export function CaseWorkspace({ id }: { id: string }) {
           <dt>Status</dt>
           <dd>{caseStatus(item, userName)}</dd>
         </div>
-        {job ? (
-          <div>
-            <dt>Linked job</dt>
-            <dd>
-              <Link href={'/jobs/' + job.id}>{job.title}</Link>
-            </dd>
-          </div>
-        ) : null}
       </dl>
+      <DirectorRecordReminder item={item} />
       <ReviewPanel api={api} />
       <nav className="section-nav" aria-label="Resolution sections">
         {SECTIONS.map(([key, label]) => (
@@ -220,7 +212,9 @@ function SendForReview({ api }: { api: CaseApi }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState('');
   if (!data || !api.canEdit) return null;
-  const reviewers = data.users.filter((user) => user.id !== data.actor.id);
+  const reviewers = data.users.filter(
+    (user) => user.id !== data.actor.id && user.companyIds.includes(item.companyId),
+  );
   return (
     <section className="section send-review" aria-labelledby="case-send">
       <h2 id="case-send">5. Send for review (optional)</h2>
@@ -401,6 +395,27 @@ function ReviewPanel({ api }: { api: CaseApi }) {
   );
 }
 
+/**
+ * A director resolution records the decision only; the company's director list changes when
+ * someone adds or ends the director on the company page.
+ */
+function DirectorRecordReminder({ item }: { item: ResolutionCase }) {
+  if (item.kind === 'board' || item.state === 'Cancelled') return null;
+  const change =
+    item.kind === 'director_appointment'
+      ? 'add the new director'
+      : 'end the director’s appointment';
+  return (
+    <div className="warning">
+      {item.state === 'Complete'
+        ? 'This resolution does not change the company’s director list. '
+        : 'Completing this resolution does not change the company’s director list. '}
+      To record it, {change} under People on the{' '}
+      <Link href={'/companies/' + item.companyId}>company page</Link>.
+    </div>
+  );
+}
+
 function CompleteResolution({ api }: { api: CaseApi }) {
   const { data } = useWorkspace();
   const action = useAction();
@@ -415,7 +430,18 @@ function CompleteResolution({ api }: { api: CaseApi }) {
       <button
         type="button"
         disabled={action.pending}
-        onClick={() => void action.run(() => api.act('complete'), 'Resolution completed')}
+        onClick={async () => {
+          // Completion is final: a completed resolution can no longer be edited or reopened.
+          const ready = api.detail.generations.some((g) => g.status === 'Ready');
+          const confirmed = await confirmAction({
+            message: ready
+              ? 'Mark this resolution complete? It can no longer be changed afterwards.'
+              : 'This resolution has no Word document yet. Mark it complete anyway? It can no longer be changed afterwards.',
+            confirmLabel: 'Mark complete',
+            cancelLabel: 'Not yet',
+          });
+          if (confirmed) void action.run(() => api.act('complete'), 'Resolution completed');
+        }}
       >
         {action.pending ? 'Completing…' : 'Mark complete'}
       </button>
@@ -441,7 +467,7 @@ function Details({ api }: { api: CaseApi }) {
     effectiveDate: item.effectiveDate || '',
   };
   const [form, setForm] = useState(saved);
-  // When the case changes elsewhere (for example linking a W04 job sets the effective date),
+  // When the case changes elsewhere (for example in another tab),
   // fields the user has not touched follow the latest values, so saving never reverts them.
   const [base, setBase] = useState(saved);
   const savedKey = JSON.stringify(saved);
@@ -463,7 +489,6 @@ function Details({ api }: { api: CaseApi }) {
     form.effectiveDate !== (item.effectiveDate || '');
   return (
     <>
-      {!item.jobId && item.kind !== 'board' && api.canEdit ? <LinkDirectorJob api={api} /> : null}
       <section className="section" aria-labelledby="case-details">
         <h2 id="case-details">1. Details</h2>
         <form
@@ -501,11 +526,15 @@ function Details({ api }: { api: CaseApi }) {
                 value={form.ownerId}
                 onChange={(event) => setForm({ ...form, ownerId: event.target.value })}
               >
-                {data.users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
+                {data.users
+                  .filter(
+                    (user) => user.companyIds.includes(item.companyId) || user.id === form.ownerId,
+                  )
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <label>
@@ -668,63 +697,6 @@ function DecisionRecord({ api }: { api: CaseApi }) {
             </div>
           </div>
         ) : null}
-      </form>
-    </section>
-  );
-}
-
-function LinkDirectorJob({ api }: { api: CaseApi }) {
-  const { data } = useWorkspace();
-  const [jobId, setJobId] = useState('');
-  const action = useAction();
-  const item = api.detail.case;
-  const jobs =
-    data?.jobs.filter(
-      (job) =>
-        job.companyId === item.companyId &&
-        job.activity === 'W04' &&
-        job.state !== 'Cancelled' &&
-        routeMatches(item.kind, job.route),
-    ) ?? [];
-  return (
-    <section className="section" aria-labelledby="link-director-job">
-      <h2 id="link-director-job">Link director change</h2>
-      <form
-        className="form-stack"
-        data-dirty={jobId ? 'true' : 'false'}
-        inert={action.pending}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void action.run(() => api.act('link_job', { jobId }), 'Director change linked');
-        }}
-      >
-        <label>
-          Director change (W04)
-          <select required value={jobId} onChange={(event) => setJobId(event.target.value)}>
-            <option value="">Select director change…</option>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>
-                {job.title} · {job.personName} · {formatDate(job.effectiveDate)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="metadata">
-          Linking takes the person and effective date from this job. Record posting remains subject
-          to W04 review.
-        </p>
-        {!jobs.length ? (
-          <Link href={`/jobs/new?company=${item.companyId}&activity=W04`}>New director change</Link>
-        ) : null}
-        <ActionFeedback
-          error={action.error}
-          status={action.status}
-          conflict={action.conflict}
-          onReload={() => void api.reload()}
-        />
-        <div className="actions">
-          <button disabled={action.pending || !jobId}>Link W04 job</button>
-        </div>
       </form>
     </section>
   );

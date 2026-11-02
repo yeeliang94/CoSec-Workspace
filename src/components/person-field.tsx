@@ -6,7 +6,7 @@ import { useWorkspace } from '@/components/workspace';
 type ListedPerson = Person & { relationships?: CompanyRelationship[] };
 const ROLE_NAMES: Record<string, string> = {
   director: 'Director',
-  member: 'Shareholder',
+  member: 'Member (shareholder)',
   secretary: 'Secretary',
   auditor: 'Auditor',
   other: 'Linked',

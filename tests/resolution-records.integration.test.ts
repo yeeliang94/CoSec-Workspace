@@ -7,13 +7,11 @@ import * as s from '../src/server/schema';
 import * as repo from '../src/server/repository';
 import { changePerson, getPerson, listPeople } from '../src/server/records/people';
 import {
-  assertDirectorChangePerson,
   changeRelationship,
   listCompanyRelationships,
   syncDirectorProjection,
 } from '../src/server/records/relationships';
 import { lockCompany } from '../src/server/records/scope';
-import { createJob } from '../src/server/workflows';
 import { changeProfile, getProfile } from '../src/server/records/profile';
 import { changeFieldDefinition } from '../src/server/records/custom-fields';
 import { changeCase, createCase, getCaseDetail } from '../src/server/records/cases';
@@ -25,7 +23,6 @@ import {
   defaultPreferences,
   type Actor,
   type Company,
-  type Job,
   type OfficerEvent,
 } from '../src/domain/model';
 import type { ResolutionCase } from '../src/domain/resolution/model';
@@ -36,7 +33,6 @@ const shared = `rr-shared-${tag}`; // director of A, B and C
 const backdated = `rr-back-${tag}`; // backdated appointment in A
 const onlyB = `rr-onlyb-${tag}`; // director of B only
 const fieldId = `rr_${tag}`;
-const jobId = randomUUID();
 const docId = randomUUID();
 const createdPeople: string[] = [];
 
@@ -141,7 +137,6 @@ beforeAll(async () => {
   await repo.insertDocument(admin, {
     id: docId,
     companyId: A,
-    jobId: null,
     title: 'Fictional signed resolution',
     originalName: 'signed.txt',
     mimeType: 'text/plain',
@@ -152,20 +147,6 @@ beforeAll(async () => {
     createdAt: new Date().toISOString(),
     classification: 'General',
   });
-  const job = {
-    id: jobId,
-    companyId: A,
-    activity: 'W04',
-    title: 'Appoint fictional director',
-    route: 'appointment',
-    personId: `rr-new-${tag}`,
-    personName: 'New Appointee',
-    effectiveDate: '2026-11-01',
-    recordEventId: null,
-    packs: [{ version: 1 }],
-    revision: 1,
-  } as unknown as Job;
-  await writerDb.insert(s.jobs).values({ id: jobId, companyId: A, revision: 1, data: job });
 });
 
 afterAll(async () => {
@@ -191,7 +172,6 @@ afterAll(async () => {
   await writerDb.delete(s.companyProfiles).where(inArray(s.companyProfiles.companyId, companies));
   await writerDb.delete(s.recordFieldDefinitions).where(eq(s.recordFieldDefinitions.id, fieldId));
   await writerDb.delete(s.officerEvents).where(inArray(s.officerEvents.companyId, companies));
-  await writerDb.delete(s.jobs).where(eq(s.jobs.id, jobId));
   await writerDb.delete(s.documents).where(inArray(s.documents.companyId, companies));
   await writerDb.delete(s.companies).where(inArray(s.companies.id, companies));
   await writerDb.delete(s.user).where(inArray(s.user.id, users));
@@ -310,46 +290,6 @@ describe('people and relationships', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
-  it('A14: a W04 job cannot borrow a person from another company by guessing the id', async () => {
-    const proposal = (personId: string, personName: string, route = 'appointment') =>
-      createJob(
-        limited,
-        {
-          companyId: A,
-          activity: 'W04',
-          ownerId: limited.id,
-          route,
-          personId,
-          personName,
-          effectiveDate: '2026-12-01',
-          routeBasis: 'Fictional board decision',
-        },
-        randomUUID(),
-      ).catch((e) => e);
-    for (const attempt of [
-      // Company B's director, with and without the right name: hidden from a company A preparer.
-      await proposal(onlyB, 'Only B Director'),
-      await proposal(onlyB, 'Impostor'),
-      await proposal(onlyB, 'Only B Director', 'resignation'),
-      // A visible person under a different name, or a non-UUID id with no person record.
-      await proposal(shared, 'Someone Else'),
-      await proposal(`guess-${tag}`, 'New Person'),
-    ])
-      expect([attempt.status, attempt.message]).toEqual([404, 'Person access is unavailable.']);
-    // A visible person who is not related to this company cannot cease here.
-    const unlinked = await changePerson(limited, {
-      action: 'create',
-      requestId: randomUUID(),
-      fullName: `Unrelated ${tag}`,
-    });
-    createdPeople.push(unlinked.id);
-    const cessation = await proposal(unlinked.id, unlinked.fullName, 'removal');
-    expect([cessation.status, cessation.message]).toEqual([404, 'Person access is unavailable.']);
-    // Ids longer than the people columns are rejected before anything is stored.
-    expect((await proposal('x'.repeat(65), 'Long Id')).status).toBe(400);
-    expect(await db.select().from(s.jobs).where(eq(s.jobs.companyId, A))).toHaveLength(1);
-  });
-
   it('posting never links an existing person whose name this company records differently', async () => {
     const impostor = event(
       C,
@@ -443,24 +383,13 @@ describe('people and relationships', () => {
     expect(ended.endDate).toBe('2026-09-01');
   });
 
-  it('re-checks person access on replay and at W04 posting', async () => {
+  it('re-checks person access on replay', async () => {
     const requestId = randomUUID();
     const create = (actor: Actor) =>
       changePerson(actor, { action: 'create', requestId, fullName: `Replay ${tag}` });
     const person = await create(limited);
     createdPeople.push(person.id);
-    const posting = (companyId: string) => ({
-      companyId,
-      route: 'appointment',
-      personId: person.id,
-      personName: person.fullName,
-    });
-    // Still unlinked: a poster other than the preparer who chose them is accepted.
-    await expect(assertDirectorChangePerson(admin, posting(A))).rejects.toThrow('unavailable');
-    await expect(
-      assertDirectorChangePerson(admin, posting(A), undefined, true),
-    ).resolves.toBeUndefined();
-    // Once linked to company A, an actor who has since lost A cannot replay or post them.
+    // Once linked to company A, an actor who has since lost A cannot replay them.
     await changeRelationship(limited, A, {
       action: 'add',
       requestId: randomUUID(),
@@ -474,9 +403,6 @@ describe('people and relationships', () => {
     expect((await create(limited)).id).toBe(person.id);
     const replay = await create(moved).catch((e) => e);
     expect([replay.status, replay.message]).toEqual([404, 'Person access is unavailable.']);
-    await expect(assertDirectorChangePerson(moved, posting(C), undefined, true)).rejects.toThrow(
-      'unavailable',
-    );
   });
 
   it('A17: future and backdated director events give correct as-at directors', async () => {
@@ -683,6 +609,34 @@ describe('profile, context and cases', () => {
     expect(JSON.stringify(after)).not.toContain(B);
   });
 
+  it('takes members from member relationships in effect on the as-at date', async () => {
+    await changeRelationship(admin, A, {
+      action: 'add',
+      requestId: randomUUID(),
+      personId: shared,
+      role: 'member',
+      capacity: '',
+      startDate: '2026-03-01',
+      evidenceIds: [],
+    });
+    const c = await createCase(admin, {
+      requestId: randomUUID(),
+      companyId: A,
+      kind: 'board',
+      title: 'Members case',
+    });
+    expect((await loadResolutionContext(admin, c.id, '2026-01-01')).members).toEqual([]);
+    expect((await loadResolutionContext(admin, c.id, '2026-07-01')).members).toEqual([
+      {
+        id: shared,
+        name: expect.any(String),
+        capacity: 'Member',
+        appointedOn: '2026-03-01',
+        ceasedOn: null,
+      },
+    ]);
+  });
+
   it('rejects dependency cycles and requires reasons for not applicable', async () => {
     const c = await createCase(admin, {
       requestId: randomUUID(),
@@ -727,147 +681,22 @@ describe('profile, context and cases', () => {
     expect((await readCase(admin, c.id)).revision).toBe(1);
   });
 
-  it('links an existing director case to a matching W04 job without bypassing posting', async () => {
-    let c = await createCase(admin, {
-      requestId: randomUUID(),
-      companyId: A,
-      kind: 'director_appointment',
-      title: 'Initially unlinked appointment',
-    });
-    await expect(
-      changeCase(admin, c.id, {
-        action: 'link_job',
-        jobId: randomUUID(),
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('unavailable');
-    const originalJob = await repo.getJob(admin, jobId);
-    try {
-      await writerDb
-        .update(s.jobs)
-        .set({ data: { ...originalJob, state: 'Cancelled' } })
-        .where(eq(s.jobs.id, jobId));
-      await expect(
-        changeCase(admin, c.id, {
-          action: 'link_job',
-          jobId,
-          expectedRevision: c.revision,
-          requestId: randomUUID(),
-        }),
-      ).rejects.toThrow('cancelled');
-      await writerDb
-        .update(s.jobs)
-        .set({ data: { ...originalJob, companyId: B }, companyId: B })
-        .where(eq(s.jobs.id, jobId));
-      await expect(
-        changeCase(admin, c.id, {
-          action: 'link_job',
-          jobId,
-          expectedRevision: c.revision,
-          requestId: randomUUID(),
-        }),
-      ).rejects.toThrow('same company');
-    } finally {
-      await writerDb
-        .update(s.jobs)
-        .set({ data: originalJob, companyId: originalJob.companyId })
-        .where(eq(s.jobs.id, jobId));
-    }
-    c = await changeCase(admin, c.id, {
-      action: 'link_job',
-      jobId,
-      expectedRevision: c.revision,
-      requestId: randomUUID(),
-    });
-    expect(c).toMatchObject({ jobId, personId: `rr-new-${tag}`, effectiveDate: '2026-11-01' });
-    await expect(
-      changeCase(admin, c.id, {
-        action: 'link_job',
-        jobId,
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('already linked');
-    const wrong = await createCase(admin, {
-      requestId: randomUUID(),
-      companyId: A,
-      kind: 'director_resignation',
-      title: 'Wrong route for linking',
-    });
-    await expect(
-      changeCase(admin, wrong.id, {
-        action: 'link_job',
-        jobId,
-        expectedRevision: wrong.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('route');
-    for (const step of c.steps.filter((st) => st.kind !== 'registration'))
-      c = await changeCase(admin, c.id, {
-        action: 'update_step',
-        stepId: step.id,
-        state: 'Complete',
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      });
-    const registration = c.steps.find((st) => st.kind === 'registration')!;
-    await expect(
-      changeCase(admin, c.id, {
-        action: 'update_step',
-        stepId: registration.id,
-        state: 'Complete',
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('has not posted');
-    const original = await repo.getJob(admin, jobId);
-    try {
-      await writerDb
-        .update(s.jobs)
-        .set({ data: { ...original, recordEventId: randomUUID() } })
-        .where(eq(s.jobs.id, jobId));
-      c = await changeCase(admin, c.id, {
-        action: 'update_step',
-        stepId: registration.id,
-        state: 'Complete',
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      });
-      c = await markApproved(c);
-      c = await changeCase(admin, c.id, {
-        action: 'complete',
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      });
-      expect(c.state).toBe('Complete');
-    } finally {
-      await writerDb.update(s.jobs).set({ data: original }).where(eq(s.jobs.id, jobId));
-    }
-  });
-
-  it('blocks registration until W04 posts, and never passes a decision automatically', async () => {
-    await expect(
-      createCase(admin, {
-        requestId: randomUUID(),
-        companyId: A,
-        kind: 'director_resignation',
-        title: 'Wrong route',
-        jobId,
-      }),
-    ).rejects.toThrow('route');
+  it('opens a director case without a registration step, and never passes a decision automatically', async () => {
     let c: ResolutionCase = await createCase(admin, {
       requestId: randomUUID(),
       companyId: A,
       kind: 'director_appointment',
       title: 'Appointment case',
-      jobId,
+      effectiveDate: '2026-11-01',
     });
-    expect(c.personId).toBe(`rr-new-${tag}`);
     expect(c.effectiveDate).toBe('2026-11-01');
-    const registration = c.steps.find((st) => st.kind === 'registration')!;
-    expect(registration.label).toBe('Record posting through W04');
-    for (const step of c.steps.filter((st) => st.kind !== 'registration'))
+    expect(c.steps.map((st) => st.kind)).toEqual([
+      'instruction',
+      'preparation',
+      'review',
+      'execution',
+    ]);
+    for (const step of c.steps)
       c = await changeCase(admin, c.id, {
         action: 'update_step',
         expectedRevision: c.revision,
@@ -875,37 +704,6 @@ describe('profile, context and cases', () => {
         stepId: step.id,
         state: 'Complete',
       });
-    const complete = {
-      action: 'update_step' as const,
-      stepId: registration.id,
-      state: 'Complete' as const,
-    };
-    await expect(
-      changeCase(admin, c.id, {
-        ...complete,
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('has not posted');
-    await expect(
-      changeCase(admin, c.id, {
-        ...complete,
-        state: 'Not applicable',
-        reason: 'Skip',
-        expectedRevision: c.revision,
-        requestId: randomUUID(),
-      }),
-    ).rejects.toThrow('not applicable');
-    const [jobRow] = await db.select().from(s.jobs).where(eq(s.jobs.id, jobId));
-    await writerDb
-      .update(s.jobs)
-      .set({ data: { ...jobRow.data, recordEventId: randomUUID() } })
-      .where(eq(s.jobs.id, jobId));
-    c = await changeCase(admin, c.id, {
-      ...complete,
-      expectedRevision: c.revision,
-      requestId: randomUUID(),
-    });
     expect(c.decision.status).toBe('Not recorded');
     await expect(
       changeCase(admin, c.id, {

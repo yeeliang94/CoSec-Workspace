@@ -12,9 +12,22 @@ async function login(page: Page, key = 'owner') {
     page,
     accounts.find((account) => account.key === key)!,
   );
-  await page.goto('/work');
-  await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
+  await page.goto('/resolutions');
+  await expect(page.getByRole('heading', { name: 'Resolutions', exact: true })).toBeVisible();
 }
+
+/** Opens the new-resolution form on /resolutions and types an unsaved title. */
+async function draftResolution(page: Page, value: string) {
+  await page.getByRole('button', { name: 'New resolution', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'New resolution', exact: true })
+    .getByRole('textbox', { name: 'Title', exact: true })
+    .fill(value);
+}
+const draftTitle = (page: Page) =>
+  page
+    .getByRole('dialog', { name: 'New resolution', exact: true })
+    .getByRole('textbox', { name: 'Title', exact: true });
 
 async function traverse(page: Page, delta: number, discard: boolean) {
   await page.evaluate((distance) => window.history.go(distance), delta);
@@ -25,26 +38,30 @@ test('Back and Forward preserve dirty drafts on cancellation and navigate on dis
   page,
 }) => {
   await login(page);
-  await page.getByRole('link', { name: 'New job', exact: true }).click();
-  await page.locator('[name=year]').fill('2022');
-  for (let attempt = 0; attempt < 2; attempt++) {
-    await traverse(page, -1, false);
-    await expect(page).toHaveURL(/\/jobs\/new$/);
-    await expect(page.locator('[name=year]')).toHaveValue('2022');
-  }
-  await traverse(page, -1, true);
-  await expect(page).toHaveURL(/\/work$/);
-  await page.goForward();
-  await expect(page).toHaveURL(/\/jobs\/new$/);
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
   await expect(page).toHaveURL(/\/companies$/);
-  await page.goBack();
-  await page.locator('[name=year]').fill('2023');
-  await traverse(page, 1, false);
-  await expect(page).toHaveURL(/\/jobs\/new$/);
-  await expect(page.locator('[name=year]')).toHaveValue('2023');
-  await traverse(page, 1, true);
+  await page.getByRole('link', { name: 'Resolutions', exact: true }).click();
+  await expect(page).toHaveURL(/\/resolutions$/);
+  await draftResolution(page, 'Unsaved resolution one');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await traverse(page, -1, false);
+    await expect(page).toHaveURL(/\/resolutions$/);
+    await expect(draftTitle(page)).toHaveValue('Unsaved resolution one');
+  }
+  await traverse(page, -1, true);
   await expect(page).toHaveURL(/\/companies$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/resolutions$/);
+  await page.getByRole('link', { name: 'People', exact: true }).click();
+  await expect(page).toHaveURL(/\/people$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/resolutions$/);
+  await draftResolution(page, 'Unsaved resolution two');
+  await traverse(page, 1, false);
+  await expect(page).toHaveURL(/\/resolutions$/);
+  await expect(draftTitle(page)).toHaveValue('Unsaved resolution two');
+  await traverse(page, 1, true);
+  await expect(page).toHaveURL(/\/people$/);
 });
 
 test('company opening edits survive cancelled close and navigation', async ({ page }) => {
@@ -72,21 +89,23 @@ test('company opening edits survive cancelled close and navigation', async ({ pa
   await expect(name).toHaveValue('');
 });
 
-test('Back after a native skip link still protects the draft and restores the work page', async ({
+test('Back after a native skip link still protects the draft and restores the previous page', async ({
   page,
 }) => {
   await login(page);
+  await page.getByRole('link', { name: 'Companies', exact: true }).click();
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('.skip-link').focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/work#main$/);
-  await page.getByRole('link', { name: 'New job', exact: true }).click();
-  await page.locator('[name=year]').fill('2022');
+  await expect(page).toHaveURL(/\/companies#main$/);
+  await page.getByRole('link', { name: 'Resolutions', exact: true }).click();
+  await draftResolution(page, 'Unsaved after skip link');
   await traverse(page, -1, false);
-  await expect(page).toHaveURL(/\/jobs\/new$/);
-  await expect(page.locator('[name=year]')).toHaveValue('2022');
+  await expect(page).toHaveURL(/\/resolutions$/);
+  await expect(draftTitle(page)).toHaveValue('Unsaved after skip link');
   await traverse(page, -1, true);
-  await expect(page).toHaveURL(/\/work#main$/);
-  await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/companies#main$/);
+  await expect(page.getByRole('heading', { name: 'Companies', exact: true })).toBeVisible();
 });
 
 test('changing upload company requires discard and clears the previous evidence', async ({

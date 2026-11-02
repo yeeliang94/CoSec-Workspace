@@ -1,5 +1,5 @@
 import { nextYearEnd } from '../company';
-import type { PersonSnapshot, RecordProperty, ResolutionContext } from './model';
+import type { FieldDefinition, PersonSnapshot, RecordProperty, ResolutionContext } from './model';
 
 export type BindingType = 'text' | 'date' | 'any';
 export type BindingInfo = { path: string; valueType: BindingType; description: string };
@@ -30,9 +30,6 @@ export const BINDINGS: readonly BindingInfo[] = [
   { path: 'case.instructionDate', valueType: 'date', description: 'Case instruction date' },
   { path: 'case.resolutionDate', valueType: 'date', description: 'Case resolution date' },
   { path: 'case.effectiveDate', valueType: 'date', description: 'Case effective date' },
-  { path: 'job.personName', valueType: 'text', description: 'Director change: person' },
-  { path: 'job.effectiveDate', valueType: 'date', description: 'Director change: effective date' },
-  { path: 'job.route', valueType: 'text', description: 'Director change: route' },
   { path: 'firm.name', valueType: 'text', description: 'Firm name' },
   { path: 'today', valueType: 'date', description: 'Date of preparation' },
 ];
@@ -112,12 +109,6 @@ export function resolveBinding(
       return ctx.case.resolutionDate;
     case 'case.effectiveDate':
       return ctx.case.effectiveDate;
-    case 'job.personName':
-      return ctx.job?.personName ?? null;
-    case 'job.effectiveDate':
-      return ctx.job?.effectiveDate ?? null;
-    case 'job.route':
-      return ctx.job?.route ?? null;
     case 'firm.name':
       return ctx.firm.name;
     case 'today':
@@ -132,5 +123,30 @@ export function bindingSourceLabel(path: string, asAt: string) {
   if (!info) return 'Unavailable source';
   if (path.startsWith('selection.')) return `${info.description} (from your selection)`;
   if (path === 'today') return 'Date of preparation';
-  return `${path.startsWith('company.') ? 'Company record' : path.startsWith('case.') ? 'Resolution case' : path.startsWith('job.') ? 'Linked director change' : 'Firm settings'}: ${info.description} (as at ${asAt})`;
+  return `${path.startsWith('company.') ? 'Company record' : path.startsWith('case.') ? 'Resolution case' : 'Firm settings'}: ${info.description} (as at ${asAt})`;
+}
+
+const RETIRED_JOB_SOURCES = {
+  'job.personName': 'personName',
+  'job.effectiveDate': 'effectiveDate',
+  'job.route': 'route',
+} as const;
+
+/** Retired records become questions with the same ids; stored templates remain unchanged.
+ * Frozen generation snapshots still resolve their original values for historical signing checks.
+ */
+export function fieldForCurrentRecords(
+  field: FieldDefinition,
+  frozenJob?: ResolutionContext['job'],
+): FieldDefinition {
+  if (field.source.kind !== 'binding' || !Object.hasOwn(RETIRED_JOB_SOURCES, field.source.path))
+    return field;
+  const key = RETIRED_JOB_SOURCES[field.source.path as keyof typeof RETIRED_JOB_SOURCES];
+  if (!key) return field;
+  return {
+    ...field,
+    // A binding always had to resolve, so its replacement question stays mandatory.
+    required: true,
+    source: frozenJob ? { kind: 'constant', value: frozenJob[key] ?? '' } : { kind: 'question' },
+  };
 }

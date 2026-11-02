@@ -12,7 +12,7 @@ import { emptyPick, PersonField, resolvePick, type PersonPick } from './person-f
 type Row = { key: string; pick: PersonPick; role: RelationshipRole; startDate: string };
 const ROLES: { value: RelationshipRole; label: string }[] = [
   { value: 'director', label: 'Director' },
-  { value: 'member', label: 'Shareholder' },
+  { value: 'member', label: 'Member (shareholder)' },
   { value: 'secretary', label: 'Secretary' },
   { value: 'auditor', label: 'Auditor' },
   { value: 'other', label: 'Other' },

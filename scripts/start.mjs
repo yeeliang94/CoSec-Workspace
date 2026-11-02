@@ -1,5 +1,5 @@
 // Starts CoSec on this computer: prepares dependencies and the database when needed, then runs
-// the web app and the reminder worker together and opens the browser. Ctrl+C stops both.
+// the web app and the background worker together and opens the browser. Ctrl+C stops both.
 // Plain JavaScript with Node built-ins only, because it runs before dependencies are installed.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -61,6 +61,7 @@ if (!existsSync('.env')) {
 
 step('Updating the database');
 run('npm run db:migrate');
+run('npx tsx scripts/migrate-members.ts');
 run('npm run db:seed');
 run('npx tsx scripts/seed-resolution-samples.ts');
 
