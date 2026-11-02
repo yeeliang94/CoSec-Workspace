@@ -84,6 +84,9 @@ const built =
 if (!built || edited) {
   // Invalidate before building too: a failed build must never retain a reusable marker.
   rmSync(marker, { force: true });
+  // A past `next dev` leaves route types here that the build's type check still reads, so a
+  // route removed since then fails the build. Port 4300 is free, so no dev server is using them.
+  rmSync('.next/dev/types', { recursive: true, force: true, maxRetries: 3 });
   step('Building the app (first run or after an update; this takes a minute)');
   run('npm run build');
   // A dirty build cannot be reused after its source edits are reverted.

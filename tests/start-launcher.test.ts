@@ -33,7 +33,10 @@ function fixture() {
   writeFileSync(join(root, 'package-lock.json'), '{}');
   writeFileSync(join(root, 'node_modules/.package-lock.json'), '{}');
   writeFileSync(join(root, '.env'), 'BETTER_AUTH_URL=http://127.0.0.1:4300\n');
-  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.next/\n.env\nbin/\ncommands\npids\n');
+  writeFileSync(
+    join(root, '.gitignore'),
+    'node_modules/\n.next/\n.env\nbin/\ncommands\npids\ndev-types-at-build\n',
+  );
   writeFileSync(
     join(root, 'bin/npm'),
     `#!${process.execPath}
@@ -47,6 +50,7 @@ if (process.env.CHECK_WEB_STORAGE) {
   fs.appendFileSync('storage-checks', JSON.stringify({ command, storage, options: process.env.NODE_OPTIONS }) + '\\n');
 }
 if (command === 'run build') {
+  fs.writeFileSync('dev-types-at-build', fs.existsSync('.next/dev/types/validator.ts') ? 'present' : 'missing');
   fs.mkdirSync('.next', { recursive: true });
   fs.writeFileSync('.next/BUILD_ID', 'fixture');
 }
@@ -155,6 +159,19 @@ describe.skipIf(process.platform === 'win32')('one-step launcher', () => {
     await waitFor(() => child.exitCode !== null);
     expect(child.exitCode).toBe(7);
     expect(await listening()).toBe(false);
+  });
+
+  it('removes leftover development route types before building', async () => {
+    const { root } = fixture();
+    mkdirSync(join(root, '.next/dev/types'), { recursive: true });
+    mkdirSync(join(root, '.next/dev/cache'), { recursive: true });
+    writeFileSync(join(root, '.next/dev/types/validator.ts'), 'import "./deleted-route.js";\n');
+    writeFileSync(join(root, '.next/dev/cache/entry'), 'kept');
+    const child = launch(root);
+    await waitFor(listening);
+    await stop(child);
+    expect(readFileSync(join(root, 'dev-types-at-build'), 'utf8')).toBe('missing');
+    expect(readFileSync(join(root, '.next/dev/cache/entry'), 'utf8')).toBe('kept');
   });
 
   it('rebuilds after reverting a dirty build and when adding untracked source', async () => {
