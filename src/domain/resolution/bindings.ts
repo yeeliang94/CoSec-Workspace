@@ -145,6 +145,8 @@ export function fieldForCurrentRecords(
   if (!key) return field;
   return {
     ...field,
+    // A binding always had to resolve, so its replacement question stays mandatory.
+    required: true,
     source: frozenJob ? { kind: 'constant', value: frozenJob[key] ?? '' } : { kind: 'question' },
   };
 }
