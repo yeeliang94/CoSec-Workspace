@@ -152,7 +152,7 @@ function PeopleDirectory() {
                           <span className="muted">Not linked yet</span>
                         )}
                       </td>
-                      <td data-label="Email">{person.email || '—'}</td>
+                      <td data-label="Email">{person.email}</td>
                       {reviewColumn ? (
                         <td data-label="Identity">{person.migrationNote ? 'Needs review' : ''}</td>
                       ) : null}
@@ -292,7 +292,7 @@ function PersonDrawer({
           <dl className="record-meta">
             <div>
               <dt>Email</dt>
-              <dd>{person.email || '—'}</dd>
+              <dd>{person.email}</dd>
             </div>
           </dl>
           {person.migrationNote ? <p className="warning">{person.migrationNote}</p> : null}
@@ -320,7 +320,7 @@ function PersonDrawer({
                       </div>
                       <div>
                         <dt>Until</dt>
-                        <dd>{r.endDate ? formatDate(r.endDate) : 'Present'}</dd>
+                        <dd>{r.endDate ? formatDate(r.endDate) : 'Current'}</dd>
                       </div>
                     </dl>
                     {r.projectedFrom ? (

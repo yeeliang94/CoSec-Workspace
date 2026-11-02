@@ -26,8 +26,10 @@ export function statusLabel(status: TemplateStatus) {
   return status;
 }
 
-/** Submit, return and publish controls for one template version. */
+/** Editor page header: title, save control and the next step for this version. */
 export function VersionLifecycle({
+  heading,
+  saveControl,
   version,
   url,
   dirty,
@@ -35,6 +37,8 @@ export function VersionLifecycle({
   onChanged,
   onNewVersion,
 }: {
+  heading: React.ReactNode;
+  saveControl: React.ReactNode;
   version: VersionLike;
   /** POST endpoint for this version. */
   url: string;
@@ -89,11 +93,50 @@ export function VersionLifecycle({
 
   return (
     <div className="lifecycle">
-      <p className="lifecycle-state">
-        <strong>
-          v{version.version}, {version.status}
-        </strong>
-      </p>
+      <header className="editor-header">
+        <div>{heading}</div>
+        <div className="actions editor-actions">
+          {saveControl}
+          {(version.status === 'Draft' || version.status === 'Returned') && canManage ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={Boolean(pending) || dirty}
+              title={dirty ? 'Save the draft before submitting' : undefined}
+              onClick={() => void run('submit', {}, `v${version.version} submitted for review`)}
+            >
+              {pending === 'submit' ? 'Submitting…' : `Submit v${version.version} for review`}
+            </button>
+          ) : null}
+          {version.status === 'In review' && canReview && !mode ? (
+            <>
+              <button type="button" onClick={() => setMode('return')}>
+                Return v{version.version}
+              </button>
+              <button type="button" className="primary" onClick={() => setMode('publish')}>
+                Publish v{version.version}
+              </button>
+            </>
+          ) : null}
+          {version.status === 'In review' && !canReview ? (
+            <span className="metadata">
+              {independent
+                ? 'Waiting for review by someone with review permission.'
+                : 'Waiting for review by a different person.'}
+            </span>
+          ) : null}
+          {(version.status === 'Published' || version.status === 'Superseded') && canManage ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={Boolean(pending)}
+              onClick={() => void run('new_version')}
+            >
+              {pending === 'new_version' ? 'Creating…' : 'Create new version'}
+            </button>
+          ) : null}
+        </div>
+      </header>
       {version.status === 'Returned' && version.returnReason ? (
         <p className="warning">Returned: {version.returnReason}</p>
       ) : null}
@@ -106,42 +149,6 @@ export function VersionLifecycle({
         {status}
       </p>
       {status ? <p className="success">{status}</p> : null}
-      <div className="actions">
-        {(version.status === 'Draft' || version.status === 'Returned') && canManage ? (
-          <>
-            <button
-              type="button"
-              disabled={Boolean(pending) || dirty}
-              onClick={() => void run('submit', {}, `v${version.version} submitted for review`)}
-            >
-              {pending === 'submit' ? 'Submitting…' : `Submit v${version.version} for review`}
-            </button>
-            {dirty ? <span className="metadata">Save the draft before submitting.</span> : null}
-          </>
-        ) : null}
-        {version.status === 'In review' && canReview && !mode ? (
-          <>
-            <button type="button" className="primary" onClick={() => setMode('publish')}>
-              Review and publish v{version.version}
-            </button>
-            <button type="button" onClick={() => setMode('return')}>
-              Return v{version.version}
-            </button>
-          </>
-        ) : null}
-        {version.status === 'In review' && !canReview ? (
-          <span className="metadata">
-            {independent
-              ? 'Waiting for review by someone with review permission.'
-              : 'Waiting for review by a different person.'}
-          </span>
-        ) : null}
-        {(version.status === 'Published' || version.status === 'Superseded') && canManage ? (
-          <button type="button" disabled={Boolean(pending)} onClick={() => void run('new_version')}>
-            {pending === 'new_version' ? 'Creating…' : 'Create new version'}
-          </button>
-        ) : null}
-      </div>
       {mode === 'return' ? (
         <form
           className="confirmation form-stack"

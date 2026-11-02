@@ -7,6 +7,7 @@ import { canLeaveEditing, confirmAction, hasUnsavedEdits } from '@/components/ed
 import {
   Empty,
   formatDate,
+  formatDay,
   formatDatesIn,
   Icon,
   useWorkspace,
@@ -200,7 +201,7 @@ export function CaseWorkspace({ id }: { id: string }) {
                       <strong>{historyLabel(event.action)}</strong>
                       <p className="metadata">
                         {data.users.find((u) => u.id === event.actorId)?.name || event.actorId},{' '}
-                        {formatDate(event.at)}
+                        {formatDay(event.at)}
                       </p>
                       {event.detail ? <p>{formatDatesIn(event.detail)}</p> : null}
                     </li>
@@ -297,7 +298,7 @@ function SendForReview({ api }: { api: CaseApi }) {
             ))}
           </select>
         </label>
-        <button className="primary" disabled={send.pending || !item.selection}>
+        <button disabled={send.pending || !item.selection}>
           {send.pending ? 'Sending…' : 'Send for review'}
         </button>
       </form>
@@ -488,6 +489,7 @@ function CompleteResolution({ api }: { api: CaseApi }) {
     <>
       <button
         type="button"
+        className="primary"
         disabled={action.pending}
         onClick={async () => {
           // Completion is final: a completed resolution can no longer be edited or reopened.

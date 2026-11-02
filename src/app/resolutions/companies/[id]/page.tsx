@@ -51,9 +51,14 @@ export default function CompanyResolutionSettings({ params }: { params: Promise<
         Resolutions
       </Link>
       <header className="record-heading">
-        <Link href={'/companies/' + id}>{company.name}</Link>
         <h1>Company resolution settings</h1>
         <dl className="record-meta">
+          <div>
+            <dt>Company</dt>
+            <dd>
+              <Link href={'/companies/' + id}>{company.name}</Link>
+            </dd>
+          </div>
           <div>
             <dt>Registration number</dt>
             <dd>{company.registrationNumber}</dd>

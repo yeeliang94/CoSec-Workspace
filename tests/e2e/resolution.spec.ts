@@ -42,6 +42,7 @@ async function noOverflow(page: Page, width: number) {
 }
 
 async function createQuestion(page: Page, label: string, type?: string) {
+  await page.locator('.inspector-disclosure').evaluate((el) => el.setAttribute('open', ''));
   const inspector = page.locator('.template-inspector');
   if (type)
     await inspector.getByRole('combobox', { name: 'Answer type' }).first().selectOption(type);
@@ -53,6 +54,7 @@ async function createQuestion(page: Page, label: string, type?: string) {
 }
 
 async function insertExisting(page: Page, label: string) {
+  await page.locator('.inspector-disclosure').evaluate((el) => el.setAttribute('open', ''));
   const inspector = page.locator('.template-inspector');
   await inspector.getByLabel('Find an existing field').fill(label);
   await inspector.getByRole('button', { name: `Insert ${label}`, exact: true }).click();
@@ -123,7 +125,6 @@ test('author writes a clause with a bound value, reused question and two wording
   await insertExisting(page, 'Fee amount');
   await expect(page.locator('.template-inspector .field-list > li')).toHaveCount(4);
 
-  await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByLabel('Source or basis of wording').fill('Fictional E2E wording, not approved');
   await page.getByLabel('Effective date').fill(today);
   await page.getByRole('button', { name: 'Save draft' }).click();
@@ -149,7 +150,7 @@ test('author writes a clause with a bound value, reused question and two wording
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await page.getByRole('button', { name: 'Submit v1 for review' }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v1, In review');
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 1, In review');
   await expect(page.getByText('Waiting for review by a different person.')).toBeVisible();
 });
 
@@ -158,11 +159,11 @@ test('a different admin publishes the clause', async ({ page }) => {
   // Templates are Admin-only; the second admin account publishes the owner's draft.
   await as(page, 'admin');
   await page.goto(clauseUrl);
-  await page.getByRole('button', { name: 'Review and publish v1' }).click();
+  await page.getByRole('button', { name: 'Publish v1' }).click();
   await expect(page.locator('.diff-summary')).toContainText('First version');
   await page.getByLabel('I have reviewed these changes and the sample preview').check();
   await page.getByRole('button', { name: 'Publish v1' }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v1, Published');
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 1, Published');
 });
 
 test('preparer assembles, answers, previews and generates a Word document', async ({ page }) => {
@@ -244,7 +245,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Word documents', exact: true }).click();
-  await page.getByRole('button', { name: 'Create Word document' }).click();
+  await page.getByRole('button', { name: 'Generate Word document' }).click();
   const link = page.getByRole('link', { name: 'Download version 1' });
   await expect(link).toBeVisible({ timeout: 45000 });
   const response = await page.request.get((await link.getAttribute('href'))!);
@@ -291,24 +292,20 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await as(page, 'owner');
   await page.goto(clauseUrl);
   await page.getByRole('button', { name: 'Create new version', exact: true }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 2, Draft');
   await page.getByRole('tab', { name: /Directors' written resolution/ }).click();
   const canvas = page.locator('.template-canvas .tiptap');
   await canvas.click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type(' Unsaved version-history regression.');
-  await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v1', exact: true }).click();
   await answerPrompt(page, false);
-  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
-  await page.getByRole('button', { name: 'Wording', exact: true }).click();
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 2, Draft');
   await expect(canvas).toContainText('Unsaved version-history regression.');
-  await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v1', exact: true }).click();
   await answerPrompt(page, true);
-  await expect(page.locator('.lifecycle-state')).toContainText('v1, Published');
-  await page.getByRole('button', { name: 'Versions', exact: true }).click();
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 1, Published');
   await page.getByRole('link', { name: 'v2', exact: true }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
+  await expect(page.locator('.lifecycle-state')).toContainText('Version 2, Draft');
   await expect(canvas).not.toContainText('Unsaved version-history regression.');
 });

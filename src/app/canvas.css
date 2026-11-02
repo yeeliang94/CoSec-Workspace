@@ -1,0 +1,446 @@
+/* Canvas design pass, approved by the owner on 2 November 2026. Loaded last. Desktop only. */
+
+/* Page frame */
+main#main {
+  padding: 30px 32px 50px;
+  max-width: 1332px;
+  margin: 0;
+}
+.page-header {
+  margin-bottom: 20px;
+}
+.back-link {
+  gap: 4px;
+  margin-bottom: 14px;
+  font-size: calc(13px * var(--scale));
+  color: var(--action-text);
+}
+.back-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Navigation rail: name and Sign out share one line */
+.sidebar-account {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 13px 0;
+  font-size: calc(12px * var(--scale));
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Toolbars: compact controls on one line */
+.toolbar {
+  align-items: center;
+  gap: 8px;
+}
+.search {
+  flex: 0 0 280px;
+  max-width: 280px;
+}
+.search:has(input[placeholder*='registration']) {
+  flex-basis: 340px;
+  max-width: 340px;
+}
+.search svg {
+  bottom: 10px;
+}
+.search input,
+.toolbar select {
+  height: 35px;
+  min-height: 35px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.toolbar label:not(.search) {
+  width: auto;
+}
+.toolbar label.toolbar-check {
+  margin-left: 8px;
+}
+
+/* Tables: 14px text, record name in semibold primary, plain links elsewhere */
+table {
+  font-size: calc(14px * var(--scale));
+}
+th {
+  padding: 0 15px 10px;
+  font-size: calc(12px * var(--scale));
+  font-weight: 400;
+}
+td a {
+  font-weight: 400;
+}
+td:first-child > a {
+  font-weight: 600;
+}
+.library-table .row-actions {
+  font-size: calc(13px * var(--scale));
+}
+.library-table .row-actions .quiet,
+.relationship-table .quiet {
+  color: var(--action-text);
+}
+
+/* Tabs: selected tab is dark text with a primary underline */
+.filters,
+.section-nav {
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.filters {
+  margin: 0 0 20px;
+}
+.section-nav {
+  margin: 0 0 28px;
+}
+.filter,
+.section-nav a,
+.section-nav button {
+  padding: 8px 0 10px;
+  color: var(--muted);
+}
+.filter.active,
+.section-nav .active,
+.section-nav [aria-current='page'] {
+  border-bottom-color: var(--primary);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Record headers */
+.record-number {
+  margin-top: 2px;
+  font-size: calc(12px * var(--scale));
+}
+.record-number a {
+  font-weight: 400;
+}
+.resolution-heading,
+.record-heading {
+  margin-bottom: 20px;
+}
+.record-as-at {
+  margin: 0 0 28px;
+}
+.record-as-at label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 500;
+}
+.record-as-at input {
+  width: 150px;
+  height: 35px;
+  min-height: 35px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-weight: 400;
+}
+
+/* Details panel */
+.record-split {
+  margin-top: 0;
+}
+.detail-aside h2 {
+  margin: 0 0 16px;
+}
+.facts.stacked {
+  gap: 16px;
+}
+.facts dt {
+  font-size: calc(12px * var(--scale));
+  margin-bottom: 2px;
+}
+
+/* The warning's link sits on its line until it is opened */
+.warning {
+  margin-bottom: 20px;
+}
+.warning .disclosure {
+  display: inline-block;
+  margin: 0 0 0 8px;
+  padding: 0;
+}
+.warning .disclosure[open] {
+  display: block;
+  margin: 12px 0 0;
+}
+
+/* Record names that open a panel, and plain record names, match record links */
+td:first-child > .record-button {
+  font-weight: 600;
+  color: var(--primary);
+}
+.library-table td:first-child {
+  font-weight: 600;
+}
+.library-table td:first-child .state {
+  font-weight: 400;
+}
+.library-table .row-actions button,
+.library-table .row-actions .quiet {
+  margin: 0;
+  padding: 0;
+}
+
+/* The warning's link uses the section-link colour */
+.warning .disclosure > summary {
+  color: var(--primary);
+}
+
+/* Side panels: compact step list and a fixed action bar */
+.drawer-header {
+  padding: 20px 24px 16px;
+}
+.drawer-body .guided-form {
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 32px;
+  padding-bottom: 69px;
+}
+.drawer-body .guided-steps {
+  border-right: 0;
+  padding-right: 0;
+}
+.drawer-body .guided-steps ol {
+  gap: 4px;
+}
+.drawer-body .guided-steps button {
+  padding: 8px 10px;
+  border-radius: var(--radius-control, 4px);
+  color: var(--muted);
+}
+.drawer-body .guided-steps button[aria-current='step'] {
+  background: var(--selection);
+  color: var(--ink);
+  font-weight: 500;
+}
+.drawer-body .guided-content > .actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 650px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Sections in a working column sit 52px apart */
+.split-main > .section,
+.split-main > .section + .section {
+  margin-top: 52px;
+}
+.split-main > :first-child {
+  margin-top: 0;
+}
+
+/* Settings: all sections on one page */
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 52px;
+}
+.settings-sections > * {
+  margin-top: 0;
+}
+
+/* Audit log: filters on one compact line */
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 24px;
+  max-width: none;
+}
+.audit-filters label {
+  margin: 0;
+}
+.audit-filters select,
+.audit-filters input {
+  height: 35px;
+  min-height: 35px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.audit-filters input[type='text'],
+.audit-filters input:not([type]) {
+  width: 150px;
+}
+.audit-filters input[type='date'] {
+  width: 140px;
+}
+.audit-filters .actions {
+  margin: 0;
+}
+.audit-filters .actions button {
+  height: 35px;
+  min-height: 35px;
+}
+
+/* Side panel close button is an icon */
+.drawer-close {
+  display: inline-flex;
+  padding: 6px;
+  color: var(--action-text);
+}
+
+/* Empty states: centred muted text with the action underneath */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.empty h1 {
+  margin: 0;
+  color: var(--ink);
+}
+
+/* Sign in */
+.login-brand {
+  margin-bottom: 20px;
+  color: var(--ink);
+  font-size: calc(19px * var(--scale));
+  letter-spacing: 0.4px;
+}
+.login-box h1 {
+  margin-bottom: 20px;
+}
+.settings-sections section + section {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+.settings-sections section:first-child .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.settings-sections section:first-child .form-grid > :not(label:has(select)) {
+  grid-column: 1 / -1;
+}
+
+/* Review fixes */
+.document-table th {
+  font-weight: 700;
+}
+.sidebar-account > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-account .sidebar-signout {
+  flex-shrink: 0;
+}
+.users-table td:first-child {
+  font-weight: 600;
+}
+.users-table td.user-companies {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-account {
+  gap: 4px;
+  padding-left: 8px;
+  padding-right: 0;
+}
+.drawer-body {
+  scroll-padding-bottom: 85px;
+}
+.drawer-body .guided-steps button:hover {
+  color: var(--primary);
+}
+.users-table td:last-child .text-button {
+  margin: 0;
+}
+
+/* Template editors: one page, working column and a settings panel */
+.editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.editor-header h1 {
+  margin: 0;
+}
+.editor-actions {
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.editor-actions .save-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.editor-split {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.editor-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  min-width: 0;
+}
+.editor-aside .section + .section {
+  margin-top: 48px;
+}
+.editor-aside .plain-fieldset > .section:first-child {
+  margin-top: 0;
+}
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.editor-aside .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.editor-aside h2 {
+  font-size: calc(17px * var(--scale));
+}
+.editor-aside .plain-fieldset {
+  min-width: 0;
+}
+.editor-split .inspector-disclosure {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  margin-top: 16px;
+  padding-left: 0;
+  border-left: 0;
+}
+.editor-split .canvas-label {
+  font-size: calc(12px * var(--scale));
+  font-weight: 400;
+  color: var(--table-header-text);
+}
+.lifecycle-state {
+  margin: 0 0 16px;
+}
+.editor-split .inspector-disclosure > summary {
+  font-size: calc(13px * var(--scale));
+  font-weight: 500;
+  color: var(--primary);
+}
+.selected-wording-slot {
+  padding: 16px;
+  border: 1px dashed var(--control-border, #cbd1d6);
+  border-radius: 4px;
+  text-align: center;
+  color: var(--muted);
+}

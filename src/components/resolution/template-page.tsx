@@ -202,7 +202,6 @@ export function SaveBar({
       </span>
       <button
         type="button"
-        className="primary"
         disabled={pending || !dirty || blocked}
         onClick={onSave}
         title={blocked ? 'Remove unsupported content before saving' : undefined}
@@ -211,6 +210,19 @@ export function SaveBar({
       </button>
     </div>
   );
+}
+
+/** Takes the author from a validation issue to the version field it names. */
+export function goToVersionField(location: string) {
+  const selector = /effective/i.test(location)
+    ? '#version-source input'
+    : /source/i.test(location)
+      ? '#version-source textarea'
+      : '';
+  const field = selector ? document.querySelector<HTMLElement>(selector) : null;
+  field?.scrollIntoView({ block: 'center' });
+  field?.focus();
+  return Boolean(field);
 }
 
 /** Validation issues; each navigates to its location when possible. */
@@ -303,6 +315,13 @@ export function SamplePreview({
   dirty: boolean;
 }) {
   const [outputTypeId, setOutputTypeId] = useState(defaultOutputType);
+  // Follows the wording tab, and falls back when the chosen wording has been removed.
+  useEffect(() => setOutputTypeId(defaultOutputType), [defaultOutputType]);
+  const selected = outputTypes.some((type) => type.id === outputTypeId)
+    ? outputTypeId
+    : (outputTypes[0]?.id ?? '');
+  const signature = JSON.stringify(draft);
+  const [shown, setShown] = useState<string | null>(null);
   const [result, setResult] = useState<{ resolved: ResolvedDocument; issues: Issue[] } | null>(
     null,
   );
@@ -317,10 +336,11 @@ export function SamplePreview({
         await postJson('/api/templates/preview', {
           kind,
           versionId,
-          ...(outputTypeId ? { outputTypeId } : {}),
+          ...(selected ? { outputTypeId: selected } : {}),
           ...(draft ? { draft } : {}),
         }),
       );
+      setShown(signature);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -329,7 +349,7 @@ export function SamplePreview({
   }
   useEffect(() => {
     void refresh();
-  }, [outputTypeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section aria-labelledby="sample-preview">
       <div className="page-header section-header">
@@ -346,7 +366,7 @@ export function SamplePreview({
               setError('');
               try {
                 const params = new URLSearchParams({ kind, versionId, format: 'docx' });
-                if (outputTypeId) params.set('outputTypeId', outputTypeId);
+                if (selected) params.set('outputTypeId', selected);
                 await download('/api/templates/preview?' + params, undefined, 'sample.docx');
               } catch (e) {
                 setError(errorText(e));
@@ -362,7 +382,7 @@ export function SamplePreview({
       <div className="toolbar">
         <label>
           Document type
-          <select value={outputTypeId} onChange={(event) => setOutputTypeId(event.target.value)}>
+          <select value={selected} onChange={(event) => setOutputTypeId(event.target.value)}>
             {outputTypes.map((type) => (
               <option key={type.id} value={type.id}>
                 {type.name}
@@ -371,11 +391,10 @@ export function SamplePreview({
           </select>
         </label>
       </div>
-      {dirty ? (
-        <p className="warning">
-          Preview includes unsaved edits. Download uses the last saved draft.
-        </p>
+      {result && shown !== signature ? (
+        <p className="warning">Refresh to see your latest edits.</p>
       ) : null}
+      {dirty ? <p className="metadata">Download uses the last saved draft.</p> : null}
       {error ? (
         <p className="feedback error" role="alert">
           {error}

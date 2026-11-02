@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useWorkspace, PageHeader, Icon, formatDate, Empty } from '@/components/workspace';
+import { useWorkspace, PageHeader, Icon, formatDay, Empty } from '@/components/workspace';
 import { UploadForm } from '@/components/forms';
 import { canLeaveEditing } from '@/components/edit-guard';
 export default function Documents() {
@@ -93,7 +93,7 @@ export default function Documents() {
                       {data.companies.find((c) => c.id === d.companyId)?.name}
                     </Link>
                   </td>
-                  <td className="nowrap tabular">{formatDate(d.createdAt)}</td>
+                  <td className="nowrap tabular">{formatDay(d.createdAt)}</td>
                   <td className="nowrap">{Math.max(1, Math.round(d.size / 1024))} KB</td>
                 </tr>
               ))}

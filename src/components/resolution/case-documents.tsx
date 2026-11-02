@@ -112,11 +112,11 @@ export function CaseDocuments({ api }: { api: CaseApi }) {
             </label>
           ) : null}
           <div className="actions">
-            <button className="primary" disabled={generate.pending || !item.selection || pending}>
-              {generate.pending ? 'Generating…' : 'Create Word document'}
+            <button disabled={generate.pending || !item.selection || pending}>
+              {generate.pending ? 'Generating…' : 'Generate Word document'}
             </button>
             {!item.selection ? (
-              <span className="metadata">Choose the wording before creating the document.</span>
+              <span className="metadata">Choose the wording before generating the document.</span>
             ) : null}
             {polling ? <span className="metadata">Waiting for the document to finish…</span> : null}
           </div>

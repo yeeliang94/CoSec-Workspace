@@ -169,7 +169,22 @@ These rules came out of the owner's review of the redesigned My work, Company re
 - **Dates and titles.** Dates read "5 Nov 2026" (no leading zero, three-letter month, "Sep" not "Sept"); timestamps read "5 Nov 2026, 14:30" in Kuala Lumpur time with no zone suffix. Every page title names the page first: "Companies – CoSec Workspace" (en dash).
 - **One name per destination.** The template library is "Templates", with the tabs Wording, Layouts and Document types; an item is "wording" ("New wording"). Links to another page from a page header are section links, not outlined buttons. In-section form saves are secondary buttons.
 
+## Canvas design pass (2 November 2026)
+
+The owner approved the design canvas for every page. These rules win over older paragraphs here.
+
+- **Record names.** The first-column record name is a semibold primary link; other table links are regular weight. Empty cells stay blank, with no dash.
+- **Dates in lists.** Lists show the day only. The Audit log keeps the date and time.
+- **Actions below the header.** Send for review and Generate Word document are secondary; Mark complete is the one primary button.
+- **Tabs.** The selected tab is dark medium text with a primary underline.
+- **Templates lists.** Flat rows with one version value ("v2 draft (v1 published)"). Use the category filter to narrow them.
+- **Settings.** One page: Personal preferences, Users and company access, Firm. There are no tabs.
+- **Side panels.** A 140px step list with a filled current step, an icon close button and a fixed action bar.
+- **Template editors.** One page with no section tabs: the working column holds the wording, the fields disclosure and the sample preview; a 340px panel holds settings and versions. The header holds Save draft (secondary) and the version's next step (primary). Independent review before publishing stays.
+- **Empty states.** Centred muted text with the action underneath.
+
 ## Colors
+
 
 The palette combines white working surfaces, a slate-navy navigation rail and one muted blue action colour. Resolve exact values from the frontmatter rather than adding parallel palette definitions to individual screens.
 

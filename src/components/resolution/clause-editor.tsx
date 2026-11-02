@@ -24,6 +24,7 @@ import {
   IssueList,
   SamplePreview,
   SaveBar,
+  goToVersionField,
   useTemplateVersion,
 } from './template-page';
 import { LoadState } from './use-load';
@@ -36,14 +37,6 @@ type Draft = {
   source: string;
   effectiveDate: string | null;
 };
-const SECTIONS = [
-  ['wording', 'Wording'],
-  ['details', 'Details'],
-  ['preview', 'Preview'],
-  ['versions', 'Versions'],
-] as const;
-type Section = (typeof SECTIONS)[number][0];
-
 export function ClauseEditor({ id }: { id: string }) {
   const page = useTemplateVersion('clause', id);
   if (!page.state)
@@ -72,7 +65,6 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
   const editable =
     caps.includes('manage_templates') &&
     (version.status === 'Draft' || version.status === 'Returned');
-  const [section, setSection] = useState<Section>('wording');
   const [draft, setDraft] = useState<Draft>(() => ({
     wordings: structuredClone(version.wordings),
     fields: structuredClone(version.fields),
@@ -177,10 +169,13 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
       const named = /wording "([^"]+)"/.exec(target.location)?.[1];
       wording = typeList.find((t) => t.name === named || t.id === named)?.id;
     }
-    setSection('wording');
     if (wording && wording !== tab) setTab(wording);
     if (target.block !== undefined) setPendingFocus(target.block);
-    else if (/field|source|effective/.test(target.location)) setSection('details');
+    else if (!goToVersionField(target.location) && /field/.test(target.location)) {
+      const fields = newQuestionRef.current?.closest('details');
+      fields?.setAttribute('open', '');
+      fields?.scrollIntoView({ block: 'center' });
+    }
   }
 
   const previous = useMemo(() => {
@@ -198,48 +193,50 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
         <Icon kind="back" />
         Templates
       </Link>
-      <header className="record-heading">
-        <h1>{template.name}</h1>
-        {template.hidden || template.archived ? (
-          <dl className="record-meta">
-            <div>
-              <dt>Availability</dt>
-              <dd>{template.archived ? 'Archived' : 'Hidden from new resolutions'}</dd>
-            </div>
-          </dl>
-        ) : null}
-      </header>
-      <div className="template-status">
-        <VersionLifecycle
-          version={version}
-          url={page.versionUrl(version.id)}
-          dirty={dirty}
-          diff={
-            <DiffSummary
-              previous={previous}
-              current={draft}
-              serverChanges={state.changes}
-              wordings={typeList.map((t) => ({
-                name: t.name,
-                before: previous?.wordings[t.id]?.length ? previous.wordings[t.id] : undefined,
-                after: draft.wordings[t.id]?.length ? draft.wordings[t.id] : undefined,
-              }))}
-            />
-          }
-          onChanged={page.reload}
-          onNewVersion={(next) => {
-            page.selectVersion(next);
-          }}
-        />
-        <SaveBar
-          dirty={dirty}
-          pending={save.pending}
-          readOnly={!editable}
-          blocked={blocked}
-          status={save.status}
-          onSave={() => void doSave()}
-        />
-      </div>
+      <VersionLifecycle
+        heading={
+          <>
+            <h1>{template.name}</h1>
+            {template.hidden || template.archived ? (
+              <dl className="record-meta">
+                <div>
+                  <dt>Availability</dt>
+                  <dd>{template.archived ? 'Archived' : 'Hidden from new resolutions'}</dd>
+                </div>
+              </dl>
+            ) : null}
+          </>
+        }
+        saveControl={
+          <SaveBar
+            dirty={dirty}
+            pending={save.pending}
+            readOnly={!editable}
+            blocked={blocked}
+            status={save.status}
+            onSave={() => void doSave()}
+          />
+        }
+        version={version}
+        url={page.versionUrl(version.id)}
+        dirty={dirty}
+        diff={
+          <DiffSummary
+            previous={previous}
+            current={draft}
+            serverChanges={state.changes}
+            wordings={typeList.map((t) => ({
+              name: t.name,
+              before: previous?.wordings[t.id]?.length ? previous.wordings[t.id] : undefined,
+              after: draft.wordings[t.id]?.length ? draft.wordings[t.id] : undefined,
+            }))}
+          />
+        }
+        onChanged={page.reload}
+        onNewVersion={(next) => {
+          page.selectVersion(next);
+        }}
+      />
       {save.error ? (
         <div className="feedback error" role="alert">
           {save.error}
@@ -268,21 +265,8 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
         </div>
       ) : null}
       <IssueList issues={state.issues} converter={converter} onNavigate={navigate} />
-      <nav className="section-nav" aria-label="Clause sections">
-        {SECTIONS.map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            className={section === key ? 'active' : ''}
-            aria-current={section === key ? 'page' : undefined}
-            onClick={() => setSection(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-      <div data-dirty={dirty ? 'true' : 'false'}>
-        {section === 'wording' ? (
+      <div className="split record-split editor-split" data-dirty={dirty ? 'true' : 'false'}>
+        <div className="split-main">
           <section aria-label="Wording">
             <div className="wording-tabs" role="tablist" aria-label="Wording per output type">
               {typeList.map((type) => (
@@ -399,86 +383,83 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                   ) : null}
                 </div>
               ) : null}
-              <div className="template-workbench">
-                <div className="template-main">
-                  {tab ? (
-                    <TemplateEditor
-                      key={`${tab}:${remount}`}
-                      handleRef={editorRef}
-                      mode="clause"
-                      label={`${typeName(tab)} wording`}
-                      value={draft.wordings[tab] ?? []}
-                      fields={draft.fields}
-                      readOnly={!editable}
-                      onChange={(blocks, issues) => {
-                        setDraft((current) => ({
-                          ...current,
-                          wordings: { ...current.wordings, [tab]: blocks },
-                        }));
-                        markDirty();
-                        save.setStatus('');
-                        setConvertIssues((current) => ({ ...current, [tab]: issues }));
-                      }}
-                      onSelection={setSelection}
-                      onRequestField={() => {
-                        newQuestionRef.current?.closest('details')?.setAttribute('open', '');
-                        newQuestionRef.current?.focus();
-                      }}
-                      onEditNode={() =>
-                        window.setTimeout(() => {
-                          settingsRef.current?.closest('details')?.setAttribute('open', '');
-                          settingsRef.current?.focus();
-                        }, 30)
-                      }
-                    />
-                  ) : (
-                    <p className="metadata">Add an output type first.</p>
-                  )}
-                </div>
-                <details className="inspector-disclosure" open>
-                  <summary>Fields and settings</summary>
-                  <FieldInspector
+              <div className="template-main">
+                {tab ? (
+                  <TemplateEditor
+                    key={`${tab}:${remount}`}
+                    handleRef={editorRef}
+                    mode="clause"
+                    label={`${typeName(tab)} wording`}
+                    value={draft.wordings[tab] ?? []}
                     fields={draft.fields}
-                    onFieldsChange={(fields) => change({ fields })}
-                    wordings={wordingRefs}
-                    selection={selection}
-                    editor={editorRef}
                     readOnly={!editable}
-                    defaultScope="clause"
-                    reusable={reusable}
-                    customDefinitions={state.definitions}
-                    newQuestionRef={newQuestionRef}
-                    settingsRef={settingsRef}
+                    onChange={(blocks, issues) => {
+                      setDraft((current) => ({
+                        ...current,
+                        wordings: { ...current.wordings, [tab]: blocks },
+                      }));
+                      markDirty();
+                      save.setStatus('');
+                      setConvertIssues((current) => ({ ...current, [tab]: issues }));
+                    }}
+                    onSelection={setSelection}
+                    onRequestField={() => {
+                      newQuestionRef.current?.closest('details')?.setAttribute('open', '');
+                      newQuestionRef.current?.focus();
+                    }}
+                    onEditNode={() =>
+                      window.setTimeout(() => {
+                        settingsRef.current?.closest('details')?.setAttribute('open', '');
+                        settingsRef.current?.focus();
+                      }, 30)
+                    }
                   />
-                </details>
+                ) : (
+                  <p className="metadata">Add an output type first.</p>
+                )}
               </div>
+              <details className="inspector-disclosure">
+                <summary>Fields and settings</summary>
+                <FieldInspector
+                  fields={draft.fields}
+                  onFieldsChange={(fields) => change({ fields })}
+                  wordings={wordingRefs}
+                  selection={selection}
+                  editor={editorRef}
+                  readOnly={!editable}
+                  defaultScope="clause"
+                  reusable={reusable}
+                  customDefinitions={state.definitions}
+                  newQuestionRef={newQuestionRef}
+                  settingsRef={settingsRef}
+                />
+              </details>
             </div>
           </section>
-        ) : section === 'details' ? null : section === 'preview' ? (
-          <SamplePreview
-            kind="clause"
-            versionId={version.id}
-            outputTypes={typeList.filter((t) => draft.wordings[t.id]?.length)}
-            defaultOutputType={tab}
-            draft={editable ? { wordings: draft.wordings, fields: draft.fields } : null}
-            dirty={dirty}
-          />
-        ) : (
+          {Object.values(draft.wordings).some((blocks) => blocks.length) ? (
+            <div className="section">
+              <SamplePreview
+                kind="clause"
+                versionId={version.id}
+                outputTypes={typeList.filter((t) => draft.wordings[t.id]?.length)}
+                defaultOutputType={tab}
+                draft={editable ? { wordings: draft.wordings, fields: draft.fields } : null}
+                dirty={dirty}
+              />
+            </div>
+          ) : null}
+        </div>
+        <aside className="detail-aside editor-aside">
+          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
           <section aria-labelledby="versions-title">
-            <h2 id="versions-title" className="sr-only">
-              Versions
-            </h2>
+            <h2 id="versions-title">Versions</h2>
             <VersionHistory
               versions={template.versions as ClauseVersion[]}
               currentId={version.id}
               hrefFor={(vid) => `/templates/clauses/${template.id}?version=${vid}`}
             />
           </section>
-        )}
-        {/* Kept mounted so unsaved template details survive a section switch. */}
-        <div hidden={section !== 'details'}>
-          <ClauseDetails page={page} draft={draft} editable={editable} onDraft={change} />
-        </div>
+        </aside>
       </div>
     </>
   );
@@ -516,9 +497,9 @@ function ClauseDetails({
     meta.description !== template.description;
   return (
     <>
-      <section className="section" aria-labelledby="clause-meta">
-        <h2 id="clause-meta" className="sr-only">
-          Clause details
+      <section aria-labelledby="version-meta">
+        <h2 id="version-meta" className="lifecycle-state">
+          Version {page.state!.version.version}, {page.state!.version.status}
         </h2>
         <form
           className="form-grid"
@@ -630,8 +611,7 @@ function ClauseDetails({
           ) : null}
         </form>
       </section>
-      <section className="section" aria-labelledby="version-meta">
-        <h2 id="version-meta">Version {page.state!.version.version}</h2>
+      <section id="version-source" aria-label="Version source">
         <fieldset className="plain-fieldset form-grid" disabled={!editable}>
           <label className="full">
             Source or basis of wording{editable ? ' (required for review)' : ''}

@@ -220,7 +220,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     Settings
                   </Link>
                   <div className="sidebar-account">
-                    <span>{data?.actor.name || 'Loading…'}</span>
+                    <span title={data?.actor.name}>{data?.actor.name || 'Loading…'}</span>
                     <button
                       type="button"
                       className="sidebar-signout"
@@ -306,6 +306,10 @@ export function formatDate(value: string | null | undefined, options?: { seconds
   if (Number.isNaN(date.getTime())) return value;
   const f = klFields(date);
   return `${f.day} ${MONTHS[f.month - 1]} ${f.year}, ${f.hour}:${f.minute}${options?.seconds ? ':' + f.second : ''}`;
+}
+/** The calendar day of a timestamp, for lists where the time adds nothing. */
+export function formatDay(value: string | null | undefined) {
+  return formatDate(value).split(',')[0];
 }
 const AUDIT_ENTITY_LABELS: Record<string, string> = Object.fromEntries([
   ['person', 'Person'],

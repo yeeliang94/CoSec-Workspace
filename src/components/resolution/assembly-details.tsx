@@ -33,9 +33,9 @@ export function AssemblyDetails({
     meta.usageContexts.join() !== template.usageContexts.join();
   return (
     <>
-      <section className="section" aria-labelledby="assembly-meta">
-        <h2 id="assembly-meta" className="sr-only">
-          Assembly details
+      <section aria-labelledby="version-meta">
+        <h2 id="version-meta" className="lifecycle-state">
+          Version {page.state!.version.version}, {page.state!.version.status}
         </h2>
         <dl className="record-meta">
           <div>
@@ -120,8 +120,7 @@ export function AssemblyDetails({
           ) : null}
         </form>
       </section>
-      <section className="section" aria-labelledby="version-meta">
-        <h2 id="version-meta">Version {page.state!.version.version}</h2>
+      <section id="version-source" aria-label="Version source">
         <fieldset className="plain-fieldset form-grid" disabled={!editable}>
           <label className="full">
             Source or basis of wording{editable ? ' (required for review)' : ''}

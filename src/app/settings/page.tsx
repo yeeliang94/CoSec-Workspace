@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Capability, Company, Preferences } from '@/domain/model';
 import { ROLE_LABELS, roleOf } from '@/domain/model';
 import { useWorkspace, PageHeader, request } from '@/components/workspace';
-import { ActionForm, canLeaveEditing } from '@/components/forms';
+import { ActionForm } from '@/components/forms';
 function Personal() {
   const { data, refresh } = useWorkspace();
   const [status, setStatus] = useState('');
@@ -146,6 +146,13 @@ function Users() {
     void load();
   }, []);
   if (!data) return null;
+  const companyNames = (user: AdminUser) =>
+    companies.length && user.companyIds.length === companies.length
+      ? 'All companies'
+      : companies
+          .filter((company) => user.companyIds.includes(company.id))
+          .map((company) => company.name)
+          .join(', ');
   return (
     <section>
       <div className="page-header">
@@ -183,7 +190,9 @@ function Users() {
                 <td>{user.name}</td>
                 <td className="user-email">{user.email}</td>
                 <td>{ROLE_LABELS[roleOf(user.capabilities)]}</td>
-                <td>{user.companyIds.length}</td>
+                <td className="user-companies" title={companyNames(user)}>
+                  {companyNames(user)}
+                </td>
                 <td>{user.active ? 'Active' : 'Inactive'}</td>
                 <td>
                   <button
@@ -317,63 +326,30 @@ function Users() {
     </section>
   );
 }
-const tabParams: Record<string, string> = {
-  Personal: 'personal',
-  Firm: 'firm',
-  Users: 'users',
-};
 export default function Settings() {
   const { data } = useWorkspace();
-  const [tab, setTab] = useState('Personal');
-  useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get('tab');
-    const initial = Object.keys(tabParams).find((key) => tabParams[key] === param);
-    if (initial) setTab(initial);
-  }, []);
   if (!data) return null;
   const firm = data.actor.capabilities.includes('manage_catalogue');
   const admin = data.actor.capabilities.includes('manage_users');
-  const tabs = ['Personal', ...(firm ? ['Firm'] : []), ...(admin ? ['Users'] : [])];
-  const active = tabs.includes(tab) ? tab : 'Personal';
   return (
     <>
       <PageHeader title="Settings">
         {data.actor.capabilities.includes('view_audit') ? (
-          <Link className="button" href="/audit">
+          <Link className="section-link" href="/audit">
             Audit log
           </Link>
         ) : null}
       </PageHeader>
-      <nav className="section-nav" aria-label="Settings sections">
-        {tabs.map((item) => (
-          <button
-            key={item}
-            className={active === item ? 'active' : ''}
-            aria-current={active === item ? 'page' : undefined}
-            onClick={async () => {
-              if (item === active || !(await canLeaveEditing())) return;
-              setTab(item);
-              const url = new URL(window.location.href);
-              if (item === 'Personal') url.searchParams.delete('tab');
-              else url.searchParams.set('tab', tabParams[item]);
-              window.history.replaceState(window.history.state, '', url.pathname + url.search);
-            }}
-          >
-            {item}
-          </button>
-        ))}
-      </nav>
       <div className="settings-sections">
-        {active === 'Personal' ? (
-          <Personal />
-        ) : active === 'Firm' ? (
+        <Personal />
+        {admin ? <Users /> : null}
+        {firm ? (
           <section>
             <h2>Firm</h2>
             <ActionForm
               url="/api/settings"
               action="defaults"
               label="Save firm details"
-              primary
               extra={{ expectedRevision: data.settings.revision }}
               fields={[
                 {
@@ -392,9 +368,7 @@ export default function Settings() {
               </div>
             </dl>
           </section>
-        ) : (
-          <Users />
-        )}
+        ) : null}
       </div>
     </>
   );

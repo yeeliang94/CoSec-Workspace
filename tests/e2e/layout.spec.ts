@@ -29,12 +29,11 @@ test('shared headers, controls and staff columns retain their layout', async ({ 
   const checkbox = await page.getByRole('checkbox', { name: 'Reduce motion' }).boundingBox();
   expect(checkbox!.width).toBe(17);
   expect(checkbox!.height).toBe(17);
-  await page.getByRole('button', { name: 'Users', exact: true }).click();
   await expect(page.locator('.users-table')).toBeVisible();
   expect(
     await page
       .locator('.users-table td')
-      .nth(3)
+      .nth(2)
       .evaluate((el) => getComputedStyle(el).whiteSpace),
   ).toBe('nowrap');
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -146,7 +145,7 @@ test('shared form rows stay aligned with fieldsets and dependent identity contro
       .getByRole('button', { name: 'Discard changes', exact: true })
       .click();
     await page.goto('/settings');
-    await vertical([
+    await aligned([
       page.getByRole('combobox', { name: 'Text size', exact: true }),
       page.getByRole('combobox', { name: 'List density', exact: true }),
     ]);

@@ -24,6 +24,7 @@ import {
   IssueList,
   SamplePreview,
   SaveBar,
+  goToVersionField,
   useTemplateVersion,
 } from './template-page';
 import { LoadState } from './use-load';
@@ -42,16 +43,6 @@ export type Draft = {
   source: string;
   effectiveDate: string | null;
 };
-const SECTIONS = [
-  ['content', 'Content'],
-  ['signatures', 'Signatures and layout'],
-  ['starters', 'Starting wording'],
-  ['details', 'Details'],
-  ['preview', 'Preview'],
-  ['versions', 'Versions'],
-] as const;
-type Section = (typeof SECTIONS)[number][0];
-
 /** Running header/footer text: plain text with {{field_id}} for a field. */
 export function inlineToText(nodes: InlineNode[]) {
   return nodes
@@ -98,7 +89,6 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
   const editable =
     Boolean(data?.actor.capabilities.includes('manage_templates')) &&
     (version.status === 'Draft' || version.status === 'Returned');
-  const [section, setSection] = useState<Section>('content');
   const [draft, setDraft] = useState<Draft>(() => ({
     header: structuredClone(version.header),
     closing: structuredClone(version.closing),
@@ -259,45 +249,47 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
         <Icon kind="back" />
         Templates
       </Link>
-      <header className="record-heading">
-        <h1>{template.name}</h1>
-        {template.archived ? (
-          <dl className="record-meta">
-            <div>
-              <dt>Availability</dt>
-              <dd>Archived</dd>
-            </div>
-          </dl>
-        ) : null}
-      </header>
-      <div className="template-status">
-        <VersionLifecycle
-          version={version}
-          url={page.versionUrl(version.id)}
-          dirty={dirty}
-          diff={
-            <DiffSummary
-              previous={previous}
-              current={draft}
-              serverChanges={state.changes}
-              wordings={[
-                { name: 'Header', before: previous?.header, after: draft.header },
-                { name: 'Closing', before: previous?.closing, after: draft.closing },
-              ]}
-            />
-          }
-          onChanged={page.reload}
-          onNewVersion={(next) => page.selectVersion(next)}
-        />
-        <SaveBar
-          dirty={dirty}
-          pending={save.pending}
-          readOnly={!editable}
-          blocked={converter.length > 0}
-          status={save.status}
-          onSave={() => void doSave()}
-        />
-      </div>
+      <VersionLifecycle
+        heading={
+          <>
+            <h1>{template.name}</h1>
+            {template.archived ? (
+              <dl className="record-meta">
+                <div>
+                  <dt>Availability</dt>
+                  <dd>Archived</dd>
+                </div>
+              </dl>
+            ) : null}
+          </>
+        }
+        saveControl={
+          <SaveBar
+            dirty={dirty}
+            pending={save.pending}
+            readOnly={!editable}
+            blocked={converter.length > 0}
+            status={save.status}
+            onSave={() => void doSave()}
+          />
+        }
+        version={version}
+        url={page.versionUrl(version.id)}
+        dirty={dirty}
+        diff={
+          <DiffSummary
+            previous={previous}
+            current={draft}
+            serverChanges={state.changes}
+            wordings={[
+              { name: 'Header', before: previous?.header, after: draft.header },
+              { name: 'Closing', before: previous?.closing, after: draft.closing },
+            ]}
+          />
+        }
+        onChanged={page.reload}
+        onNewVersion={(next) => page.selectVersion(next)}
+      />
       {save.error ? (
         <div className="feedback error" role="alert">
           {save.error}
@@ -335,267 +327,59 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
                 ? 'header'
                 : undefined;
           if (part) {
-            setSection('content');
             window.setTimeout(() => {
               const ref = part === 'header' ? headerRef : closingRef;
               if (target.block !== undefined) ref.current?.focusBlock(target.block);
               else ref.current?.focus();
             }, 60);
-          } else if (/signature/i.test(target.location)) setSection('signatures');
-          else if (/starter/i.test(target.location)) setSection('starters');
-          else if (/source|effective/i.test(target.location)) setSection('details');
+          } else if (!goToVersionField(target.location)) {
+            const fields = newQuestionRef.current?.closest('details');
+            if (/field/i.test(target.location)) fields?.setAttribute('open', '');
+            const place = /signature/i.test(target.location)
+              ? document.getElementById('signature-settings')
+              : /starter/i.test(target.location)
+                ? document.getElementById('starters-title')
+                : /field/i.test(target.location)
+                  ? fields
+                  : null;
+            place?.scrollIntoView({ block: 'center' });
+          }
         }}
       />
-      <nav className="section-nav" aria-label="Assembly sections">
-        {SECTIONS.map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            className={section === key ? 'active' : ''}
-            aria-current={section === key ? 'page' : undefined}
-            onClick={() => setSection(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-      <div data-dirty={dirty ? 'true' : 'false'}>
-        {section === 'content' ? (
-          <div className="template-workbench">
-            <div className="template-main">
-              <h2 className="canvas-label">Header</h2>
-              {editorFor('header')}
-              <h2 className="canvas-label">Closing</h2>
-              {editorFor('closing')}
-            </div>
-            <details className="inspector-disclosure" open>
-              <summary>Shared questions and settings</summary>
-              <dl className="record-meta inspector-note">
-                <div>
-                  <dt>Editing</dt>
-                  <dd>{active === 'header' ? 'Header' : 'Closing'}</dd>
-                </div>
-              </dl>
-              <FieldInspector
-                fields={draft.fields}
-                onFieldsChange={(fields) => change({ fields })}
-                wordings={wordingRefs}
-                selection={selection}
-                editor={activeRef}
-                readOnly={!editable}
-                defaultScope="case"
-                customDefinitions={state.definitions}
-                newQuestionRef={newQuestionRef}
-                settingsRef={settingsRef}
-              />
-            </details>
+      <div className="split record-split editor-split" data-dirty={dirty ? 'true' : 'false'}>
+        <div className="split-main">
+          <div className="template-main">
+            <h2 className="canvas-label">Header</h2>
+            {editorFor('header')}
+            {[...draft.header, ...draft.closing].some((b) => b.type === 'clauseSlot') ? null : (
+              <div className="selected-wording-slot">Selected wording appears here</div>
+            )}
+            <h2 className="canvas-label">Closing</h2>
+            {editorFor('closing')}
           </div>
-        ) : section === 'signatures' ? (
-          <fieldset className="plain-fieldset" disabled={!editable}>
-            <section className="section" aria-labelledby="signature-settings">
-              <h2 id="signature-settings">Signatures</h2>
-              <div className="form-grid">
-                <label>
-                  Columns
-                  <select
-                    value={draft.signature.columns}
-                    onChange={(event) =>
-                      change({
-                        signature: {
-                          ...draft.signature,
-                          columns: Number(event.target.value) as 1 | 2 | 3,
-                        },
-                      })
-                    }
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                  </select>
-                </label>
-                <label>
-                  Label under each line
-                  <input
-                    value={draft.signature.label}
-                    onChange={(event) =>
-                      change({ signature: { ...draft.signature, label: event.target.value } })
-                    }
-                  />
-                </label>
-                <details className="advanced-filters full">
-                  <summary>Signature placeholders</summary>
-                  <dl className="record-meta">
-                    <div>
-                      <dt>Name</dt>
-                      <dd>
-                        <code>{'{name}'}</code>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Capacity</dt>
-                      <dd>
-                        <code>{'{capacity}'}</code>
-                      </dd>
-                    </div>
-                  </dl>
-                </details>
-                <label className="inline full">
-                  <input
-                    type="checkbox"
-                    checked={draft.signature.showDate}
-                    onChange={(event) =>
-                      change({ signature: { ...draft.signature, showDate: event.target.checked } })
-                    }
-                  />
-                  Show a date line under each signature
-                </label>
+          <details className="inspector-disclosure">
+            <summary>Shared questions and settings</summary>
+            <dl className="record-meta inspector-note">
+              <div>
+                <dt>Editing</dt>
+                <dd>{active === 'header' ? 'Header' : 'Closing'}</dd>
               </div>
-              <dl className="record-meta">
-                <div>
-                  <dt>Roles in use</dt>
-                  <dd>
-                    {[...draft.header, ...draft.closing]
-                      .filter((b) => b.type === 'signatureBlock')
-                      .map((b) => (b.type === 'signatureBlock' ? b.role : ''))
-                      .join(', ') || 'None — add a signature block in Content'}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-            <section className="section" aria-labelledby="layout-settings">
-              <h2 id="layout-settings">Page layout</h2>
-              <div className="form-grid">
-                <label>
-                  Page size
-                  <select
-                    value={draft.layout.pageSize}
-                    onChange={(event) =>
-                      change({
-                        layout: {
-                          ...draft.layout,
-                          pageSize: event.target.value as 'A4' | 'Letter',
-                        },
-                      })
-                    }
-                  >
-                    <option>A4</option>
-                    <option>Letter</option>
-                  </select>
-                </label>
-                <label>
-                  Font
-                  <select
-                    value={draft.layout.fontFamily}
-                    onChange={(event) =>
-                      change({
-                        layout: {
-                          ...draft.layout,
-                          fontFamily: event.target.value as PageLayout['fontFamily'],
-                        },
-                      })
-                    }
-                  >
-                    <option>Arial</option>
-                    <option>Times New Roman</option>
-                    <option>Calibri</option>
-                  </select>
-                </label>
-                <label>
-                  Font size (pt)
-                  <input
-                    type="number"
-                    min={8}
-                    max={16}
-                    value={draft.layout.fontSizePt}
-                    onChange={(event) =>
-                      change({
-                        layout: { ...draft.layout, fontSizePt: Number(event.target.value) || 11 },
-                      })
-                    }
-                  />
-                </label>
-                <fieldset className="full margins">
-                  <legend>Margins (mm)</legend>
-                  {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
-                    <label key={side}>
-                      {side[0].toUpperCase() + side.slice(1)}
-                      <input
-                        type="number"
-                        min={5}
-                        max={60}
-                        value={draft.layout.marginsMm[side]}
-                        onChange={(event) =>
-                          change({
-                            layout: {
-                              ...draft.layout,
-                              marginsMm: {
-                                ...draft.layout.marginsMm,
-                                [side]: Number(event.target.value) || 5,
-                              },
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                  ))}
-                </fieldset>
-                <label className="full">
-                  Running header
-                  <input
-                    value={inlineToText(draft.layout.header)}
-                    onChange={(event) =>
-                      change({
-                        layout: { ...draft.layout, header: textToInline(event.target.value) },
-                      })
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Running footer
-                  <input
-                    value={inlineToText(draft.layout.footer)}
-                    onChange={(event) =>
-                      change({
-                        layout: { ...draft.layout, footer: textToInline(event.target.value) },
-                      })
-                    }
-                  />
-                </label>
-                <details className="advanced-filters full">
-                  <summary>Header and footer placeholders</summary>
-                  <dl className="record-meta">
-                    <div>
-                      <dt>Format</dt>
-                      <dd>
-                        <code>{'{{field_id}}'}</code>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Company name</dt>
-                      <dd>
-                        <code>{'{{company_name}}'}</code>
-                      </dd>
-                    </div>
-                  </dl>
-                </details>
-                <label className="inline full">
-                  <input
-                    type="checkbox"
-                    checked={draft.layout.pageNumbers}
-                    onChange={(event) =>
-                      change({ layout: { ...draft.layout, pageNumbers: event.target.checked } })
-                    }
-                  />
-                  Page numbers (&ldquo;Page X of Y&rdquo;)
-                </label>
-              </div>
-            </section>
-          </fieldset>
-        ) : section === 'starters' ? (
-          <section aria-labelledby="starters-title">
-            <h2 id="starters-title" className="sr-only">
-              Starter clauses
-            </h2>
+            </dl>
+            <FieldInspector
+              fields={draft.fields}
+              onFieldsChange={(fields) => change({ fields })}
+              wordings={wordingRefs}
+              selection={selection}
+              editor={activeRef}
+              readOnly={!editable}
+              defaultScope="case"
+              customDefinitions={state.definitions}
+              newQuestionRef={newQuestionRef}
+              settingsRef={settingsRef}
+            />
+          </details>
+          <section className="section" aria-labelledby="starters-title">
+            <h2 id="starters-title">Starting wording</h2>
             <p className="sr-only" role="status" aria-live="polite">
               {starterStatus}
             </p>
@@ -702,42 +486,241 @@ function AssemblyWorkbench({ page }: { page: ReturnType<typeof useTemplateVersio
               </div>
             ) : null}
           </section>
-        ) : section === 'details' ? null : section === 'preview' ? (
-          <SamplePreview
-            kind="assembly"
-            versionId={version.id}
-            outputTypes={outputTypes.filter((t) => t.id === template.outputTypeId)}
-            defaultOutputType={template.outputTypeId}
-            draft={
-              editable
-                ? {
-                    header: draft.header,
-                    closing: draft.closing,
-                    signature: draft.signature,
-                    fields: draft.fields,
-                    layout: draft.layout,
-                    starterClauseIds: draft.starterClauseIds,
-                  }
-                : null
-            }
-            dirty={dirty}
-          />
-        ) : (
+          <div className="section">
+            <SamplePreview
+              kind="assembly"
+              versionId={version.id}
+              outputTypes={outputTypes.filter((t) => t.id === template.outputTypeId)}
+              defaultOutputType={template.outputTypeId}
+              draft={
+                editable
+                  ? {
+                      header: draft.header,
+                      closing: draft.closing,
+                      signature: draft.signature,
+                      fields: draft.fields,
+                      layout: draft.layout,
+                      starterClauseIds: draft.starterClauseIds,
+                    }
+                  : null
+              }
+              dirty={dirty}
+            />
+          </div>
+        </div>
+        <aside className="detail-aside editor-aside">
+          <fieldset className="plain-fieldset" disabled={!editable}>
+            <section className="section" aria-labelledby="signature-settings">
+              <h2 id="signature-settings">Signatures</h2>
+              <div className="form-grid">
+                <label>
+                  Columns
+                  <select
+                    value={draft.signature.columns}
+                    onChange={(event) =>
+                      change({
+                        signature: {
+                          ...draft.signature,
+                          columns: Number(event.target.value) as 1 | 2 | 3,
+                        },
+                      })
+                    }
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                  </select>
+                </label>
+                <label>
+                  Label under each line
+                  <input
+                    value={draft.signature.label}
+                    onChange={(event) =>
+                      change({ signature: { ...draft.signature, label: event.target.value } })
+                    }
+                  />
+                </label>
+                <details className="advanced-filters full">
+                  <summary>Signature placeholders</summary>
+                  <dl className="record-meta">
+                    <div>
+                      <dt>Name</dt>
+                      <dd>
+                        <code>{'{name}'}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Capacity</dt>
+                      <dd>
+                        <code>{'{capacity}'}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+                <label className="inline full">
+                  <input
+                    type="checkbox"
+                    checked={draft.signature.showDate}
+                    onChange={(event) =>
+                      change({ signature: { ...draft.signature, showDate: event.target.checked } })
+                    }
+                  />
+                  Show a date line under each signature
+                </label>
+              </div>
+              <dl className="record-meta">
+                <div>
+                  <dt>Roles in use</dt>
+                  <dd>
+                    {[...draft.header, ...draft.closing]
+                      .filter((b) => b.type === 'signatureBlock')
+                      .map((b) => (b.type === 'signatureBlock' ? b.role : ''))
+                      .join(', ') || 'None'}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section className="section" aria-labelledby="layout-settings">
+              <h2 id="layout-settings">Page layout</h2>
+              <div className="form-grid">
+                <div className="field-pair full">
+                  <label>
+                    Page size
+                    <select
+                      value={draft.layout.pageSize}
+                      onChange={(event) =>
+                        change({
+                          layout: {
+                            ...draft.layout,
+                            pageSize: event.target.value as 'A4' | 'Letter',
+                          },
+                        })
+                      }
+                    >
+                      <option>A4</option>
+                      <option>Letter</option>
+                    </select>
+                  </label>
+                  <label>
+                    Font
+                    <select
+                      value={draft.layout.fontFamily}
+                      onChange={(event) =>
+                        change({
+                          layout: {
+                            ...draft.layout,
+                            fontFamily: event.target.value as PageLayout['fontFamily'],
+                          },
+                        })
+                      }
+                    >
+                      <option>Arial</option>
+                      <option>Times New Roman</option>
+                      <option>Calibri</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Font size (pt)
+                  <input
+                    type="number"
+                    min={8}
+                    max={16}
+                    value={draft.layout.fontSizePt}
+                    onChange={(event) =>
+                      change({
+                        layout: { ...draft.layout, fontSizePt: Number(event.target.value) || 11 },
+                      })
+                    }
+                  />
+                </label>
+                <fieldset className="full margins">
+                  <legend>Margins (mm)</legend>
+                  {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
+                    <label key={side}>
+                      {side[0].toUpperCase() + side.slice(1)}
+                      <input
+                        type="number"
+                        min={5}
+                        max={60}
+                        value={draft.layout.marginsMm[side]}
+                        onChange={(event) =>
+                          change({
+                            layout: {
+                              ...draft.layout,
+                              marginsMm: {
+                                ...draft.layout.marginsMm,
+                                [side]: Number(event.target.value) || 5,
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ))}
+                </fieldset>
+                <label className="full">
+                  Running header
+                  <input
+                    value={inlineToText(draft.layout.header)}
+                    onChange={(event) =>
+                      change({
+                        layout: { ...draft.layout, header: textToInline(event.target.value) },
+                      })
+                    }
+                  />
+                </label>
+                <label className="full">
+                  Running footer
+                  <input
+                    value={inlineToText(draft.layout.footer)}
+                    onChange={(event) =>
+                      change({
+                        layout: { ...draft.layout, footer: textToInline(event.target.value) },
+                      })
+                    }
+                  />
+                </label>
+                <details className="advanced-filters full">
+                  <summary>Header and footer placeholders</summary>
+                  <dl className="record-meta">
+                    <div>
+                      <dt>Format</dt>
+                      <dd>
+                        <code>{'{{field_id}}'}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Company name</dt>
+                      <dd>
+                        <code>{'{{company_name}}'}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+                <label className="inline full">
+                  <input
+                    type="checkbox"
+                    checked={draft.layout.pageNumbers}
+                    onChange={(event) =>
+                      change({ layout: { ...draft.layout, pageNumbers: event.target.checked } })
+                    }
+                  />
+                  Page numbers (&ldquo;Page X of Y&rdquo;)
+                </label>
+              </div>
+            </section>
+          </fieldset>
+          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
           <section aria-labelledby="versions-title">
-            <h2 id="versions-title" className="sr-only">
-              Versions
-            </h2>
+            <h2 id="versions-title">Versions</h2>
             <VersionHistory
               versions={template.versions as AssemblyVersion[]}
               currentId={version.id}
               hrefFor={(vid) => `/templates/assemblies/${template.id}?version=${vid}`}
             />
           </section>
-        )}
-        {/* Kept mounted so unsaved template details survive a section switch. */}
-        <div hidden={section !== 'details'}>
-          <AssemblyDetails page={page} draft={draft} editable={editable} onDraft={change} />
-        </div>
+        </aside>
       </div>
     </>
   );

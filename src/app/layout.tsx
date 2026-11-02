@@ -3,6 +3,7 @@ import { WorkspaceProvider } from '@/components/workspace';
 import './globals.css';
 import './refresh-resolution.css';
 import './refresh-other.css';
+import './canvas.css';
 // The page title is set per page by WorkspaceProvider ("Resolutions – CoSec Workspace").
 export const metadata: Metadata = {
   description: 'Internal company secretarial workbench',

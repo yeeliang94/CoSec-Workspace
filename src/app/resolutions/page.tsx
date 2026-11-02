@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { ResolutionCase } from '@/domain/resolution/model';
 import { caseStatus } from '@/domain/resolution/cases';
-import { Empty, formatDate, Icon, PageHeader, useWorkspace } from '@/components/workspace';
+import { Empty, formatDay, Icon, PageHeader, useWorkspace } from '@/components/workspace';
 import { CASE_KINDS, getJson, kindLabel } from '@/components/resolution/api';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
 import { NewResolution } from '@/components/resolution/new-resolution';
@@ -184,7 +184,7 @@ export default function ResolutionsPage() {
                       </td>
                       <td data-label="Owner">{userName(item.ownerId)}</td>
                       <td data-label="Updated" className="nowrap">
-                        {formatDate(item.updatedAt)}
+                        {formatDay(item.updatedAt)}
                       </td>
                     </tr>
                   );

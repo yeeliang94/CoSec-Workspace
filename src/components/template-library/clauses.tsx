@@ -9,7 +9,7 @@ import {
   type ClauseCategory,
   type UsageContext,
 } from '@/domain/resolution/model';
-import { Empty, formatDate, Icon } from '@/components/workspace';
+import { Empty, Icon } from '@/components/workspace';
 import {
   newRequestId,
   postJson,
@@ -141,7 +141,7 @@ export function ClauseLibrary({
       {groups.length ? (
         <div className="table-wrap">
           <table className="library-table stack-table">
-            <caption className="sr-only">Standard wording by category</caption>
+            <caption className="sr-only">Standard wording</caption>
             <thead>
               <tr>
                 <th>Paragraph</th>
@@ -152,11 +152,6 @@ export function ClauseLibrary({
             </thead>
             {groups.map((group) => (
               <tbody key={group.name}>
-                <tr className="group-row">
-                  <th scope="colgroup" colSpan={canManage ? 4 : 3}>
-                    {group.name}
-                  </th>
-                </tr>
                 {group.rows.map((clause) => {
                   const { last, published } = statusOf(clause.versions);
                   return (
@@ -168,38 +163,14 @@ export function ClauseLibrary({
                             {clause.archived ? 'Archived' : 'Hidden from new resolutions'}
                           </div>
                         ) : null}
-                        {clause.description || last ? (
-                          <details className="file-details">
-                            <summary>Details</summary>
-                            <dl className="record-meta">
-                              {clause.description ? (
-                                <div>
-                                  <dt>Description</dt>
-                                  <dd>{clause.description}</dd>
-                                </div>
-                              ) : null}
-                              {last ? (
-                                <div>
-                                  <dt>Updated</dt>
-                                  <dd>{formatDate(last.updatedAt.slice(0, 10))}</dd>
-                                </div>
-                              ) : null}
-                            </dl>
-                          </details>
-                        ) : null}
                       </td>
                       <td data-label="Version">
-                        {last ? `v${last.version} · ${last.status}` : '—'}
-                        {published && published.id !== last?.id ? (
-                          <dl className="record-meta">
-                            <div>
-                              <dt>Published</dt>
-                              <dd>v{published.version}</dd>
-                            </div>
-                          </dl>
-                        ) : null}
+                        {last ? `v${last.version} ${last.status.toLowerCase()}` : ''}
+                        {published && published.id !== last?.id
+                          ? ` (v${published.version} published)`
+                          : ''}
                       </td>
-                      <td data-label="Act">{clause.governingAct || '—'}</td>
+                      <td data-label="Act">{clause.governingAct}</td>
                       {canManage ? (
                         <td>
                           <div className="row-actions">
@@ -286,7 +257,7 @@ export function ClauseLibrary({
                             ) : (
                               <button
                                 type="button"
-                                className="quiet danger"
+                                className="quiet"
                                 aria-label={`Archive ${clause.name}`}
                                 onClick={() => setConfirmArchive(clause.id)}
                               >

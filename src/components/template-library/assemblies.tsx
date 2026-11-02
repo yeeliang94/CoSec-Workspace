@@ -88,7 +88,7 @@ export function AssemblyLibrary({
                       </td>
                     ) : null}
                     <td data-label="Version" className="nowrap">
-                      {last ? `v${last.version}, ${last.status}` : '—'}
+                      {last ? `v${last.version} ${last.status.toLowerCase()}` : ''}
                       {published && published.id !== last?.id
                         ? ` (v${published.version} published)`
                         : ''}

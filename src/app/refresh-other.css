@@ -82,12 +82,6 @@
 }
 
 /* Wording and layout editors: whitespace instead of stacked rules, underline tabs, no grey panels. */
-.template-status {
-  border-top: 0;
-  border-bottom: 0;
-  padding: 0;
-  margin: 8px 0 0;
-}
 .wording-tabs {
   gap: var(--space-section);
   border-bottom: 0;

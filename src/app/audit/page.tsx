@@ -204,9 +204,7 @@ export default function AuditPage() {
           <input type="date" value={filters.to} onChange={(e) => set('to', e.target.value)} />
         </label>
         <div className="actions full">
-          <button className="primary" disabled={loading}>
-            Apply filters
-          </button>
+          <button disabled={loading}>Apply filters</button>
           {JSON.stringify(filters) !== JSON.stringify(empty) ? (
             <button
               type="button"
@@ -260,16 +258,16 @@ export default function AuditPage() {
                   <Fragment key={entry.id}>
                     <tr>
                       <td className="nowrap tabular">
-                        <time dateTime={entry.at}>{formatDate(entry.at, { seconds: true })}</time>
+                        <time dateTime={entry.at}>{formatDate(entry.at)}</time>
                       </td>
                       <td>{entry.actorName}</td>
-                      <td>{entry.companyName || '—'}</td>
+                      <td>{entry.companyName}</td>
                       <td>{auditActionLabel(entry.action)}</td>
                       <td>{entityLabel(entry.entityType)}</td>
                       <td className="muted tabular nowrap" title={entry.entityId}>
-                        {entry.entityId.slice(0, 8)}
+                        {entry.entityId.slice(0, 6)}
                       </td>
-                      <td>{entry.reason || '—'}</td>
+                      <td>{entry.reason}</td>
                       <td className="nowrap">
                         {entry.changes.length || entry.summary ? (
                           <button

@@ -216,7 +216,7 @@ test('per-person multi-choice answers save and generate, then record a signed co
     [person.id]: ['second'],
   });
   await page.getByRole('button', { name: 'Word documents', exact: true }).click();
-  await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate Word document', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -454,7 +454,7 @@ test('retired job fields become answerable questions and generate without changi
     );
   }
   await page.getByRole('button', { name: 'Word documents', exact: true }).click();
-  await page.getByRole('button', { name: 'Create Word document', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate Word document', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download version 1' })).toBeVisible();
   const stored: { version: ClauseVersion } = await (await page.request.get(path)).json();
   expect(stored.version.fields).toEqual(fields);

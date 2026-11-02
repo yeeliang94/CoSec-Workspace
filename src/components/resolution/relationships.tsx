@@ -181,9 +181,9 @@ function RelationshipTable({
                   <Link href={`/people?person=${row.personId}`}>{row.personName}</Link>
                 </td>
                 <td>{roleName(row.role)}</td>
-                <td>{row.capacity || '—'}</td>
-                <td className="nowrap">{formatDate(row.startDate)}</td>
-                <td className="nowrap">{formatDate(row.endDate)}</td>
+                <td>{row.capacity}</td>
+                <td className="nowrap">{row.startDate ? formatDate(row.startDate) : ''}</td>
+                <td className="nowrap">{row.endDate ? formatDate(row.endDate) : ''}</td>
                 {canManage ? (
                   <td>
                     {!row.endDate ? (
@@ -201,9 +201,7 @@ function RelationshipTable({
                       >
                         End
                       </button>
-                    ) : (
-                      <span className="metadata">—</span>
-                    )}
+                    ) : null}
                   </td>
                 ) : null}
               </tr>

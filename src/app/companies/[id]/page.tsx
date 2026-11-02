@@ -7,6 +7,7 @@ import { caseStatus } from '@/domain/resolution/cases';
 import {
   useWorkspace,
   formatDate,
+  formatDay,
   currentDate,
   Empty,
   BackLink,
@@ -175,7 +176,7 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
                             )}
                           </td>
                           <td data-label="Updated" className="nowrap">
-                            {formatDate(item.updatedAt)}
+                            {formatDay(item.updatedAt)}
                           </td>
                         </tr>
                       ))}
@@ -224,7 +225,7 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
                     <span className="event-route">{event.route.replaceAll('_', ' ')}</span>
                     <p className="metadata">
                       Effective {formatDate(event.effectiveDate)}, entered{' '}
-                      {formatDate(event.recordedAt)}
+                      {formatDay(event.recordedAt)}
                     </p>
                     {event.evidenceIds
                       .filter((evidenceId) =>
@@ -272,11 +273,14 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
             </div>
             <div>
               <dt>Industry</dt>
-              <dd>
-                {industryLabel(company.industry)}
-                {company.activity ? <div className="metadata">{company.activity}</div> : null}
-              </dd>
+              <dd>{industryLabel(company.industry)}</dd>
             </div>
+            {company.activity ? (
+              <div>
+                <dt>Business activity</dt>
+                <dd>{company.activity}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Registered address</dt>
               <dd>{company.address}</dd>
