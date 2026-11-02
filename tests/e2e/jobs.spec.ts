@@ -32,22 +32,26 @@ test('annual return creation, retained duplicate validation, evidence, versions 
   await page.goto('/jobs/new');
   await expect(page.getByRole('heading', { name: 'New job', exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Company', exact: true }).selectOption(company.id);
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.locator('[name=ownerId]').selectOption(workspace.actor.id);
   await page.locator('[name=year]').fill(String(year));
   await page
     .locator('[name=anniversaryDate]')
     .fill(`${year}-${company.incorporationDate.slice(5)}`);
+  await page.getByRole('button', { name: 'Review details', exact: true }).click();
   await page.getByRole('button', { name: 'Create job', exact: true }).click();
   await expect(page).toHaveURL(/\/jobs\/[a-f0-9-]+$/);
   const jobUrl = page.url();
   createdJobId = jobUrl.split('/').at(-1)!;
   await page.goto('/jobs/new');
   await page.getByRole('combobox', { name: 'Company', exact: true }).selectOption(company.id);
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.locator('[name=ownerId]').selectOption(workspace.actor.id);
   await page.locator('[name=year]').fill(String(year));
   await page
     .locator('[name=anniversaryDate]')
     .fill(`${year}-${company.incorporationDate.slice(5)}`);
+  await page.getByRole('button', { name: 'Review details', exact: true }).click();
   await page.getByRole('button', { name: 'Create job', exact: true }).click();
   await expect(page.locator('.feedback.error')).toContainText(/already|exists|duplicate/i);
   await expect(page.locator('[name=year]')).toHaveValue(String(year));

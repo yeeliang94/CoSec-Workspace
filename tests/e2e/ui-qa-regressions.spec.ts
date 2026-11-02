@@ -63,6 +63,11 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   await page.goto('/resolutions');
   await page.getByRole('button', { name: 'New resolution', exact: true }).click();
   const resolution = page.getByRole('region', { name: 'New resolution', exact: true });
+  await resolution
+    .getByRole('combobox', { name: 'Company', exact: true })
+    .selectOption({ index: 1 });
+  await resolution.getByLabel('Title', { exact: true }).fill('Unsaved fictional resolution');
+  await resolution.getByRole('button', { name: 'Continue', exact: true }).click();
   await resolution.getByLabel('Instruction date', { exact: true }).fill('2026-10-27');
   await discard(
     page,

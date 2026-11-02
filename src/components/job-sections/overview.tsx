@@ -14,20 +14,28 @@ export function Overview({ job, data, openTab }: Props) {
         <h2>Next action</h2>
         <p>{readableDates(job.nextAction || 'Prepare supporting evidence')}</p>
         {outstanding.length ? (
-          <p className="warning outstanding-line">
+          <div className="warning outstanding-line">
             {outstanding.length === 1
               ? '1 item outstanding before this job can complete.'
               : `${outstanding.length} items outstanding before this job can complete.`}{' '}
-            {openTab ? (
-              <button
-                type="button"
-                className="section-link text-button"
-                onClick={() => openTab('Checklist')}
-              >
-                View checklist
-              </button>
-            ) : null}
-          </p>
+            <details className="outstanding-disclosure">
+              <summary>View outstanding items</summary>
+              <ul className="list-plain outstanding-list">
+                {outstanding.map((blocker) => (
+                  <li key={blocker}>{readableDates(blocker)}</li>
+                ))}
+              </ul>
+              {openTab ? (
+                <button
+                  type="button"
+                  className="section-link text-button"
+                  onClick={() => openTab('Filing')}
+                >
+                  View filing requirements
+                </button>
+              ) : null}
+            </details>
+          </div>
         ) : null}
         {job.deadlineReviewRequired ? (
           <div className="warning">

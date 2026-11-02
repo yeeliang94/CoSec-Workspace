@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import type {
   CompanyRelationship,
@@ -11,6 +11,8 @@ import { currentDate, formatDate, useWorkspace } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from './api';
 import { LoadState, useLoad } from './use-load';
 import { ActionFeedback, useAction } from './use-action';
+import { canLeaveEditing } from '@/components/edit-guard';
+import { emptyPick, PersonField, resolvePick } from '@/components/person-field';
 
 type RelationshipView = CompanyRelationship & { personName: string };
 const ROLE_NAMES: Record<RelationshipRole, string> = {
@@ -64,7 +66,10 @@ export function CompanyRelationships({
           <input
             type="date"
             value={asAt}
-            onChange={(event) => event.target.value && setAsAt(event.target.value)}
+            onChange={async (event) => {
+              const next = event.target.value;
+              if (next && next !== asAt && (await canLeaveEditing())) setAsAt(next);
+            }}
           />
         </label>
       </div>
@@ -77,6 +82,7 @@ export function CompanyRelationships({
       {load.data ? (
         <>
           <RelationshipTable
+            key={asAt}
             rows={sorted.filter(active)}
             companyId={companyId}
             canManage={canManage && asAt === currentDate()}
@@ -93,7 +99,9 @@ export function CompanyRelationships({
               />
             </details>
           ) : null}
-          {canManage ? <AddRelationship companyId={companyId} onAdded={load.reload} /> : null}
+          {canManage && asAt === currentDate() ? (
+            <AddRelationship companyId={companyId} onAdded={load.reload} />
+          ) : null}
         </>
       ) : null}
     </section>
@@ -111,7 +119,7 @@ function RelationshipTable({
   canManage: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [ending, setEnding] = useState<string>('');
+  const [ending, setEnding] = useState<{ id: string; initialDate: string } | null>(null);
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
   const action = useAction();
@@ -150,9 +158,12 @@ function RelationshipTable({
                 {canManage ? (
                   <td>
                     {!row.endDate ? (
-                      ending === row.id ? (
+                      ending?.id === row.id ? (
                         <form
                           className="form-stack inline-form"
+                          inert={action.pending}
+                          aria-busy={action.pending}
+                          data-dirty={reason || endDate !== ending.initialDate ? 'true' : 'false'}
                           onSubmit={async (event) => {
                             event.preventDefault();
                             const ok = await action.run(
@@ -168,7 +179,7 @@ function RelationshipTable({
                               `Ended ${row.personName}'s relationship`,
                             );
                             if (ok) {
-                              setEnding('');
+                              setEnding(null);
                               await onChanged();
                             }
                           }}
@@ -194,7 +205,12 @@ function RelationshipTable({
                             <button className="primary" disabled={action.pending}>
                               End
                             </button>
-                            <button type="button" onClick={() => setEnding('')}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (await canLeaveEditing()) setEnding(null);
+                              }}
+                            >
                               Cancel
                             </button>
                           </div>
@@ -204,8 +220,11 @@ function RelationshipTable({
                           type="button"
                           className="quiet"
                           aria-label={`End ${roleName(row.role)} relationship for ${row.personName}`}
-                          onClick={() => {
-                            setEnding(row.id);
+                          onClick={async () => {
+                            if (!(await canLeaveEditing())) return;
+                            const today = currentDate();
+                            setEnding({ id: row.id, initialDate: today });
+                            setEndDate(today);
                             setReason('');
                           }}
                         >
@@ -235,52 +254,70 @@ function AddRelationship({
 }) {
   const { data } = useWorkspace();
   const people = useLoad(() => getJson<{ people: Person[] }>('/api/people'), []);
+  const creationRequest = useRef<{ name: string; requestId: string } | null>(null);
   const action = useAction();
   const [form, setForm] = useState({
-    personId: '',
+    pick: emptyPick(),
     role: 'director' as RelationshipRole,
     capacity: '',
     startDate: '',
     evidenceIds: [] as string[],
   });
   const evidence = data?.documents.filter((d) => d.companyId === companyId) ?? [];
-  const dirty = Boolean(form.personId || form.capacity || form.startDate);
+  const dirty = Boolean(
+    form.pick.name ||
+    form.role !== 'director' ||
+    form.capacity ||
+    form.startDate ||
+    form.evidenceIds.length,
+  );
   return (
     <details className="disclosure">
       <summary>Add a person</summary>
       <form
         className="form-grid"
+        inert={action.pending}
+        aria-busy={action.pending}
         data-dirty={dirty ? 'true' : 'false'}
         onSubmit={async (event) => {
           event.preventDefault();
-          const typed = form.personId.trim();
-          const match = (people.data?.people ?? []).find(
-            (p) => p.fullName.toLowerCase() === typed.toLowerCase(),
-          );
-          const ok = await action.run(
-            async () =>
-              postJson(`/api/companies/${companyId}/relationships`, {
-                action: 'add',
-                requestId: newRequestId(),
-                personId:
-                  match?.id ??
-                  (
-                    await postJson<Person>('/api/people', {
-                      action: 'create',
-                      requestId: newRequestId(),
-                      fullName: typed,
-                    })
-                  ).id,
-                role: form.role,
-                capacity: form.capacity.trim(),
-                startDate: form.startDate || null,
-                evidenceIds: form.evidenceIds,
-              }),
-            'Person added',
-          );
+          const ok = await action.run(async () => {
+            if (!people.data) throw new Error('Wait for the people list to load, then try again.');
+            const pick = resolvePick(people.data.people, form.pick);
+            let personId: string;
+            if ('personId' in pick) personId = pick.personId;
+            else {
+              // Retain the creation key and identity so a retry cannot create another person.
+              if (creationRequest.current?.name !== pick.fullName)
+                creationRequest.current = { name: pick.fullName, requestId: newRequestId() };
+              const person = await postJson<Person>('/api/people', {
+                action: 'create',
+                requestId: creationRequest.current.requestId,
+                fullName: pick.fullName,
+              });
+              personId = person.id;
+              people.setData((current) => ({
+                people: [...(current?.people ?? []).filter((p) => p.id !== person.id), person],
+              }));
+              setForm((current) => ({
+                ...current,
+                pick: { name: person.fullName, choice: person.id },
+              }));
+              creationRequest.current = null;
+            }
+            return postJson(`/api/companies/${companyId}/relationships`, {
+              action: 'add',
+              requestId: newRequestId(),
+              personId,
+              role: form.role,
+              capacity: form.capacity.trim(),
+              startDate: form.startDate || null,
+              evidenceIds: form.evidenceIds,
+            });
+          }, 'Person added');
           if (ok) {
             setForm({
-              personId: '',
+              pick: emptyPick(),
               role: 'director',
               capacity: '',
               startDate: '',
@@ -290,22 +327,13 @@ function AddRelationship({
           }
         }}
       >
-        <label>
-          Name
-          <input
-            required
-            list={`people-${companyId}`}
-            autoComplete="off"
-            placeholder="Type a name"
-            value={form.personId}
-            onChange={(event) => setForm({ ...form, personId: event.target.value })}
-          />
-          <datalist id={`people-${companyId}`}>
-            {(people.data?.people ?? []).map((person) => (
-              <option key={person.id} value={person.fullName} />
-            ))}
-          </datalist>
-        </label>
+        <PersonField
+          required
+          people={people.data?.people ?? []}
+          pick={form.pick}
+          onChange={(pick) => setForm({ ...form, pick })}
+          listId={`people-${companyId}`}
+        />
         <label>
           Role
           <select
@@ -358,7 +386,7 @@ function AddRelationship({
           </fieldset>
         ) : null}
         <div className="full form-footer">
-          <ActionFeedback error={action.error} status={action.status} />
+          <ActionFeedback error={action.error || people.error} status={action.status} />
           <div className="actions">
             <button disabled={action.pending}>Add person</button>
           </div>

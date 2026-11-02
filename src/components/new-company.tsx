@@ -1,12 +1,14 @@
 'use client';
 import { useState } from 'react';
+import { GuidedForm } from './guided-form';
 import type { Person, RelationshipRole } from '@/domain/resolution/model';
 import { INDUSTRIES, MONTHS } from '@/domain/company';
 import { getJson } from '@/components/resolution/api';
 import { useLoad } from '@/components/resolution/use-load';
 import { request } from './workspace';
+import { emptyPick, PersonField, resolvePick, type PersonPick } from './person-field';
 
-type Row = { key: string; name: string; role: RelationshipRole; startDate: string };
+type Row = { key: string; pick: PersonPick; role: RelationshipRole; startDate: string };
 const ROLES: { value: RelationshipRole; label: string }[] = [
   { value: 'director', label: 'Director' },
   { value: 'member', label: 'Shareholder' },
@@ -16,7 +18,7 @@ const ROLES: { value: RelationshipRole; label: string }[] = [
 ];
 const newRow = (role: RelationshipRole = 'director'): Row => ({
   key: crypto.randomUUID(),
-  name: '',
+  pick: emptyPick(),
   role,
   startDate: '',
 });
@@ -34,9 +36,9 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
   return (
     <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>
       <h2>New company</h2>
-      <form
-        inert={pending}
-        aria-busy={pending}
+      <GuidedForm
+        submitLabel="Create company"
+        pending={pending}
         onChange={(event) => {
           event.currentTarget.dataset.dirty = 'true';
         }}
@@ -46,9 +48,9 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
           setPending(true);
           const form = event.currentTarget;
           const values = Object.fromEntries(new FormData(form)) as Record<string, string>;
-          const people = (existing.data?.people ?? []).map((p) => [p.fullName.toLowerCase(), p.id]);
-          const known = new Map(people as [string, string][]);
           try {
+            if (rows.some((row) => row.pick.name.trim()) && !existing.data)
+              throw new Error('Wait for the people list to load, then try again.');
             await request('/api/companies', {
               name: values.name,
               registrationNumber: values.registrationNumber,
@@ -58,15 +60,12 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
               industry: values.industry,
               activity: values.activity,
               people: rows
-                .filter((row) => row.name.trim())
-                .map((row) => {
-                  const personId = known.get(row.name.trim().toLowerCase());
-                  return {
-                    ...(personId ? { personId } : { fullName: row.name.trim() }),
-                    role: row.role,
-                    startDate: row.startDate || values.incorporationDate,
-                  };
-                }),
+                .filter((row) => row.pick.name.trim())
+                .map((row) => ({
+                  ...resolvePick(existing.data?.people ?? [], row.pick),
+                  role: row.role,
+                  startDate: row.startDate || values.incorporationDate,
+                })),
               requestId: crypto.randomUUID(),
             });
             form.dataset.dirty = 'false';
@@ -77,139 +76,148 @@ export function NewCompany({ onSaved }: { onSaved: () => Promise<void> }) {
             setPending(false);
           }
         }}
+        steps={[
+          {
+            title: 'Company details',
+            content: (
+              <div className="form-grid">
+                <label>
+                  Legal name
+                  <input name="name" required />
+                </label>
+                <label>
+                  Registration number
+                  <input name="registrationNumber" required />
+                </label>
+                <label>
+                  Incorporation date
+                  <input name="incorporationDate" type="date" required />
+                </label>
+                <fieldset className="year-end">
+                  <legend>Financial year end</legend>
+                  <label>
+                    <span className="sr-only">Day</span>
+                    <select name="yearEndDay" defaultValue="31" required>
+                      {Array.from({ length: days }, (_, i) => String(i + 1).padStart(2, '0')).map(
+                        (day) => (
+                          <option key={day} value={day}>
+                            {Number(day)}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="sr-only">Month</span>
+                    <select
+                      name="yearEndMonth"
+                      value={month}
+                      onChange={(event) => setMonth(event.target.value)}
+                      required
+                    >
+                      {MONTHS.map((name, i) => (
+                        <option key={name} value={String(i + 1).padStart(2, '0')}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </fieldset>
+                <label className="full">
+                  Registered address
+                  <textarea name="address" required />
+                </label>
+              </div>
+            ),
+          },
+          {
+            title: 'Business details',
+            content: (
+              <div>
+                <div className="form-grid">
+                  <label>
+                    Industry
+                    <select name="industry" required defaultValue="">
+                      <option value="">Select…</option>
+                      {INDUSTRIES.map(([code, label]) => (
+                        <option key={code} value={code}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Business activity (optional)
+                    <input name="activity" placeholder="e.g. Software consultancy" />
+                  </label>
+                </div>
+              </div>
+            ),
+          },
+          {
+            title: 'People',
+            content: (
+              <div className="opening-people form-group">
+                {existing.error ? <p role="alert">{existing.error}</p> : null}
+                {rows.map((row) => (
+                  <div className="opening-person" key={row.key}>
+                    <PersonField
+                      people={existing.data?.people ?? []}
+                      pick={row.pick}
+                      onChange={(pick) => update(row.key, { pick })}
+                      listId={`existing-people-${row.key}`}
+                    />
+                    <div className="form-grid form-pair compact-pair">
+                      <label>
+                        Role
+                        <select
+                          value={row.role}
+                          onChange={(event) =>
+                            update(row.key, { role: event.target.value as RelationshipRole })
+                          }
+                        >
+                          {ROLES.map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        From
+                        <input
+                          type="date"
+                          value={row.startDate}
+                          data-review-empty="Incorporation date"
+                          title="Leave blank to use the incorporation date"
+                          onChange={(event) => update(row.key, { startDate: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="quiet"
+                      aria-label={`Remove ${row.pick.name || 'this person'}`}
+                      onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setRows((current) => [...current, newRow()])}>
+                  Add person
+                </button>
+              </div>
+            ),
+          },
+        ]}
       >
-        <div className="form-grid">
-          <label>
-            Legal name
-            <input name="name" required />
-          </label>
-          <label>
-            Registration number
-            <input name="registrationNumber" required />
-          </label>
-          <label>
-            Incorporation date
-            <input name="incorporationDate" type="date" required />
-          </label>
-          <fieldset className="year-end">
-            <legend>Financial year end</legend>
-            <label>
-              <span className="sr-only">Day</span>
-              <select name="yearEndDay" defaultValue="31" required>
-                {Array.from({ length: days }, (_, i) => String(i + 1).padStart(2, '0')).map(
-                  (day) => (
-                    <option key={day} value={day}>
-                      {Number(day)}
-                    </option>
-                  ),
-                )}
-              </select>
-            </label>
-            <label>
-              <span className="sr-only">Month</span>
-              <select
-                name="yearEndMonth"
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-                required
-              >
-                {MONTHS.map((name, i) => (
-                  <option key={name} value={String(i + 1).padStart(2, '0')}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </fieldset>
-          <label>
-            Registered address
-            <textarea name="address" required />
-          </label>
-          <div className="form-stack">
-            <label>
-              Industry
-              <select name="industry" required defaultValue="">
-                <option value="">Select…</option>
-                {INDUSTRIES.map(([code, label]) => (
-                  <option key={code} value={code}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Business activity (optional)
-              <input name="activity" placeholder="e.g. Software consultancy" />
-            </label>
-          </div>
-        </div>
-        <fieldset className="opening-people">
-          <legend>People</legend>
-          <datalist id="existing-people">
-            {(existing.data?.people ?? []).map((person) => (
-              <option key={person.id} value={person.fullName} />
-            ))}
-          </datalist>
-          {rows.map((row, index) => (
-            <div className="opening-person" key={row.key}>
-              <label>
-                <span className={index ? 'sr-only' : undefined}>Name</span>
-                <input
-                  list="existing-people"
-                  value={row.name}
-                  autoComplete="off"
-                  onChange={(event) => update(row.key, { name: event.target.value })}
-                />
-              </label>
-              <label>
-                <span className={index ? 'sr-only' : undefined}>Role</span>
-                <select
-                  value={row.role}
-                  onChange={(event) =>
-                    update(row.key, { role: event.target.value as RelationshipRole })
-                  }
-                >
-                  {ROLES.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className={index ? 'sr-only' : undefined}>From</span>
-                <input
-                  type="date"
-                  value={row.startDate}
-                  title="Leave blank to use the incorporation date"
-                  onChange={(event) => update(row.key, { startDate: event.target.value })}
-                />
-              </label>
-              <button
-                type="button"
-                className="quiet"
-                aria-label={`Remove ${row.name || 'this person'}`}
-                onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button type="button" onClick={() => setRows((current) => [...current, newRow()])}>
-            Add person
-          </button>
-        </fieldset>
         {error ? (
           <div className="feedback error" role="alert">
             {error}
           </div>
         ) : null}
-        <div className="actions">
-          <button className="primary" disabled={pending}>
-            {pending ? 'Saving…' : 'Create company'}
-          </button>
-        </div>
-      </form>
+      </GuidedForm>
     </section>
   );
 }

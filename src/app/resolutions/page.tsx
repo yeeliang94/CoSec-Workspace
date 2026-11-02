@@ -14,6 +14,7 @@ import {
   postJson,
 } from '@/components/resolution/api';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
+import { GuidedForm } from '@/components/guided-form';
 import { canLeaveEditing } from '@/components/edit-guard';
 
 export default function ResolutionsPage() {
@@ -263,8 +264,14 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
   return (
     <section className="new-resolution" aria-labelledby="new-resolution-title">
       <h2 id="new-resolution-title">New resolution</h2>
-      <form
-        className="form-grid"
+      <GuidedForm
+        submitLabel="Create resolution"
+        pending={pending}
+        secondaryAction={
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        }
         data-dirty={
           companyId ||
           title ||
@@ -276,8 +283,6 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
             ? 'true'
             : 'false'
         }
-        inert={pending}
-        aria-busy={pending}
         onChange={() => setRequestId(newRequestId())}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -304,105 +309,115 @@ function NewResolution({ onCancel }: { onCancel: () => void }) {
             setPending(false);
           }
         }}
+        steps={[
+          {
+            title: 'Resolution details',
+            content: (
+              <>
+                <label>
+                  Company
+                  <select
+                    required
+                    value={companyId}
+                    onChange={(event) => {
+                      setCompanyId(event.target.value);
+                      setJobId('');
+                    }}
+                  >
+                    <option value="">Select…</option>
+                    {data.companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Kind
+                  <select
+                    value={kind}
+                    onChange={(event) => {
+                      setKind(event.target.value as CaseKind);
+                      setJobId('');
+                    }}
+                  >
+                    {CASE_KINDS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="full">
+                  Title
+                  <input
+                    required
+                    maxLength={300}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                  />
+                </label>
+                {director ? (
+                  <label className="full">
+                    Linked director change
+                    <select value={jobId} onChange={(event) => setJobId(event.target.value)}>
+                      <option value="">
+                        {companyId ? 'Not linked' : 'Choose a company first'}
+                      </option>
+                      {jobs.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.title}
+                          {item.personName ? `, ${item.personName}` : ''}
+                          {item.effectiveDate ? `, ${formatDate(item.effectiveDate)}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </>
+            ),
+          },
+          {
+            title: 'Dates',
+            content: (
+              <>
+                <label>
+                  Instruction date
+                  <input
+                    type="date"
+                    value={instructionDate}
+                    onChange={(event) => setInstructionDate(event.target.value)}
+                  />
+                </label>
+                <div className="form-grid form-pair compact-pair">
+                  <label>
+                    Resolution date
+                    <input
+                      type="date"
+                      value={resolutionDate}
+                      onChange={(event) => setResolutionDate(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Effective date
+                    <input
+                      type="date"
+                      value={effectiveDate}
+                      onChange={(event) => setEffectiveDate(event.target.value)}
+                    />
+                  </label>
+                </div>
+              </>
+            ),
+          },
+        ]}
       >
-        <label>
-          Company
-          <select
-            required
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              setJobId('');
-            }}
-          >
-            <option value="">Select…</option>
-            {data.companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Kind
-          <select
-            value={kind}
-            onChange={(event) => {
-              setKind(event.target.value as CaseKind);
-              setJobId('');
-            }}
-          >
-            {CASE_KINDS.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="full">
-          Title
-          <input
-            required
-            maxLength={300}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-        {director ? (
-          <label className="full">
-            Linked director change
-            <select value={jobId} onChange={(event) => setJobId(event.target.value)}>
-              <option value="">{companyId ? 'Not linked' : 'Choose a company first'}</option>
-              {jobs.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title}
-                  {item.personName ? `, ${item.personName}` : ''}
-                  {item.effectiveDate ? `, ${formatDate(item.effectiveDate)}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <label>
-          Instruction date
-          <input
-            type="date"
-            value={instructionDate}
-            onChange={(event) => setInstructionDate(event.target.value)}
-          />
-        </label>
-        <label>
-          Resolution date
-          <input
-            type="date"
-            value={resolutionDate}
-            onChange={(event) => setResolutionDate(event.target.value)}
-          />
-        </label>
-        <label>
-          Effective date
-          <input
-            type="date"
-            value={effectiveDate}
-            onChange={(event) => setEffectiveDate(event.target.value)}
-          />
-        </label>
-        <div className="full form-footer">
-          {error ? (
-            <div className="feedback error" role="alert">
-              {error}
-            </div>
-          ) : null}
-          <div className="actions">
-            <button className="primary" disabled={pending}>
-              {pending ? 'Creating…' : 'Create resolution'}
-            </button>
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
+        {error ? (
+          <div className="feedback error" role="alert">
+            {error}
           </div>
-        </div>
-      </form>
+        ) : null}
+      </GuidedForm>
     </section>
   );
 }

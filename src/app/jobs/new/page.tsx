@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace, PageHeader, request, currentDate, Icon } from '@/components/workspace';
+import { GuidedForm } from '@/components/guided-form';
 import { FormFields, Field } from '@/components/forms';
 import type { Person } from '@/domain/resolution/model';
 export default function NewJob() {
@@ -159,10 +160,14 @@ export default function NewJob() {
         My work
       </Link>
       <PageHeader title="New job" />
-      <form
-        inert={pending}
-        aria-busy={pending}
-        className="form-stack"
+      <GuidedForm
+        submitLabel="Create job"
+        pending={pending}
+        secondaryAction={
+          <Link href="/work" className="button">
+            Cancel
+          </Link>
+        }
         data-dirty={dirty ? 'true' : 'false'}
         onChange={(e) => {
           const target = e.target as HTMLElement & { name?: string; value?: string };
@@ -223,96 +228,134 @@ export default function NewJob() {
             setPending(false);
           }
         }}
-      >
-        <div className="form-grid">
-          <label>
-            Company
-            <select
-              required
-              value={companyId}
-              onChange={(e) => {
-                setCompanyId(e.target.value);
-                resetPerson();
-              }}
-            >
-              <option value="">Select company…</option>
-              {data.companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Activity
-            <select
-              value={activity}
-              onChange={(e) => {
-                setActivity(e.target.value);
-                setRoute('');
-                resetPerson();
-              }}
-            >
-              <option value="W03">Annual return</option>
-              <option value="W04">Director change</option>
-              <option value="W05">Members and capital</option>
-              {data.actor.capabilities.includes('view_bo') ? (
-                <option value="W06">Beneficial ownership</option>
-              ) : null}
-            </select>
-          </label>
-        </div>
-        {activity === 'W04' ? (
-          <div className="form-grid">
-            <label>
-              Person
-              <select
-                value={personId}
-                required={route !== 'appointment'}
-                onChange={(e) => setPersonId(e.target.value)}
-              >
-                <option value="">
-                  {route === 'appointment' ? 'New person (enter name)' : 'Select person…'}
-                </option>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {personId || route !== 'appointment' ? null : (
-              <label>
-                Director full name
-                <input
-                  required
-                  value={personName}
-                  onChange={(e) => setPersonName(e.target.value)}
+        steps={[
+          {
+            title: 'Company and activity',
+            content: (
+              <div className="form-grid">
+                <label>
+                  Company
+                  <select
+                    required
+                    value={companyId}
+                    onChange={(e) => {
+                      setCompanyId(e.target.value);
+                      resetPerson();
+                    }}
+                  >
+                    <option value="">Select company…</option>
+                    {data.companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Activity
+                  <select
+                    value={activity}
+                    onChange={(e) => {
+                      setActivity(e.target.value);
+                      setRoute('');
+                      resetPerson();
+                    }}
+                  >
+                    <option value="W03">Annual return</option>
+                    <option value="W04">Director change</option>
+                    <option value="W05">Members and capital</option>
+                    {data.actor.capabilities.includes('view_bo') ? (
+                      <option value="W06">Beneficial ownership</option>
+                    ) : null}
+                  </select>
+                </label>
+              </div>
+            ),
+          },
+          {
+            title: 'Work details',
+            content: (
+              <>
+                {activity === 'W04' ? (
+                  <FormFields
+                    key={activity + '-route'}
+                    fields={fields.filter((field) => field.name === 'route')}
+                  />
+                ) : null}
+                {activity === 'W04' ? (
+                  <div className="form-grid">
+                    <label>
+                      Person
+                      <select
+                        value={personId}
+                        required={route !== 'appointment'}
+                        onChange={(e) => setPersonId(e.target.value)}
+                      >
+                        <option value="">
+                          {route === 'appointment' ? 'New person (enter name)' : 'Select person…'}
+                        </option>
+                        {people.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {personId || route !== 'appointment' ? null : (
+                      <label>
+                        Director full name
+                        <input
+                          required
+                          value={personName}
+                          onChange={(e) => setPersonName(e.target.value)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                ) : null}
+                <FormFields
+                  key={activity}
+                  fields={fields.filter(
+                    (field) => field.type !== 'multi' && field.name !== 'route',
+                  )}
                 />
-              </label>
-            )}
-          </div>
-        ) : null}
-        <FormFields key={activity} fields={fields.filter((field) => field.type !== 'multi')} />
-        {fields
-          .filter((field) => field.type === 'multi')
-          .map((field) => (
-            <fieldset className="check-rows" key={activity + field.name}>
-              <legend>{field.label}</legend>
-              {field.options?.length ? (
-                field.options.map((option) => (
-                  <label className="inline" key={option.value}>
-                    <input type="checkbox" name={field.name} value={option.value} />
-                    {option.label}
-                  </label>
-                ))
-              ) : (
-                <p className="muted">
-                  {companyId ? 'No documents for this company' : 'Choose a company first'}
-                </p>
-              )}
-            </fieldset>
-          ))}
+              </>
+            ),
+          },
+          ...(activity === 'W04'
+            ? [
+                {
+                  title: 'Supporting evidence',
+                  content: (
+                    <>
+                      {fields
+                        .filter((field) => field.type === 'multi')
+                        .map((field) => (
+                          <fieldset className="check-rows" key={activity + field.name}>
+                            <legend>{field.label}</legend>
+                            {field.options?.length ? (
+                              field.options.map((option) => (
+                                <label className="inline" key={option.value}>
+                                  <input type="checkbox" name={field.name} value={option.value} />
+                                  {option.label}
+                                </label>
+                              ))
+                            ) : (
+                              <p className="muted">
+                                {companyId
+                                  ? 'No documents for this company'
+                                  : 'Choose a company first'}
+                              </p>
+                            )}
+                          </fieldset>
+                        ))}
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      >
         <div className="warning">
           No approved statutory deadline rule is configured. A reviewed manual date can be recorded
           in the job.
@@ -322,15 +365,7 @@ export default function NewJob() {
             {error}
           </div>
         ) : null}
-        <div className="actions">
-          <button className="primary" disabled={pending}>
-            {pending ? 'Creating…' : 'Create job'}
-          </button>
-          <Link href="/work" className="button">
-            Cancel
-          </Link>
-        </div>
-      </form>
+      </GuidedForm>
     </>
   );
 }

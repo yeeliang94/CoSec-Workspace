@@ -213,6 +213,14 @@ A case drawer is 650px wide at desktop sizes and fills the available width on ph
 
 Group form fields by the decision they support. Two-column groups can collapse to a single column on phones. Retain visible labels and entered values after validation. Show optional detail on demand while keeping the next action, blocker and operative due date immediately visible.
 
+The owner selected the guided sequence from [the form layout prototype](prototype/form-layout-review.html?variant=steps) on 30 October 2026. Company, Job and Resolution creation use a numbered left step list and one working section at a time, followed by Review. Continue validates required fields before advancing; Back and earlier steps retain entered values. The review lists the actual entered values and provides Change links. Creation happens only through the final named action. This input review does not establish professional approval or statutory completion. Short in-place edits and search/filter controls remain direct.
+
+Standard desktop forms follow a single vertical reading path within a 640px maximum measure, with 24px between fields and 48px between meaningful groups. Use an explicit pair only when the controls describe one closely related choice, such as Role/From, resolution/effective dates, document type/Layout or numeric Minimum/Maximum. Search and filter toolbars, page margins and editing tables retain their deliberate compact layouts. Do not rearrange controls visually with CSS; keyboard order follows the displayed order.
+
+Keep names, addresses and narrative answers wide. Dates, numbers, registration references and compound year-end controls use widths suited to their expected content. Align labels above their controls and let the parent grid own spacing; do not add margins between labels inside a grid. Use 13px medium labels, including legends that label a compound field, and 14px regular control text with a 40px minimum height scaled by the text-size preference. Textareas have their own height. Dependent identity choices appear immediately below the name, before relationship details. Repeat visible labels on added person rows.
+
+These placement principles draw on [Carbon Forms](https://www.carbondesignsystem.com/building-blocks/core/patterns/forms), [GOV.UK Text inputs](https://design-system.service.gov.uk/components/text-input/) and [USWDS Form templates](https://designsystem.digital.gov/templates/form-templates/), reviewed 30 October 2026. The measurements above are CoSec's application of the guidance; retain Option A's palette and typography.
+
 ## Elevation & Depth
 
 Working surfaces are flat. Borders separate table rows, navigation regions and meaningful groups. Shadows indicate an overlay above the underlying workspace; they do not decorate ordinary panels or states.

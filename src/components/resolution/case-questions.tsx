@@ -89,6 +89,24 @@ function initial(form: FormModel, signers: SignerSelection, resolutionDate: stri
   return { draft, prefilled };
 }
 
+/** Keep unsaved answers to questions that remain after a wording change. */
+export function carryOver(fresh: Draft, draft: Draft): Draft {
+  const keep = (next: Answers, old: Answers | undefined) =>
+    Object.fromEntries(
+      Object.entries(next).map(([id, value]) => [id, old && id in old ? old[id] : value]),
+    ) as Answers;
+  return {
+    shared: keep(fresh.shared, draft.shared),
+    clauses: Object.fromEntries(
+      Object.entries(fresh.clauses).map(([key, answers]) => [
+        key,
+        keep(answers, draft.clauses[key]),
+      ]),
+    ),
+    signers: draft.signers,
+  };
+}
+
 function QuestionForm({
   api,
   initialForm,
@@ -125,13 +143,13 @@ function QuestionForm({
     setDirty(true);
     setSaveIssues([]);
   };
-  // The questions follow the clause selection; start a fresh draft when it changes.
+  // Rebuild the questions while retaining unsaved answers to fields that are still asked.
   const [seenRevision, setSeenRevision] = useState(selectionRevision);
   if (seenRevision !== selectionRevision) {
     setSeenRevision(selectionRevision);
     const next = start();
-    setDraft(next.draft);
-    setDirty(next.prefilled);
+    setDraft(dirty ? carryOver(next.draft, draft) : next.draft);
+    setDirty(dirty || next.prefilled);
     setAttempted(false);
     setSaveIssues([]);
   }

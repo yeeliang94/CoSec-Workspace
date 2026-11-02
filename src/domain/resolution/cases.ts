@@ -151,6 +151,12 @@ export function assertOpen(resolutionCase: ResolutionCase) {
 
 export function assertCompletable(resolutionCase: ResolutionCase) {
   assertOpen(resolutionCase);
+  if (resolutionCase.review?.status === 'With reviewer')
+    throw new DomainError(
+      'This resolution is with a reviewer. Take it back or wait for the review before completing it.',
+      'CONFLICT',
+      409,
+    );
 }
 
 /** Drafting is paused while a reviewer has the resolution, and after approval. */

@@ -146,6 +146,7 @@ export function CaseWorkspace({ id }: { id: string }) {
   };
   const canComplete =
     item.state === 'Open' &&
+    item.review?.status !== 'With reviewer' &&
     caps.some((cap) => cap === 'prepare_job' || cap === 'generate_documents');
   return (
     <>
@@ -364,6 +365,7 @@ function ReviewPanel({ api }: { api: CaseApi }) {
   const review = item.review;
   const name = (id: string) => data.users.find((u) => u.id === id)?.name || id;
   const me = data.actor.id;
+  const canTakeBack = me === review?.sentBy || me === review?.reviewerId;
   if (item.state !== 'Open')
     return item.cancellationReason ? (
       <div className="review-panel">Cancelled: {item.cancellationReason}</div>
@@ -436,15 +438,17 @@ function ReviewPanel({ api }: { api: CaseApi }) {
       <div className="review-panel" role="status">
         <strong>With {name(review.reviewerId)} for review</strong>
         <p className="metadata">Sent {formatDate(review.sentAt)}. Editing is paused meanwhile.</p>
-        <div className="actions">
-          <button
-            type="button"
-            disabled={action.pending}
-            onClick={() => void action.run(() => api.act('reopen'), 'Taken back')}
-          >
-            Take back to edit
-          </button>
-        </div>
+        {canTakeBack ? (
+          <div className="actions">
+            <button
+              type="button"
+              disabled={action.pending}
+              onClick={() => void action.run(() => api.act('reopen'), 'Taken back')}
+            >
+              Take back to edit
+            </button>
+          </div>
+        ) : null}
         {feedback}
       </div>
     );
@@ -453,15 +457,17 @@ function ReviewPanel({ api }: { api: CaseApi }) {
       <strong>Approved by {name(review.reviewerId)}</strong>
       {review.comment ? <p>{review.comment}</p> : null}
       <p className="metadata">Create the Word document under Word documents when needed.</p>
-      <div className="actions">
-        <button
-          type="button"
-          disabled={action.pending}
-          onClick={() => void action.run(() => api.act('reopen'), 'Reopened for changes')}
-        >
-          Reopen for changes
-        </button>
-      </div>
+      {canTakeBack ? (
+        <div className="actions">
+          <button
+            type="button"
+            disabled={action.pending}
+            onClick={() => void action.run(() => api.act('reopen'), 'Reopened for changes')}
+          >
+            Reopen for changes
+          </button>
+        </div>
+      ) : null}
       {feedback}
     </div>
   );
@@ -554,22 +560,24 @@ function Details({ api }: { api: CaseApi }) {
                 onChange={(event) => setForm({ ...form, instructionDate: event.target.value })}
               />
             </label>
-            <label>
-              Resolution date
-              <input
-                type="date"
-                value={form.resolutionDate}
-                onChange={(event) => setForm({ ...form, resolutionDate: event.target.value })}
-              />
-            </label>
-            <label>
-              Effective date
-              <input
-                type="date"
-                value={form.effectiveDate}
-                onChange={(event) => setForm({ ...form, effectiveDate: event.target.value })}
-              />
-            </label>
+            <div className="form-grid form-pair compact-pair">
+              <label>
+                Resolution date
+                <input
+                  type="date"
+                  value={form.resolutionDate}
+                  onChange={(event) => setForm({ ...form, resolutionDate: event.target.value })}
+                />
+              </label>
+              <label>
+                Effective date
+                <input
+                  type="date"
+                  value={form.effectiveDate}
+                  onChange={(event) => setForm({ ...form, effectiveDate: event.target.value })}
+                />
+              </label>
+            </div>
           </fieldset>
           {api.canEdit ? (
             <div className="full form-footer">

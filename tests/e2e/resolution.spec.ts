@@ -175,6 +175,8 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   const form = page.locator('.new-resolution');
   await form.getByLabel('Company').selectOption(companyId);
   await form.getByLabel('Title').fill(caseTitle);
+  await form.getByRole('button', { name: 'Continue', exact: true }).click();
+  await form.getByRole('button', { name: 'Review details', exact: true }).click();
   await form.getByRole('button', { name: 'Create resolution' }).click();
   await page.waitForURL(/\/resolutions\/[^/]+$/);
   await expect(page.getByRole('heading', { name: caseTitle })).toBeVisible();
@@ -275,6 +277,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByLabel('Reviewer').selectOption({ label: 'Daniel Tan' });
   await page.getByRole('button', { name: 'Send for review', exact: true }).click();
   await expect(page.locator('.detail-aside')).toContainText('With Daniel Tan for review');
+  await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Send for review', exact: true })).toHaveCount(0);
   // Without the ?section= part, so the reviewer's visit is a full page load.
   const url = page.url().split(/[?#]/)[0];

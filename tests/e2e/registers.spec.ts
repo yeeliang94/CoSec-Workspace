@@ -25,6 +25,7 @@ async function create(page: Page, activity: 'W05' | 'W06') {
   await expect(page.getByRole('combobox', { name: 'Company', exact: true })).toHaveValue(
     fixture.companyId,
   );
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page
     .getByRole('combobox', { name: 'Owner', exact: true })
     .selectOption(fixture.preparer.id);
@@ -32,6 +33,7 @@ async function create(page: Page, activity: 'W05' | 'W06') {
   await page
     .getByLabel('Instruction and authority basis')
     .fill('Fictional browser evidence and reviewed route');
+  await page.getByRole('button', { name: 'Review details', exact: true }).click();
   await page.getByRole('button', { name: 'Create job', exact: true }).click();
   await expect(page.locator('.record-heading')).toBeVisible();
   return page.url().split('/').at(-1)!;

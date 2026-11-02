@@ -540,6 +540,33 @@ async function addDirector(
   return next;
 }
 
+/**
+ * A new appointment starts after the person's earlier terms; a cessation ends the open term.
+ * Back-dating into or before an existing term would reshape it and leave a duplicate director row.
+ */
+function assertDirectorEventFits(
+  terms: ReturnType<typeof directorIntervals>,
+  route: OfficerEvent['route'],
+  effectiveDate: string,
+) {
+  const open = terms.find((t) => !t.endDate);
+  if (route === 'appointment') {
+    if (open) throw new DomainError('This person is already a director of this company.');
+    const lastEnd = terms
+      .map((t) => t.endDate!)
+      .sort()
+      .at(-1);
+    if (lastEnd && effectiveDate < lastEnd)
+      throw new DomainError(
+        'The appointment date cannot be before this person’s previous term ended.',
+      );
+    return;
+  }
+  if (!open) throw new DomainError('This person is not currently a director of this company.');
+  if (effectiveDate < open.startDate)
+    throw new DomainError('The end date cannot be before the appointment date.');
+}
+
 async function postDirectorEvent(
   actor: Actor,
   companyId: string,
@@ -553,6 +580,13 @@ async function postDirectorEvent(
     .from(s.people)
     .where(eq(s.people.id, personId));
   if (!person) throw personUnavailable();
+  assertDirectorEventFits(
+    directorIntervals(await listOfficerEvents(companyId, tx)).filter(
+      (t) => t.personId === personId,
+    ),
+    route,
+    input.effectiveDate,
+  );
   const event: OfficerEvent = {
     id: randomUUID(),
     companyId,

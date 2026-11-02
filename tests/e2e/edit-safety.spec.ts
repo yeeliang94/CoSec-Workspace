@@ -16,6 +16,11 @@ async function login(page: Page, key = 'owner') {
   await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
 }
 
+async function openJobDetails(page: Page) {
+  await page.getByRole('combobox', { name: 'Company', exact: true }).selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+}
+
 async function traverse(page: Page, delta: number, discard: boolean) {
   await page.evaluate((distance) => window.history.go(distance), delta);
   await answerPrompt(page, discard);
@@ -26,6 +31,7 @@ test('Back and Forward preserve dirty drafts on cancellation and navigate on dis
 }) => {
   await login(page);
   await page.getByRole('link', { name: 'New job', exact: true }).click();
+  await openJobDetails(page);
   await page.locator('[name=year]').fill('2022');
   for (let attempt = 0; attempt < 2; attempt++) {
     await traverse(page, -1, false);
@@ -39,6 +45,7 @@ test('Back and Forward preserve dirty drafts on cancellation and navigate on dis
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
   await expect(page).toHaveURL(/\/companies$/);
   await page.goBack();
+  await openJobDetails(page);
   await page.locator('[name=year]').fill('2023');
   await traverse(page, 1, false);
   await expect(page).toHaveURL(/\/jobs\/new$/);
@@ -75,6 +82,7 @@ test('Back after a native skip link still protects the draft and restores the wo
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/work#main$/);
   await page.getByRole('link', { name: 'New job', exact: true }).click();
+  await openJobDetails(page);
   await page.locator('[name=year]').fill('2022');
   await traverse(page, -1, false);
   await expect(page).toHaveURL(/\/jobs\/new$/);

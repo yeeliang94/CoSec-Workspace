@@ -48,6 +48,16 @@
 }
 
 /* Warnings as one quiet line, with a section link at the end */
+.outstanding-disclosure {
+  display: inline;
+}
+.outstanding-disclosure > summary {
+  margin-left: 6px;
+}
+.outstanding-disclosure .outstanding-list {
+  margin: 12px 0;
+  padding-left: 0;
+}
 .outstanding-line .section-link {
   display: inline-flex;
   min-height: 0;

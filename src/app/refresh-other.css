@@ -32,7 +32,7 @@
 .settings-sections .form-grid,
 .settings-sections .action-form,
 .settings-sections .form-stack {
-  max-width: 850px;
+  max-width: var(--form-measure);
 }
 .settings-sections .table-wrap table {
   width: 100%;

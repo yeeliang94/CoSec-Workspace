@@ -152,7 +152,7 @@ export default function AuditPage() {
         ) : null}
       </PageHeader>
       <form
-        className="toolbar audit-filters"
+        className="form-grid audit-filters"
         onSubmit={(event) => {
           event.preventDefault();
           void search(filters);
@@ -203,21 +203,23 @@ export default function AuditPage() {
           To
           <input type="date" value={filters.to} onChange={(e) => set('to', e.target.value)} />
         </label>
-        <button className="primary" disabled={loading}>
-          Apply filters
-        </button>
-        {JSON.stringify(filters) !== JSON.stringify(empty) ? (
-          <button
-            type="button"
-            className="quiet"
-            onClick={() => {
-              setFilters(empty);
-              void search(empty);
-            }}
-          >
-            Clear filters
+        <div className="actions full">
+          <button className="primary" disabled={loading}>
+            Apply filters
           </button>
-        ) : null}
+          {JSON.stringify(filters) !== JSON.stringify(empty) ? (
+            <button
+              type="button"
+              className="quiet"
+              onClick={() => {
+                setFilters(empty);
+                void search(empty);
+              }}
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </form>
       {error ? (
         <div className="feedback error" role="alert">

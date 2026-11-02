@@ -429,7 +429,7 @@ function ValidationAndFormat({
       <summary>Validation and format</summary>
       <div className="form-stack">
         {type === 'number' || type === 'date' ? (
-          <div className="form-grid">
+          <div className={'form-grid' + (type === 'number' ? ' form-pair' : '')}>
             <label>
               Minimum
               <input
