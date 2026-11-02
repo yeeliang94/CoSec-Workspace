@@ -1,27 +1,17 @@
 import { DomainError } from '../access';
-import type {
-  CaseKind,
-  CaseStep,
-  DecisionRecord,
-  ResolutionCase,
-  StepKind,
-  StepState,
-} from './model';
+import type { CaseStep, DecisionRecord, ResolutionCase, StepKind, StepState } from './model';
 
 export const MAX_STEPS = 50;
-/** The step checks only that the linked W04 job posted its record event; filing is tracked on the job. */
-export const REGISTRATION_LABEL = 'Record posting through W04';
 const DONE: StepState[] = ['Complete', 'Not applicable'];
 export const isDone = (step: CaseStep) => DONE.includes(step.state);
 
-export function defaultSteps(kind: CaseKind, ownerId: string, newId: () => string): CaseStep[] {
+export function defaultSteps(ownerId: string, newId: () => string): CaseStep[] {
   const plan: [StepKind, string][] = [
     ['instruction', 'Instruction received'],
     ['preparation', 'Prepare resolution'],
     ['review', 'Review generated resolution'],
     ['execution', 'Circulate and record execution'],
   ];
-  if (kind !== 'board') plan.push(['registration', REGISTRATION_LABEL]);
   const steps: CaseStep[] = [];
   for (const [stepKind, label] of plan)
     steps.push({
@@ -79,24 +69,17 @@ export type StepPatch = {
   evidenceIds?: string[];
   dependsOn?: string[];
 };
-/**
- * Applies one step change. `recordEventId` is the linked W04 job's posted record event: the
- * registration step only records that posting happened through W04 and never posts itself.
- */
+/** Applies one step change. */
 export function updateStep(
   resolutionCase: ResolutionCase,
   stepId: string,
   patch: StepPatch,
-  context: { recordEventId: string | null; now: string },
+  now: string,
 ): CaseStep {
   assertOpen(resolutionCase);
   const step = resolutionCase.steps.find((s) => s.id === stepId);
   if (!step) throw new DomainError('Choose an existing step.', 'NOT_FOUND', 404);
-  if (patch.label !== undefined) {
-    if (step.kind === 'registration')
-      throw new DomainError('The registration step label is fixed.');
-    step.label = patch.label.trim();
-  }
+  if (patch.label !== undefined) step.label = patch.label.trim();
   if (patch.ownerId !== undefined) step.ownerId = patch.ownerId;
   if (patch.dueDate !== undefined) step.dueDate = patch.dueDate;
   if (patch.evidenceIds !== undefined) step.evidenceIds = patch.evidenceIds;
@@ -106,13 +89,8 @@ export function updateStep(
     validateDependencies(resolutionCase.steps);
   }
   const target = patch.state ?? step.state;
-  if (target === 'Not applicable') {
-    if (step.kind === 'registration')
-      throw new DomainError(
-        'Registration cannot be marked not applicable. Cancel the case if the director change will not proceed.',
-      );
-    if (!step.reason) throw new DomainError('Give a reason for marking this step not applicable.');
-  }
+  if (target === 'Not applicable' && !step.reason)
+    throw new DomainError('Give a reason for marking this step not applicable.');
   if (DONE.includes(target)) {
     const blocking = step.dependsOn
       .map((id) => resolutionCase.steps.find((s) => s.id === id)!)
@@ -120,14 +98,6 @@ export function updateStep(
     if (blocking.length)
       throw new DomainError(
         `Complete ${blocking.map((d) => `"${d.label}"`).join(', ')} before "${step.label}".`,
-      );
-  }
-  if (target === 'Complete' && step.kind === 'registration') {
-    if (!resolutionCase.jobId)
-      throw new DomainError('Link the W04 director-change job before completing registration.');
-    if (!context.recordEventId)
-      throw new DomainError(
-        'The linked W04 job has not posted its reviewed record event. Post it through W04 first.',
       );
   }
   if (!DONE.includes(target) && isDone(step)) {
@@ -139,7 +109,7 @@ export function updateStep(
         `Reopen ${dependents.map((d) => `"${d.label}"`).join(', ')} before reopening "${step.label}".`,
       );
   }
-  if (target !== step.state) step.completedAt = target === 'Complete' ? context.now : null;
+  if (target !== step.state) step.completedAt = target === 'Complete' ? now : null;
   step.state = target;
   return step;
 }
@@ -187,11 +157,4 @@ export function caseStatus(resolutionCase: ResolutionCase, userName: (id: string
   if (review.status === 'With reviewer') return `With ${userName(review.reviewerId)} for review`;
   if (review.status === 'Returned') return `Returned by ${userName(review.reviewerId)}`;
   return `Approved by ${userName(review.reviewerId)}`;
-}
-
-/** Route of the W04 job a case kind may link to; a board case may link to any W04 job. */
-export function routeMatches(kind: CaseKind, route: string | null) {
-  if (kind === 'director_appointment') return route === 'appointment';
-  if (kind === 'director_resignation') return route === 'resignation';
-  return true;
 }

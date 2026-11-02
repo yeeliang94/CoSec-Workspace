@@ -608,7 +608,6 @@ export function sampleContext(asAt = '2026-10-26'): ResolutionContext {
       effectiveDate: asAt,
       custom: {},
     },
-    job: null,
     directors,
     members,
     companyPeople: [

@@ -1,8 +1,7 @@
 import { eq, inArray } from 'drizzle-orm';
 import { readSnapshot, type Transaction } from '../db';
 import * as s from '../schema';
-import { getJob, getSettings } from '../repository';
-import { memberSnapshot } from '../record-store';
+import { getSettings } from '../repository';
 import { readCase } from '../resolution/shared';
 import { readProfile } from './profile';
 import { companyRelationships, directorsAsAt } from './relationships';
@@ -29,8 +28,7 @@ const PROPOSED_LIMIT = 1000;
 
 /**
  * The authorised as-at record view a resolution template may bind to. Directors come from posted
- * officer events; members from the capital register (never BO data). Director projections are
- * refreshed when W04 posts, so this read never syncs them. Without `tx` it opens its own
+ * officer events; members from the company's member relationships in effect on the as-at date. Without `tx` it opens its own
  * read-only snapshot so every read comes from one consistent state; with `tx` it reads in the caller's.
  */
 export async function loadResolutionContext(
@@ -61,42 +59,26 @@ async function readContext(
   const profile = await readProfile(companyId, tx);
   const settings = await getSettings(tx);
   const relationships = await companyRelationships(companyId, tx);
-  const job = resolutionCase.jobId ? await getJob(actor, resolutionCase.jobId, tx) : null;
   const directors = await directorsAsAt(companyId, asAt, tx, relationships);
+  const inEffect = (r: (typeof relationships)[number]) =>
+    !(r.startDate && r.startDate > asAt) && !(r.endDate && r.endDate <= asAt);
 
-  const position = await memberSnapshot(companyId, asAt, tx);
-  const holders = new Set(position.holdings.filter((h) => h.units !== '0').map((h) => h.memberId));
-  const memberRecords = position.members.filter((m) => holders.has(m.id));
-  const memberPeople = new Map(
-    memberRecords.length
-      ? (
-          await tx
-            .select({ id: s.people.id, name: s.people.fullName })
-            .from(s.people)
-            .where(
-              inArray(
-                s.people.id,
-                memberRecords.map((m) => m.id),
-              ),
-            )
-        ).map((p) => [p.id, p.name] as const)
-      : [],
-  );
-  const members: PersonSnapshot[] = memberRecords
-    .map((m) => ({
-      id: m.id,
-      name: memberPeople.get(m.id) ?? m.name,
-      capacity: 'Member',
-      appointedOn: null,
-      ceasedOn: null,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const members = new Map<string, PersonSnapshot>();
+  for (const r of relationships)
+    if (r.role === 'member' && inEffect(r) && !members.has(r.personId))
+      members.set(r.personId, {
+        id: r.personId,
+        name: r.personName,
+        capacity: r.capacity || roleLabel.member,
+        appointedOn: r.startDate,
+        ceasedOn: r.endDate,
+      });
 
   // Directors first so their snapshot (from events) wins over other roles of the same person.
   const companyPeople = new Map<string, PersonSnapshot>(directors.map((d) => [d.id, d]));
   for (const r of relationships) {
     if (companyPeople.has(r.personId)) continue;
-    if ((r.startDate && r.startDate > asAt) || (r.endDate && r.endDate <= asAt)) continue;
+    if (!inEffect(r)) continue;
     if (r.role === 'director') continue; // directors as-at already come from officer events
     companyPeople.set(r.personId, {
       id: r.personId,
@@ -118,16 +100,6 @@ async function readContext(
         .map((p) => ({ id: p.id, name: p.name, capacity: '', appointedOn: null, ceasedOn: null }))
         .sort((a, b) => a.name.localeCompare(b.name))
     : [];
-
-  // A W04 appointee may not have a people record yet; the linked job makes them selectable here.
-  if (job?.personId && job.personName && !proposedPeople.some((p) => p.id === job.personId))
-    proposedPeople.unshift({
-      id: job.personId,
-      name: job.personName,
-      capacity: '',
-      appointedOn: null,
-      ceasedOn: null,
-    });
 
   const citations: Partial<Record<CitationKey, string>> = {};
   for (const key of CITATION_KEYS) {
@@ -160,19 +132,8 @@ async function readContext(
       effectiveDate: resolutionCase.effectiveDate,
       custom: resolveValues(resolutionCase.customValues, asAt),
     },
-    job: job
-      ? {
-          id: job.id,
-          revision: job.revision,
-          route: job.route,
-          personId: job.personId,
-          personName: job.personName,
-          effectiveDate: job.effectiveDate,
-          packVersion: job.packs.at(-1)?.version ?? null,
-        }
-      : null,
     directors,
-    members,
+    members: [...members.values()].sort((a, b) => a.name.localeCompare(b.name)),
     companyPeople: [...companyPeople.values()].sort((a, b) => a.name.localeCompare(b.name)),
     proposedPeople,
   };

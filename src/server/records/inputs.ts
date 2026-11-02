@@ -52,7 +52,14 @@ export const relationshipInput = z.discriminatedUnion('action', [
     startDate: date.nullable(),
     evidenceIds: evidenceIds.default([]),
   }),
-  z.object({ action: z.literal('end'), id: recordId, ...mutation, endDate: date, reason }),
+  z.object({
+    action: z.literal('end'),
+    id: recordId,
+    ...mutation,
+    endDate: date,
+    reason,
+    cessation: z.enum(['resignation', 'removal', 'other_cessation']).optional(),
+  }),
   z.object({
     action: z.literal('set_capacity'),
     id: recordId,
@@ -111,7 +118,6 @@ export const createCaseInput = z.object({
   companyId: recordId,
   kind: z.enum(['board', 'director_appointment', 'director_resignation']),
   title: z.string().trim().min(1).max(300),
-  jobId: recordId.nullable().optional(),
   personId: recordId.nullable().optional(),
   instructionDate: optionalDate,
   resolutionDate: optionalDate,
@@ -121,7 +127,6 @@ export const createCaseInput = z.object({
 const stepKind = z.enum(['instruction', 'preparation', 'review', 'execution', 'custom']);
 const stepState = z.enum(['Pending', 'In progress', 'Waiting', 'Complete', 'Not applicable']);
 export const caseActionInput = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('link_job'), ...mutation, jobId: recordId }),
   z.object({
     action: z.literal('update_details'),
     ...mutation,

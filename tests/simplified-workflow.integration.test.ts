@@ -114,7 +114,6 @@ describe('company opened with its people', () => {
     await insertDocument(preparer, {
       id: evidenceId,
       companyId,
-      jobId: null,
       title: 'Appointment evidence',
       originalName: 'appointment.txt',
       mimeType: 'text/plain',
@@ -145,9 +144,15 @@ describe('company opened with its people', () => {
       expectedRevision: added.revision,
       requestId: randomUUID(),
       endDate: '2026-05-01',
-      reason: 'Resigned',
+      reason: 'Letter of resignation received',
+      cessation: 'resignation',
     });
     expect(ended.endDate).toBe('2026-05-01');
+    expect(
+      (await listOfficerEvents(companyId))
+        .filter((e) => e.personId === person.id)
+        .map((e) => e.route),
+    ).toEqual(['appointment', 'resignation']);
     const appoint = (personId: string, startDate: string) =>
       changeRelationship(preparer, companyId, {
         action: 'add',

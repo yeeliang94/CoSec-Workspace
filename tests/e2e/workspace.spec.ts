@@ -19,9 +19,7 @@ async function loginApi(key: string) {
   await passwordLogin(context, c);
   return context;
 }
-test('real credential login, scoped queues, responsive navigation and preference persistence', async ({
-  page,
-}) => {
+test('real credential login, desktop navigation and preference persistence', async ({ page }) => {
   const c = await credentials('owner');
   const errors: string[] = [];
   const remoteRequests: string[] = [];
@@ -34,18 +32,17 @@ test('real credential login, scoped queues, responsive navigation and preference
   await page.getByLabel('Email').fill(c.email);
   await page.getByLabel('Password').fill(c.password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Aster Advisory Sdn. Bhd.', exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resolutions', exact: true })).toBeVisible();
+  for (const removed of ['My work', 'Reviews', 'Calendar', 'Billing'])
+    await expect(page.getByRole('link', { name: removed, exact: true })).toHaveCount(0);
   await mkdir('.local/previews', { recursive: true });
-  for (const width of [1440, 1280, 768, 390, 320]) {
+  for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    await expect(page.getByRole('heading', { name: 'My work', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Resolutions', exact: true })).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    await page.screenshot({ path: `.local/previews/work-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `.local/previews/resolutions-${width}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -58,7 +55,6 @@ test('real credential login, scoped queues, responsive navigation and preference
     page.getByRole('heading', { name: 'Aster Advisory Sdn. Bhd.', exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'View source evidence', exact: true })).toBeVisible();
-  await expect(page.locator('a[href$="/jobs/opening-fixture"]')).toHaveCount(0);
   await page.screenshot({ path: '.local/previews/company.png', fullPage: true });
   expect(errors).toEqual([]);
   expect(remoteRequests).toEqual([]);
@@ -71,25 +67,34 @@ test('API role, company scope, private download and CSRF boundaries', async () =
   const full = await (await executive.get('/api/workspace')).json();
   const partial = await (await limited.get('/api/workspace')).json();
   expect(partial.companies).toHaveLength(1);
-  expect(
-    partial.jobs.every((j: { companyId: string }) => j.companyId === partial.companies[0].id),
-  ).toBe(true);
-  const forbidden = full.jobs.find(
-    (j: { companyId: string }) => j.companyId !== partial.companies[0].id,
-  );
+  expect(full).not.toHaveProperty('jobs');
+  const otherCompany = full.companies.find((c: { id: string }) => c.id !== partial.companies[0].id);
+  const created = await executive.post('/api/resolution-cases', {
+    data: {
+      requestId: crypto.randomUUID(),
+      companyId: otherCompany.id,
+      kind: 'board',
+      title: `E2E scope boundary ${Date.now()}`,
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const forbidden = { ...(await created.json()), companyId: otherCompany.id };
   expect((await limited.get(`/api/companies/${forbidden.companyId}`)).status()).toBe(404);
+  expect((await limited.get(`/api/resolution-cases/${forbidden.id}`)).status()).toBe(404);
   expect(
     (
-      await limited.post(`/api/jobs/${forbidden.id}`, {
+      await limited.post(`/api/resolution-cases/${forbidden.id}`, {
         data: {
-          action: 'note',
-          html: 'secret',
+          action: 'update_details',
+          title: 'secret',
           expectedRevision: forbidden.revision,
           requestId: crypto.randomUUID(),
         },
       })
     ).status(),
   ).toBe(404);
+  for (const removed of ['/api/jobs', '/api/companies/' + forbidden.companyId + '/registers'])
+    expect((await executive.get(removed)).status()).toBe(404);
   const document = full.documents.find(
     (d: { companyId: string }) => d.companyId === forbidden.companyId,
   );
@@ -97,10 +102,8 @@ test('API role, company scope, private download and CSRF boundaries', async () =
   expect((await executive.get(`/api/documents/${document.id}`)).status()).toBe(200);
   const empty = await (await admin.get('/api/workspace')).json();
   expect(empty.companies).toEqual([]);
-  expect(empty.jobs).toEqual([]);
   expect((await executive.get('/api/users')).status()).toBe(403);
   expect((await admin.get('/api/users')).status()).toBe(200);
-  const job = full.jobs[0];
   // Two roles: a User cannot reach Admin-only settings or publish templates.
   expect((await lodger.get('/api/users')).status()).toBe(403);
   expect(
@@ -112,12 +115,12 @@ test('API role, company scope, private download and CSRF boundaries', async () =
   ).toBe(403);
   expect(
     (
-      await executive.post(`/api/jobs/${job.id}`, {
+      await executive.post(`/api/resolution-cases/${forbidden.id}`, {
         headers: { Origin: 'https://other.invalid' },
         data: {
-          action: 'note',
-          html: 'no',
-          expectedRevision: job.revision,
+          action: 'update_details',
+          title: 'no',
+          expectedRevision: forbidden.revision,
           requestId: crypto.randomUUID(),
         },
       })

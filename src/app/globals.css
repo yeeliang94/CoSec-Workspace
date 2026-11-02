@@ -579,28 +579,8 @@ td .state {
   color: var(--muted);
   font-size: var(--text-meta);
 }
-.work-table th:nth-child(1) {
-  width: 27%;
-}
-.work-table th:nth-child(2) {
-  width: 24%;
-}
-.work-table th:nth-child(3) {
-  width: 25%;
-}
-.work-table th:nth-child(4) {
-  width: 11%;
-}
-.work-table th:nth-child(5) {
-  width: 13%;
-}
 .nowrap {
   white-space: nowrap;
-}
-/* The cell stays in the DOM so the phone layout's column positions are unchanged. */
-.hide-company th:first-child,
-.hide-company td:first-child {
-  display: none;
 }
 .record-as-at {
   margin-top: var(--space-section);
@@ -829,23 +809,6 @@ td .state {
 .list-plain p {
   max-width: 75ch;
 }
-.small-form {
-  margin-top: 14px;
-}
-.checklist-item {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--row-border);
-}
-.checklist-item h3 {
-  margin: 0 0 5px;
-}
-.checklist-item .form-grid {
-  margin-top: 12px;
-}
-.check-state {
-  font-size: var(--text-meta);
-  color: var(--muted);
-}
 .document-list {
   list-style: none;
   padding: 0;
@@ -1015,18 +978,12 @@ td .state {
 .settings-sections .section-nav {
   margin-top: 0;
 }
-.list-count {
-  margin-top: var(--space-lg);
-}
 .caption {
   font-size: var(--text-meta);
   color: var(--muted);
 }
 .event-route {
   text-transform: capitalize;
-}
-.tabular {
-  font-variant-numeric: tabular-nums;
 }
 .submit-row {
   display: flex;
@@ -1202,61 +1159,6 @@ td .state {
     grid-template-columns: 1fr 1fr;
     gap: 18px;
   }
-  .work-table,
-  .work-table tbody,
-  .work-table tr,
-  .work-table td {
-    display: block;
-    width: 100%;
-  }
-  .work-table thead {
-    display: none;
-  }
-  .work-table tr {
-    position: relative;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--row-border);
-  }
-  .work-table td {
-    padding: 0;
-    border: 0;
-  }
-  .work-table td:first-child {
-    padding-right: 100px;
-    margin-bottom: 12px;
-  }
-  .work-table td:nth-child(2) {
-    margin-bottom: 12px;
-  }
-  .work-table td:nth-child(2) > a {
-    font-size: calc(16px * var(--scale));
-    font-weight: 500;
-  }
-  .work-table td:nth-child(3) {
-    margin-bottom: 10px;
-  }
-  .work-table td:nth-child(3):before {
-    content: 'Next: ';
-    color: var(--muted);
-  }
-  .work-table td:nth-child(4) {
-    position: absolute;
-    right: 0;
-    top: 17px;
-    width: 100px;
-    text-align: right;
-    font-size: var(--text-meta);
-  }
-  .work-table td:nth-child(5) {
-    font-size: var(--text-meta);
-    color: var(--muted);
-  }
-  .work-table td:nth-child(5):before {
-    content: 'Owner: ';
-  }
-  .work-table .metadata {
-    margin-top: 3px;
-  }
   .document-list li {
     flex-wrap: wrap;
   }
@@ -1266,12 +1168,6 @@ td .state {
   }
   .section-nav {
     gap: 18px;
-  }
-  .table-wrap:not(:has(.work-table)) {
-    border-right: 1px solid var(--border);
-  }
-  .table-wrap:not(:has(.work-table)) table {
-    min-width: var(--table-min-width, 540px);
   }
   .login-page {
     padding: var(--space-lg);
@@ -1299,19 +1195,6 @@ td .state {
   }
   .account > span {
     overflow-wrap: anywhere;
-  }
-  .work-table td:first-child {
-    padding-right: 0;
-  }
-  .work-table td:nth-child(4) {
-    position: static;
-    text-align: left;
-    width: auto;
-    margin: 8px 0;
-  }
-  .work-table td:nth-child(4):before {
-    content: 'Due: ';
-    color: var(--muted);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1396,9 +1279,6 @@ fieldset label + label {
 .section-content > .section:first-child {
   margin-top: 0;
 }
-.checklist-item:first-of-type {
-  padding-top: 0;
-}
 .document-list li:first-child {
   padding-top: 0;
 }
@@ -1418,10 +1298,6 @@ fieldset label + label {
 }
 .users-table td:first-child {
   overflow-wrap: anywhere;
-}
-.catalogue-empty {
-  padding: var(--space-lg) 15px;
-  border-bottom: 1px solid var(--row-border);
 }
 
 .section:has(> .table-wrap:last-child, > .list-plain:last-child, > .document-list:last-child)
@@ -1718,9 +1594,6 @@ code {
 }
 .newer-version {
   margin-top: 4px;
-}
-.removal-reason {
-  margin: 12px 0 0 36px;
 }
 .clause-library-panel {
   border-left: 1px solid var(--border);
@@ -2670,9 +2543,6 @@ dialog.drawer::backdrop {
   .step-actions,
   .generation-row .actions {
     justify-content: flex-start;
-  }
-  .removal-reason {
-    margin-left: 0;
   }
   .selected-clause-row {
     flex-wrap: wrap;

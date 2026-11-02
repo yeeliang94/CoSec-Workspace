@@ -192,9 +192,6 @@ export const BINDING_PATHS: { path: string; label: string }[] = [
   { path: 'case.instructionDate', label: 'Instruction date' },
   { path: 'case.resolutionDate', label: 'Resolution date' },
   { path: 'case.effectiveDate', label: 'Effective date' },
-  { path: 'job.personName', label: 'Director change: person name' },
-  { path: 'job.effectiveDate', label: 'Director change: effective date' },
-  { path: 'job.route', label: 'Director change: route' },
   { path: 'firm.name', label: 'Firm name' },
   { path: 'today', label: "Today's date" },
 ];

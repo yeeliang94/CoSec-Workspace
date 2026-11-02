@@ -1,4 +1,3 @@
-import type { CompanyRegisters } from '../domain/records';
 import type {
   AssemblyVersion,
   ClauseTemplate,
@@ -27,12 +26,12 @@ import type {
   Capability,
   Preferences,
   Company,
-  Job,
   Document,
   OfficerEvent,
   Settings,
-  Reminder,
 } from '../domain/model';
+/** Rows of the retired job, reminder and register features; kept so the database file and migrations stay in step. */
+type RetiredData = Record<string, unknown>;
 export const user = sqliteTable(
   'user',
   {
@@ -110,7 +109,7 @@ export const jobs = sqliteTable(
       .references(() => companies.id),
     periodKey: text('period_key'),
     revision: integer('revision').notNull(),
-    data: text('data', { mode: 'json' }).$type<Job>().notNull(),
+    data: text('data', { mode: 'json' }).$type<RetiredData>().notNull(),
   },
   (t) => [uniqueIndex('jobs_period_unique').on(t.periodKey)],
 );
@@ -141,7 +140,7 @@ export const reminders = sqliteTable(
       .notNull()
       .references(() => companies.id),
     resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
-    data: text('data', { mode: 'json' }).$type<Reminder>().notNull(),
+    data: text('data', { mode: 'json' }).$type<RetiredData>().notNull(),
   },
   (t) => [index('reminders_open_by_company').on(t.companyId, t.resolved)],
 );
@@ -183,7 +182,7 @@ export const companyRegisters = sqliteTable('company_registers', {
     .primaryKey()
     .references(() => companies.id),
   revision: integer('revision').notNull(),
-  data: text('data', { mode: 'json' }).$type<CompanyRegisters>().notNull(),
+  data: text('data', { mode: 'json' }).$type<RetiredData>().notNull(),
 });
 
 // ---------------------------------------------------------------- resolution builder (0003)

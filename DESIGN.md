@@ -143,7 +143,7 @@ components:
 
 The interface serves an internal professional services team working through company records, documents and statutory obligations. Its character is restrained, precise and familiar. Companies, next actions, deadlines and responsible staff carry the hierarchy. Consistent alignment and readable detail matter more than visual novelty.
 
-Use one visual system throughout work lists, company files, review, documents, filings, calendar and billing. Options B and C remain archived explorations; they do not authorise alternative palettes or navigation shells. A useful interaction from an archive can be adapted within A's system when the task warrants it.
+Use one visual system throughout resolutions, company files, people, documents, templates and settings. Options B and C remain archived explorations; they do not authorise alternative palettes or navigation shells. A useful interaction from an archive can be adapted within A's system when the task warrants it.
 
 The current reference is [prototype/index.html](prototype/index.html). Aster and the sample records are fictional fixtures. Archived B/C and comparison-tool colours remain outside this approved palette; do not promote them into A to silence an advisory scan. The role selector, demo label and design-reference link support evaluation and do not define production authentication or navigation.
 
@@ -179,11 +179,11 @@ Preserve full legal names where practical. Allow wrapping in record links and lo
 
 The desktop reference has a fixed 208px left rail, a 58px top bar and a content width capped at 1540px. The main content inset is 30px above and 32px at the sides. At widths up to 1100px the rail reduces to 184px and the side inset to 24px. At widths up to 900px, replace the rail with labelled compact navigation. At widths up to 650px, use 16px side insets and stacked working regions.
 
-Use one page heading and one primary action in a working region. Align headings, filters, search and record content to the same left edge. The navigation order is My work, Companies, People, Reviews, Calendar, Documents, Resolutions and Billing. Administration and future screens must retain the shell rather than introduce a new visual world.
+Use one page heading and one primary action in a working region. Align headings, filters, search and record content to the same left edge. The navigation order is Resolutions, Companies, People and Documents, with Settings at the foot. (Since 1 November 2026; the work queue, Reviews, Calendar and Billing were removed when the app narrowed to resolutions.) Administration and future screens must retain the shell rather than introduce a new visual world.
 
 ### Lists and records
 
-The daily work table uses Company, Job, Next action, Due and Owner. The company link opens its file; the job link opens the case. State appears beneath the job title. Responsible staff are identified by name. A registration number is supporting identity, not a decorative code.
+The daily work table and job cases were removed on 1 November 2026; the rules in this section and the next apply if a work list returns. The daily work table uses Company, Job, Next action, Due and Owner. The company link opens its file; the job link opens the case. State appears beneath the job title. Responsible staff are identified by name. A registration number is supporting identity, not a decorative code.
 
 Use small counts inside filters rather than a separate metric-card row. The reference column proportions are 27%, 24%, 25%, 11% and 13%; allow content-driven adjustment. Desktop cells have 16px vertical and 15px horizontal padding. Rows grow to fit names and actions; do not force a clipped fixed height.
 

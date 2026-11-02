@@ -65,7 +65,6 @@ export default function Documents() {
               <tr>
                 <th>Document</th>
                 <th>Company</th>
-                <th>Linked job</th>
                 <th>Uploaded</th>
                 <th>Size</th>
               </tr>
@@ -86,15 +85,6 @@ export default function Documents() {
                     <Link href={'/companies/' + d.companyId}>
                       {data.companies.find((c) => c.id === d.companyId)?.name}
                     </Link>
-                  </td>
-                  <td>
-                    {d.jobId ? (
-                      <Link href={'/jobs/' + d.jobId}>
-                        {data.jobs.find((j) => j.id === d.jobId)?.title || 'Open job'}
-                      </Link>
-                    ) : (
-                      'Company file'
-                    )}
                   </td>
                   <td>{formatDate(d.createdAt)}</td>
                   <td className="nowrap">{Math.max(1, Math.round(d.size / 1024))} KB</td>

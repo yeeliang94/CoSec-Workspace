@@ -18,12 +18,19 @@ import { emptyPick, PersonField, resolvePick } from '@/components/person-field';
 type RelationshipView = CompanyRelationship & { personName: string };
 const ROLE_NAMES: Record<RelationshipRole, string> = {
   director: 'Director',
-  member: 'Shareholder',
+  member: 'Member (shareholder)',
   secretary: 'Secretary',
   auditor: 'Auditor',
   other: 'Other',
 };
 export const roleName = (role: RelationshipRole) => ROLE_NAMES[role] || role;
+
+type Cessation = 'resignation' | 'removal' | 'other_cessation';
+const CESSATIONS: [Cessation, string][] = [
+  ['resignation', 'Resigned'],
+  ['removal', 'Removed'],
+  ['other_cessation', 'Other (for example death or disqualification)'],
+];
 
 const ROLE_ORDER: RelationshipRole[] = ['director', 'secretary', 'member', 'auditor', 'other'];
 
@@ -32,11 +39,14 @@ export function CompanyRelationships({
   companyId,
   asAt: pageAsAt,
   onAsAtChange,
+  onChanged,
 }: {
   companyId: string;
   /** The page's record-as-at date, when the page shares one date across its sections. */
   asAt?: string;
   onAsAtChange?: (asAt: string) => void;
+  /** Called after an add or end, so the page can refresh what depends on it (officer history). */
+  onChanged?: () => void;
 }) {
   const { data } = useWorkspace();
   const [ownAsAt, setOwnAsAt] = useState(currentDate());
@@ -49,6 +59,10 @@ export function CompanyRelationships({
       ),
     [companyId, asAt],
   );
+  const changed = async () => {
+    await load.reload();
+    onChanged?.();
+  };
   const canManage = Boolean(data?.actor.capabilities.includes('manage_people'));
   const active = (r: RelationshipView) =>
     (!r.startDate || r.startDate <= asAt) && (!r.endDate || r.endDate > asAt);
@@ -94,7 +108,7 @@ export function CompanyRelationships({
             rows={sorted.filter(active)}
             companyId={companyId}
             canManage={canManage && asAt === currentDate()}
-            onChanged={load.reload}
+            onChanged={changed}
           />
           {ended.length ? (
             <details className="advanced-filters">
@@ -103,14 +117,14 @@ export function CompanyRelationships({
                 rows={ended}
                 companyId={companyId}
                 canManage={false}
-                onChanged={load.reload}
+                onChanged={changed}
               />
             </details>
           ) : null}
           {adding ? (
             <AddRelationship
               companyId={companyId}
-              onAdded={load.reload}
+              onAdded={changed}
               onClose={() => setAdding(false)}
             />
           ) : null}
@@ -135,6 +149,7 @@ function RelationshipTable({
   const endingRow = rows.find((row) => row.id === ending?.id);
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
+  const [cessation, setCessation] = useState<Cessation>('resignation');
   const action = useAction();
   if (!rows.length) return <p className="metadata">No one on record at this date.</p>;
   return (
@@ -180,6 +195,7 @@ function RelationshipTable({
                           setEnding({ id: row.id, initialEndDate: today });
                           setEndDate(today);
                           setReason('');
+                          setCessation('resignation');
                         }}
                       >
                         End
@@ -213,6 +229,7 @@ function RelationshipTable({
                     requestId: newRequestId(),
                     endDate,
                     reason: reason.trim(),
+                    ...(endingRow.role === 'director' ? { cessation } : {}),
                   }),
                 `Ended ${endingRow.personName}'s relationship`,
               );
@@ -231,6 +248,21 @@ function RelationshipTable({
                 onChange={(event) => setEndDate(event.target.value)}
               />
             </label>
+            {endingRow.role === 'director' ? (
+              <label>
+                How the appointment ended
+                <select
+                  value={cessation}
+                  onChange={(event) => setCessation(event.target.value as Cessation)}
+                >
+                  {CESSATIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label>
               Reason
               <input required value={reason} onChange={(event) => setReason(event.target.value)} />
@@ -345,7 +377,7 @@ function AddRelationship({
             onChange={(event) => setForm({ ...form, role: event.target.value as typeof form.role })}
           >
             <option value="director">Director</option>
-            <option value="member">Shareholder</option>
+            <option value="member">Member (shareholder)</option>
             <option value="secretary">Secretary</option>
             <option value="auditor">Auditor</option>
             <option value="other">Other</option>

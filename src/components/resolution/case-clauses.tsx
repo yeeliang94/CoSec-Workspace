@@ -109,8 +109,6 @@ function ClauseSelection({
     setOutputTypeId(typeId);
     setAssemblyVersionId(selection?.assemblyVersionId || firstAssembly(typeId));
   }
-  const [removing, setRemoving] = useState<ClauseEntry | null>(null);
-  const [reason, setReason] = useState('');
   const [announce, setAnnounce] = useState('');
   const dragFrom = useRef<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
@@ -157,15 +155,8 @@ function ClauseSelection({
       version: exact?.version || newer?.pinnedVersion || 0,
     };
   };
-  const needsReason = (entry: ClauseEntry) =>
-    Boolean(item.jobId) && item.kind !== 'board' && info(entry).category === 'Director';
 
-  async function save(
-    clauses: Entry[],
-    message: string,
-    extra: Record<string, unknown> = {},
-    applyEdited = false,
-  ) {
+  async function save(clauses: Entry[], message: string, applyEdited = false) {
     const useEdited = applyEdited || !selection;
     const result = await action.run(
       () =>
@@ -180,7 +171,6 @@ function ClauseSelection({
             clauseId: entry.clauseId,
             clauseVersionId: entry.clauseVersionId,
           })),
-          ...extra,
         }),
       message,
     );
@@ -210,23 +200,13 @@ function ClauseSelection({
     );
   }
 
-  async function remove(entry: ClauseEntry, why?: string) {
+  async function remove(entry: ClauseEntry) {
     if (busy) return;
     const rest = entries.filter((e) => e.key !== entry.key);
     const name = info(entry).name;
     // The removed row's controls disappear; move focus to the list heading.
     focusAfter.current = { control: 'heading' };
-    const ok = await save(
-      rest,
-      `Removed ${name}`,
-      why ? { removalReasons: { [entry.clauseId]: why } } : {},
-    );
-    if (ok) return setRemoving(null);
-    focusAfter.current = null;
-    if (action.lastCode.current === 'REASON_REQUIRED') {
-      setRemoving(entry);
-      setReason('');
-    }
+    if (!(await save(rest, `Removed ${name}`))) focusAfter.current = null;
   }
 
   const grouped = useMemo(() => {
@@ -319,7 +299,6 @@ function ClauseSelection({
                 void save(
                   entries,
                   'Document type and layout changed. Each paragraph now uses its matching wording.',
-                  {},
                   true,
                 );
               // An empty first selection starts from the assembly's starter clauses (server rule).
@@ -466,45 +445,13 @@ function ClauseSelection({
                               className="quiet danger"
                               aria-label={`Remove ${meta.name}`}
                               aria-disabled={busy || undefined}
-                              onClick={() => {
-                                if (busy) return;
-                                if (needsReason(entry)) {
-                                  setRemoving(entry);
-                                  setReason('');
-                                } else void remove(entry);
-                              }}
+                              onClick={() => void remove(entry)}
                             >
                               Remove
                             </button>
                           </div>
                         ) : null}
                       </div>
-                      {removing?.key === entry.key ? (
-                        <form
-                          className="confirmation form-stack removal-reason"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            void remove(entry, reason.trim());
-                          }}
-                        >
-                          <label>
-                            Why remove the default clause {meta.name}?
-                            <textarea
-                              required
-                              value={reason}
-                              onChange={(event) => setReason(event.target.value)}
-                            />
-                          </label>
-                          <div className="actions">
-                            <button className="primary" disabled={!reason.trim()}>
-                              Remove {meta.name}
-                            </button>
-                            <button type="button" onClick={() => setRemoving(null)}>
-                              Keep clause
-                            </button>
-                          </div>
-                        </form>
-                      ) : null}
                     </li>
                   );
                 })}

@@ -21,16 +21,9 @@ import type {
   ResolutionAssembly,
   ResolutionCase,
 } from '../../domain/resolution/model';
-import {
-  answerValueSchema,
-  FIELD_ID,
-  LIMITS,
-  plainText,
-  wordingFor,
-} from '../../domain/resolution/schema';
+import { answerValueSchema, FIELD_ID, LIMITS, wordingFor } from '../../domain/resolution/schema';
 import { errorsOnly, IssuesError } from '../../domain/resolution/validate';
 import { db, type Transaction } from '../db';
-import { getJob } from '../repository';
 import { loadResolutionContext } from '../records/context';
 import * as s from '../schema';
 import { inForce, mutateCase, readCase, requestId, type Lifecycle } from './shared';
@@ -306,7 +299,6 @@ const clauseInput = z.discriminatedUnion('action', [
         }),
       )
       .max(LIMITS.clauses),
-    removalReasons: z.record(z.string().max(36), plainText(1000).trim().min(1)).optional(),
   }),
   z.strictObject({
     action: z.literal('save_answers'),
@@ -361,7 +353,7 @@ export async function applyClauseAction(actor: Actor, caseId: string, input: unk
     async (current, tx) => {
       if (current.state !== 'Open') throw new DomainError('This case is closed.', 'CONFLICT', 409);
       assertEditable(current);
-      if (action.action === 'set_selection') return setSelection(actor, current, action, tx);
+      if (action.action === 'set_selection') return setSelection(current, action, tx);
       if (!current.selection) throw new DomainError('Choose the layout and wording first.');
       if (action.action === 'accept_version') {
         const lib = await library(tx);
@@ -428,7 +420,6 @@ export async function applyClauseAction(actor: Actor, caseId: string, input: unk
 }
 
 async function setSelection(
-  actor: Actor,
   current: ResolutionCase,
   action: Extract<z.infer<typeof clauseInput>, { action: 'set_selection' }>,
   tx: Transaction,
@@ -495,25 +486,6 @@ async function setSelection(
     used.add(key);
     return { key, clauseId: item.clauseId, clauseVersionId: version.id };
   });
-  const removals = [...(previous?.removals ?? [])];
-  if (current.jobId && current.kind !== 'board' && previous)
-    for (const old of previous.clauses) {
-      const t = lib.clauses.get(old.clauseId);
-      const isDefault = t?.category === 'Director' && t.usageContexts.includes(current.kind);
-      if (!isDefault || entries.some((e) => e.clauseId === old.clauseId)) continue;
-      const reason = action.removalReasons?.[old.clauseId];
-      if (!reason)
-        throw new DomainError(
-          `Record why "${t.name}" is removed from this director-change case.`,
-          'REASON_REQUIRED',
-        );
-      removals.push({
-        clauseId: old.clauseId,
-        reason,
-        actorId: actor.id,
-        at: new Date().toISOString(),
-      });
-    }
   const revision = (previous?.revision ?? 0) + 1;
   const kept = new Set(entries.map((e) => e.key));
   current.selection = {
@@ -521,7 +493,7 @@ async function setSelection(
     outputTypeId: action.outputTypeId,
     assemblyVersionId: assemblyVersion.id,
     clauses: entries,
-    removals,
+    removals: previous?.removals ?? [],
   };
   current.answers = {
     selectionRevision: revision,
@@ -530,56 +502,10 @@ async function setSelection(
       Object.entries(current.answers.clauses).filter(([key]) => kept.has(key)),
     ),
   };
-  if (current.jobId && current.kind !== 'board')
-    await prefillDirectorClause(actor, current, lib, tx);
-  const removed = removals.slice(previous?.removals.length ?? 0);
   return {
     next: current,
     detail: `Selected ${entries.length} clause${entries.length === 1 ? '' : 's'} for ${outputType.name} (${assembly?.name ?? 'assembly'}).`,
-    reason: removed.map((r) => r.reason).join('; ') || undefined,
   };
-}
-
-/** Whether a clause is the director clause of a director-change case of this kind. */
-export const isDirectorClause = (
-  template: Pick<ClauseTemplate, 'category' | 'usageContexts'> | undefined,
-  kind: CaseKind,
-) => template?.category === 'Director' && template.usageContexts.includes(kind);
-/** The director clause's first person question and first date question (what W04 binds). */
-export function directorQuestions(version: Pick<ClauseVersion, 'fields'> | undefined) {
-  const questions = (version?.fields ?? []).filter(
-    (f) => f.source.kind === 'question' && f.scope === 'clause' && !f.repeatScope,
-  );
-  return {
-    person: questions.find((f) => f.valueType === 'recordReference'),
-    date: questions.find((f) => f.valueType === 'date'),
-  };
-}
-
-/**
- * A W04-linked case binds its director clause to the job's person and date: the clause's first
- * person question and first date question start with those values. Existing answers are kept.
- */
-async function prefillDirectorClause(
-  actor: Actor,
-  current: ResolutionCase,
-  lib: Library,
-  tx: Transaction,
-) {
-  const job = await getJob(actor, current.jobId!, tx);
-  const personId = current.personId ?? job.personId;
-  const effectiveDate = current.effectiveDate ?? job.effectiveDate;
-  for (const entry of current.selection!.clauses) {
-    if (!isDirectorClause(lib.clauses.get(entry.clauseId), current.kind)) continue;
-    if (Object.keys(current.answers.clauses[entry.key] ?? {}).length) continue;
-    const { person, date } = directorQuestions(
-      lib.clauseVersions.find((v) => v.id === entry.clauseVersionId),
-    );
-    const seeded: Record<string, string> = {};
-    if (person && personId) seeded[person.id] = personId;
-    if (date && effectiveDate) seeded[date.id] = effectiveDate;
-    if (Object.keys(seeded).length) current.answers.clauses[entry.key] = seeded;
-  }
 }
 
 /** Live preview from the saved draft and current records; no side effects. */

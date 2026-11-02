@@ -9,7 +9,6 @@ import { Empty, formatDate, useWorkspace } from '@/components/workspace';
 import { getJson, newRequestId, postJson } from './api';
 import type { CaseApi } from './case-workspace';
 import { ActionFeedback, useAction } from './use-action';
-import { AttachGeneration } from './attach-generation';
 
 export function CaseDocuments({ api }: { api: CaseApi }) {
   const { data } = useWorkspace();
@@ -266,7 +265,6 @@ function Generation({
         </div>
       </div>
       <ActionFeedback error={action.error} status={action.status} />
-      <AttachGeneration generation={generation} onChanged={onChanged} />
       {mode === 'review' ? (
         <form
           className="confirmation form-stack"

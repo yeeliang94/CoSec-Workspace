@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate-members": "tsx scripts/migrate-members.ts",
     "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/*.ts\" \"tests/**/*.ts\" \"*.config.{ts,mjs}\"",

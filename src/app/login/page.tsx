@@ -22,7 +22,7 @@ export default function Login() {
                 email: data.get('email'),
                 password: data.get('password'),
               });
-              router.replace('/work');
+              router.replace('/resolutions');
             } catch (e) {
               setError(e instanceof Error ? e.message : 'Sign in failed');
             } finally {

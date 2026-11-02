@@ -55,7 +55,6 @@ beforeAll(async () => {
   await repo.insertDocument(preparer, {
     id: docId,
     companyId,
-    jobId: null,
     title: 'Fictional opening source',
     originalName: 'source.txt',
     mimeType: 'text/plain',

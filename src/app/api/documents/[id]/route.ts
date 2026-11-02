@@ -1,5 +1,5 @@
 import { requireActor } from '@/server/auth';
-import { endpoint } from '@/server/http';
+import { attachment, endpoint } from '@/server/http';
 import { readDownload } from '@/server/storage';
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   let download: Awaited<ReturnType<typeof readDownload>> | undefined;
@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return new Response(new Uint8Array(bytes), {
     headers: {
       'Content-Type': document.mimeType,
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(document.originalName)}`,
+      'Content-Disposition': attachment(document.originalName),
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },

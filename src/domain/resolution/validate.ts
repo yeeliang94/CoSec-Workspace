@@ -1,5 +1,5 @@
 import { DomainError } from '../access';
-import { bindingInfo } from './bindings';
+import { bindingInfo, fieldForCurrentRecords } from './bindings';
 import type { BlockNode, FieldDefinition, InlineNode, Predicate } from './model';
 import { DECIMAL } from './schema';
 import { isDate } from './values';
@@ -236,11 +236,15 @@ function predicateIssues(
 
 /** Every structural and reference issue of a clause or assembly version. */
 export function validateContent(input: ContentToCheck): Issue[] {
-  const { prefix, fields, assembly } = input;
+  const { prefix, assembly } = input;
+  const fields = input.fields.map((field) => fieldForCurrentRecords(field));
   const issues = fieldIssues(prefix, fields, assembly);
   const own = new Map(fields.map((f) => [f.id, f]));
   const lookup = (id: string) =>
-    own.get(id) ?? input.sharedFields?.find((f) => f.id === id && (assembly || f.scope === 'case'));
+    own.get(id) ??
+    input.sharedFields
+      ?.map((field) => fieldForCurrentRecords(field))
+      .find((f) => f.id === id && (assembly || f.scope === 'case'));
   let slots = 0;
   const used = new Set<string>();
   const inline = (content: InlineNode[], loc: string, repeating: string[]) =>
@@ -459,7 +463,8 @@ export function sharedFieldConflicts(
       ordered(f.format),
     ]);
   for (const unit of units)
-    for (const def of unit.fields) {
+    for (const stored of unit.fields) {
+      const def = fieldForCurrentRecords(stored);
       if (def.scope !== 'case' && unit.kind !== 'assembly') continue;
       const seen = first.get(def.id);
       if (!seen) {
