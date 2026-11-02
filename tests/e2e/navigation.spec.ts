@@ -17,11 +17,11 @@ test('unsaved edits survive navigation and sign-out attempts', async ({ page }) 
   await firmName.fill('Unsaved fictional firm');
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
   await answerPrompt(page, false);
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\?tab=firm$/);
   await expect(firmName).toHaveValue('Unsaved fictional firm');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await answerPrompt(page, false);
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\?tab=firm$/);
   await page.getByRole('link', { name: 'Companies', exact: true }).click();
   await answerPrompt(page, true);
   await expect(page).toHaveURL(/\/companies$/);

@@ -7,12 +7,13 @@ let stopping = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 async function tick() {
   try {
-    const pruned = await pruneRequestRecords();
+    await pruneRequestRecords();
     // Generations left Pending by an interrupted render become Failed; orphan files are removed.
     const generations = await reconcilePendingGenerations();
-    console.info(
-      `${new Date().toISOString()} pruned ${pruned} request records; generation reconciliation ${JSON.stringify(generations)}`,
-    );
+    if (generations.failed > 0)
+      console.warn(
+        `${new Date().toISOString()} ${generations.failed} interrupted document generation(s) marked failed. Generate the affected documents again.`,
+      );
   } catch (error) {
     console.error(
       'Worker sweep failed; it will retry in 60 seconds.',

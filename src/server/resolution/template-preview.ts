@@ -185,7 +185,7 @@ export async function previewTemplate(actor: Actor, input: unknown) {
     title: `${compiled.resolved.title} (${SAMPLE_BANNER})`,
     layout: {
       ...compiled.resolved.layout,
-      header: [SAMPLE_BANNER, compiled.resolved.layout.header].filter(Boolean).join(' · '),
+      header: [SAMPLE_BANNER, compiled.resolved.layout.header].filter(Boolean).join(' – '),
     },
     blocks: [
       { type: 'paragraph', align: 'center', runs: [{ text: SAMPLE_BANNER, marks: ['bold'] }] },

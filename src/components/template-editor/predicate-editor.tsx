@@ -165,7 +165,7 @@ export function PredicateEditor({
             {rules.length > 1 ? (
               <button
                 type="button"
-                className="text-button danger"
+                className="text-button"
                 onClick={() => emit(rules.filter((_, i) => i !== index))}
               >
                 Remove rule {index + 1}

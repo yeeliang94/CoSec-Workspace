@@ -51,6 +51,7 @@ export default function Companies() {
             <thead>
               <tr>
                 <th>Company</th>
+                <th>Registration no.</th>
                 <th>Legal status</th>
                 <th>Engagement</th>
                 <th>Opening record</th>
@@ -62,8 +63,8 @@ export default function Companies() {
                 <tr key={company.id}>
                   <td>
                     <Link href={'/companies/' + company.id}>{company.name}</Link>
-                    <div className="metadata">{company.registrationNumber}</div>
                   </td>
+                  <td className="nowrap tabular">{company.registrationNumber}</td>
                   <td>{company.legalStatus}</td>
                   <td>{company.engagementStatus}</td>
                   <td>{company.verification}</td>

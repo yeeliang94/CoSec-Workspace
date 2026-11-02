@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { WorkspaceProvider } from '@/components/workspace';
 import './globals.css';
+import './refresh-resolution.css';
+import './refresh-other.css';
+// The page title is set per page by WorkspaceProvider ("Resolutions – CoSec Workspace").
 export const metadata: Metadata = {
-  title: 'CoSec Workspace',
   description: 'Internal company secretarial workbench',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

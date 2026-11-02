@@ -321,7 +321,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                 >
                   {type.name}
                   {!draft.wordings[type.id]?.length ? (
-                    <span className="metadata"> · no wording</span>
+                    <span className="metadata">, no wording</span>
                   ) : null}
                 </button>
               ))}
@@ -378,7 +378,7 @@ function ClauseWorkbench({ page }: { page: ReturnType<typeof useTemplateVersion<
                   {draft.wordings[tab]?.length ? (
                     <button
                       type="button"
-                      className="quiet danger"
+                      className="quiet"
                       onClick={async () => {
                         if (
                           !(await confirmAction({

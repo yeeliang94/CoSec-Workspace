@@ -43,12 +43,30 @@ export default function ResolutionsPage() {
   const caps = data.actor.capabilities;
   const canCreate = caps.includes('generate_documents') || caps.includes('prepare_job');
   const filtered = Boolean(query || kind || ownerId || companyId || state !== 'Open');
+  const clearFilters = () => {
+    setQuery('');
+    setKind('');
+    setOwnerId('');
+    setCompanyId('');
+    setState('Open');
+  };
+  // Filters other than the default "Open" state, which the empty text names instead.
+  const narrowed = Boolean(query || kind || ownerId || companyId);
+  const emptyText = narrowed
+    ? 'No matching resolutions'
+    : state === 'Open'
+      ? 'No open resolutions'
+      : state === 'Complete'
+        ? 'No complete resolutions'
+        : state === 'Cancelled'
+          ? 'No cancelled resolutions'
+          : 'No resolutions yet';
   const userName = (id: string) => data.users.find((user) => user.id === id)?.name || id;
   return (
     <>
       <PageHeader title="Resolutions">
         <div className="header-actions">
-          <Link className="button" href="/templates">
+          <Link className="section-link" href="/templates">
             Templates
           </Link>
           {canCreate ? (
@@ -114,17 +132,7 @@ export default function ResolutionsPage() {
           </select>
         </label>
         {filtered ? (
-          <button
-            type="button"
-            className="quiet"
-            onClick={() => {
-              setQuery('');
-              setKind('');
-              setOwnerId('');
-              setCompanyId('');
-              setState('Open');
-            }}
-          >
+          <button type="button" className="quiet" onClick={clearFilters}>
             Clear filters
           </button>
         ) : null}
@@ -143,6 +151,7 @@ export default function ResolutionsPage() {
               <thead>
                 <tr>
                   <th>Resolution</th>
+                  <th>Kind</th>
                   <th>Company</th>
                   <th>Status</th>
                   <th>Owner</th>
@@ -159,8 +168,8 @@ export default function ResolutionsPage() {
                     <tr key={item.id}>
                       <td>
                         <Link href={'/resolutions/' + item.id}>{item.title}</Link>
-                        <div className="state">{kindLabel(item.kind)}</div>
                       </td>
+                      <td data-label="Kind">{kindLabel(item.kind)}</td>
                       <td data-label="Company">
                         <Link href={'/companies/' + item.companyId}>
                           {data.companies.find((c) => c.id === item.companyId)?.name || 'Company'}
@@ -183,26 +192,23 @@ export default function ResolutionsPage() {
               </tbody>
             </table>
           </div>
-        ) : filtered ? (
-          <Empty>
-            No matching resolutions
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setKind('');
-                  setOwnerId('');
-                  setCompanyId('');
-                  setState('Open');
-                }}
-              >
-                Clear filters
-              </button>
-            </div>
-          </Empty>
         ) : (
-          <Empty>No resolutions yet</Empty>
+          <Empty>
+            {emptyText}
+            {narrowed ? (
+              <div>
+                <button type="button" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              </div>
+            ) : state ? (
+              <div>
+                <button type="button" onClick={() => setState('')}>
+                  Show all states
+                </button>
+              </div>
+            ) : null}
+          </Empty>
         )
       ) : null}
     </>

@@ -88,7 +88,7 @@ function Personal() {
         </label>
       </div>
       <div className="actions">
-        <button disabled={pending} className="primary" onClick={() => void save(preferences)}>
+        <button disabled={pending} onClick={() => void save(preferences)}>
           {pending ? 'Saving…' : 'Save preferences'}
         </button>
         <button
@@ -170,6 +170,7 @@ function Users() {
           <thead>
             <tr>
               <th>Staff member</th>
+              <th>Email</th>
               <th>Role</th>
               <th>Companies</th>
               <th>Status</th>
@@ -179,10 +180,8 @@ function Users() {
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td>
-                  {user.name}
-                  <div className="metadata">{user.email}</div>
-                </td>
+                <td>{user.name}</td>
+                <td className="user-email">{user.email}</td>
                 <td>{ROLE_LABELS[roleOf(user.capabilities)]}</td>
                 <td>{user.companyIds.length}</td>
                 <td>{user.active ? 'Active' : 'Inactive'}</td>
@@ -310,9 +309,7 @@ function Users() {
               </fieldset>
             </div>
             <div className="actions">
-              <button className="primary" disabled={pending}>
-                {pending ? 'Saving…' : 'Save account access'}
-              </button>
+              <button disabled={pending}>{pending ? 'Saving…' : 'Save account access'}</button>
             </div>
           </form>
         </div>
@@ -320,13 +317,24 @@ function Users() {
     </section>
   );
 }
+const tabParams: Record<string, string> = {
+  Personal: 'personal',
+  Firm: 'firm',
+  Users: 'users',
+};
 export default function Settings() {
   const { data } = useWorkspace();
   const [tab, setTab] = useState('Personal');
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('tab');
+    const initial = Object.keys(tabParams).find((key) => tabParams[key] === param);
+    if (initial) setTab(initial);
+  }, []);
   if (!data) return null;
   const firm = data.actor.capabilities.includes('manage_catalogue');
   const admin = data.actor.capabilities.includes('manage_users');
   const tabs = ['Personal', ...(firm ? ['Firm'] : []), ...(admin ? ['Users'] : [])];
+  const active = tabs.includes(tab) ? tab : 'Personal';
   return (
     <>
       <PageHeader title="Settings">
@@ -340,10 +348,15 @@ export default function Settings() {
         {tabs.map((item) => (
           <button
             key={item}
-            className={tab === item ? 'active' : ''}
-            aria-current={tab === item ? 'page' : undefined}
+            className={active === item ? 'active' : ''}
+            aria-current={active === item ? 'page' : undefined}
             onClick={async () => {
-              if (await canLeaveEditing()) setTab(item);
+              if (item === active || !(await canLeaveEditing())) return;
+              setTab(item);
+              const url = new URL(window.location.href);
+              if (item === 'Personal') url.searchParams.delete('tab');
+              else url.searchParams.set('tab', tabParams[item]);
+              window.history.replaceState(window.history.state, '', url.pathname + url.search);
             }}
           >
             {item}
@@ -351,9 +364,9 @@ export default function Settings() {
         ))}
       </nav>
       <div className="settings-sections">
-        {tab === 'Personal' ? (
+        {active === 'Personal' ? (
           <Personal />
-        ) : tab === 'Firm' ? (
+        ) : active === 'Firm' ? (
           <section>
             <h2>Firm</h2>
             <ActionForm

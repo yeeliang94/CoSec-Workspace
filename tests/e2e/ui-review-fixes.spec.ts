@@ -228,7 +228,9 @@ test('relationship conflict reload preserves entries and retries with the latest
     exact: true,
   });
   await drawer.getByLabel('End date', { exact: true }).fill('2026-10-01');
-  await drawer.getByLabel('How the appointment ended', { exact: true }).selectOption('resignation');
+  await drawer
+    .getByRole('combobox', { name: 'How the appointment ended', exact: true })
+    .selectOption('resignation');
   await drawer.getByLabel('Reason', { exact: true }).fill('Fictional cessation evidence');
   await drawer.getByRole('button', { name: 'End relationship', exact: true }).click();
   await expect(drawer.getByRole('alert')).toContainText('This relationship changed.');

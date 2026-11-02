@@ -7,6 +7,7 @@ import {
   latestPublished,
   newestPerClause,
   newRequestId,
+  plainIssue,
   postJson,
   type AssemblyWithVersions,
   type AvailableClause,
@@ -247,15 +248,12 @@ function ClauseSelection({
           <strong>Resolve before generating</strong>
           <ul>
             {model.form.conflicts.map((issue, i) => (
-              <li key={i}>
-                {issue.message}
-                {issue.location ? <span className="metadata"> · {issue.location}</span> : null}
-              </li>
+              <li key={i}>{plainIssue(issue)}</li>
             ))}
           </ul>
         </div>
       ) : null}
-      <div className="toolbar">
+      <div className="form-grid form-pair layout-selection">
         <label className="wide-select">
           Document type
           <select
@@ -284,41 +282,49 @@ function ClauseSelection({
             <option value="">{assemblies.length ? 'Select…' : 'No layout available'}</option>
             {assemblies.map((a) => (
               <option key={a.assemblyVersionId} value={a.assemblyVersionId}>
-                {a.name} · v{a.version}
+                {a.name} v{a.version}
               </option>
             ))}
           </select>
         </label>
-        {editable && (!selection || typeChanged) ? (
-          <button
-            type="button"
-            className="primary"
-            disabled={!outputTypeId || !assemblyVersionId || action.pending}
-            onClick={() => {
-              if (selection)
-                void save(
-                  entries,
-                  'Document type and layout changed. Each paragraph now uses its matching wording.',
-                  true,
-                );
-              // An empty first selection starts from the assembly's starter clauses (server rule).
-              else void save([], `Started from ${chosenAssembly?.name || 'the layout'}`);
-            }}
-          >
-            {selection ? 'Apply document type and layout' : 'Use this layout'}
-          </button>
-        ) : null}
-        {typeChanged ? (
-          <button
-            type="button"
-            className="quiet"
-            onClick={() => {
-              setOutputTypeId(selection!.outputTypeId);
-              setAssemblyVersionId(selection!.assemblyVersionId);
-            }}
-          >
-            Keep current
-          </button>
+        {typeChanged || (editable && !selection) ? (
+          <div className="actions full">
+            {editable && (!selection || typeChanged) ? (
+              <button
+                type="button"
+                disabled={!outputTypeId || !assemblyVersionId || action.pending}
+                onClick={() => {
+                  // The button goes away once applied; continue at the paragraph list.
+                  focusAfter.current = { control: 'heading' };
+                  const saved = selection
+                    ? save(
+                        entries,
+                        'Document type and layout changed. Each paragraph now uses its matching wording.',
+                        true,
+                      )
+                    : // An empty first selection starts from the assembly's starter clauses (server rule).
+                      save([], `Started from ${chosenAssembly?.name || 'the layout'}`);
+                  void saved.then((ok) => {
+                    if (!ok) focusAfter.current = null;
+                  });
+                }}
+              >
+                {selection ? 'Apply document type and layout' : 'Use this layout'}
+              </button>
+            ) : null}
+            {typeChanged ? (
+              <button
+                type="button"
+                className="quiet"
+                onClick={() => {
+                  setOutputTypeId(selection!.outputTypeId);
+                  setAssemblyVersionId(selection!.assemblyVersionId);
+                }}
+              >
+                Keep current
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
       {!selection ? null : (
@@ -327,7 +333,7 @@ function ClauseSelection({
         <div className="clause-picker" ref={listRef} aria-busy={busy}>
           <div className="clause-selected">
             <h3 id="selected-clauses" tabIndex={-1}>
-              Paragraphs in this resolution ({entries.length})
+              Paragraphs in this resolution
             </h3>
             {typeChanged ? (
               <p className="metadata">
@@ -377,7 +383,7 @@ function ClauseSelection({
                           <strong>{meta.name}</strong>
                           <div className="metadata">
                             {meta.category}
-                            {meta.version ? ` · v${meta.version}` : ''}
+                            {meta.version ? ` v${meta.version}` : ''}
                           </div>
                           {newer && editable ? (
                             <div className="newer-version">
@@ -442,7 +448,7 @@ function ClauseSelection({
                             </button>
                             <button
                               type="button"
-                              className="quiet danger"
+                              className="quiet"
                               aria-label={`Remove ${meta.name}`}
                               aria-disabled={busy || undefined}
                               onClick={() => void remove(entry)}
@@ -462,13 +468,13 @@ function ClauseSelection({
           </div>
           {editable ? (
             <div className="clause-library-panel">
-              <h3>Standard wording</h3>
+              <h3>Wording</h3>
               <label className="search">
-                <span className="sr-only">Search standard wording</span>
+                <span className="sr-only">Search wording</span>
                 <Icon kind="search" />
                 <input
                   type="search"
-                  placeholder="Search standard wording"
+                  placeholder="Search wording"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -486,7 +492,7 @@ function ClauseSelection({
                               <span>{c.name}</span>
                               <div className="metadata">
                                 v{c.version}
-                                {c.description ? ` · ${c.description}` : ''}
+                                {c.description ? `, ${c.description}` : ''}
                               </div>
                             </div>
                             {/* aria-disabled keeps focus on the button once it reads "Added". */}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NEW_PERSON, resolvePick } from '../src/components/person-field';
-import { carryOver } from '../src/components/resolution/case-questions';
+import { carryOver, refreshCopiedDate } from '../src/components/resolution/case-questions';
+import type { FormModel } from '../src/domain/resolution/form';
 import type { Person } from '../src/domain/resolution/model';
 
 const person = (id: string, fullName: string): Person => ({
@@ -50,5 +51,33 @@ describe('keeping unsaved answers when the wording changes', () => {
       clauses: { k1: { name: 'Typed', extra: null }, k3: { amount: null } },
       signers: draft.signers,
     });
+  });
+});
+
+describe('date copied from step 1', () => {
+  const date = { id: 'resolution_date', label: 'Resolution date', valueType: 'date', value: null };
+  const form = { shared: [date], clauses: [] } as unknown as FormModel;
+  const signers = { directors: [], members: [], certifiers: [] };
+  const draft = (value: string | null) => ({
+    shared: { resolution_date: value },
+    clauses: {},
+    signers,
+  });
+
+  it('follows a changed date while the answer is untouched', () => {
+    const next = refreshCopiedDate(draft('2026-01-01'), form, '2026-01-01', '2026-02-01');
+    expect(next.draft.shared.resolution_date).toBe('2026-02-01');
+    expect(next.prefilled).toBe(true);
+  });
+
+  it('fills a blank answer when the date is first set', () => {
+    const next = refreshCopiedDate(draft(null), form, null, '2026-02-01');
+    expect(next.draft.shared.resolution_date).toBe('2026-02-01');
+  });
+
+  it('keeps an answer someone typed', () => {
+    const next = refreshCopiedDate(draft('2026-03-03'), form, '2026-01-01', '2026-02-01');
+    expect(next.draft.shared.resolution_date).toBe('2026-03-03');
+    expect(next.prefilled).toBe(false);
   });
 });

@@ -1,0 +1,85 @@
+/* Refresh QA fixes: resolution area. See DESIGN.md. */
+
+/* Case header: title and company line on the left, the case action on the right */
+.resolution-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.resolution-heading .header-actions {
+  flex-shrink: 0;
+}
+
+/* Details panel link sits under the facts */
+.detail-aside .aside-link {
+  margin-top: 24px;
+}
+
+/* Cancelling is a quiet neutral action, flush with the section edge */
+.send-review .cancel-link {
+  margin-top: 16px;
+  padding-left: 0;
+  padding-right: 0;
+  border: 0;
+  color: var(--muted);
+}
+.send-review .cancel-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.send-review .confirmation {
+  margin-top: 16px;
+}
+
+/* Outstanding answers: one quiet list under the step heading */
+.question-issues {
+  margin: 4px 0 24px;
+}
+.question-issues ul {
+  margin: 6px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+.question-issues li + li {
+  margin-top: 4px;
+}
+
+/* History entries */
+.case-history strong {
+  font-weight: 600;
+}
+
+/* Status message after saving answers takes focus without a ring box */
+.question-save [tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Preview issues line up under their heading */
+.document-preview .warning ul {
+  margin: 6px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+/* Multi-choice evidence lists: no "Select…" placeholder as a choosable option */
+.section-content select[multiple] > option[value=''] {
+  display: none;
+}
+
+/* Action buttons in table cells line up with the row text and column header */
+.record-split td > button,
+.record-split td > .action-form .actions > button {
+  min-height: 24px;
+  height: auto;
+  margin: -4px 0;
+  padding: 3px 0;
+  border-color: transparent;
+  background: transparent;
+  vertical-align: top;
+}
+.record-split td > button:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

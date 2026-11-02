@@ -46,7 +46,7 @@ function describe(person: ListedPerson, companyName: (id: string) => string) {
     `ref ${person.id.slice(-6)}`,
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join('; ');
 }
 
 export function PersonField({
@@ -89,8 +89,9 @@ export function PersonField({
       </label>
       {matches.length ? (
         <label>
-          <span className="sr-only">Which {pick.name.trim()}</span>
+          Use person
           <select
+            aria-label={`Which ${pick.name.trim()}`}
             required
             value={pick.choice}
             onChange={(event) => onChange({ ...pick, choice: event.target.value })}

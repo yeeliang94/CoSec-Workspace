@@ -1,6 +1,6 @@
 # CoSec Workspace
 
-For UI, component, layout, typography or content-presentation changes, read [DESIGN.md](DESIGN.md) first. Option A Workbench is the owner's selected design. Its tokens and component rules are the visual authority.
+For UI, component, layout, typography or content-presentation changes, read [DESIGN.md](DESIGN.md) first. Option A Workbench is the owner's selected design, refined on 30 October 2026. Its tokens, component rules and the "Refresh rules" section are the visual authority.
 
 For workflow, permission, record-state or completion changes, also read the applicable sections of [DESIGN_SPEC.md](DESIGN_SPEC.md). Keep legal and regulatory rules tied to approved sources and versions.
 
@@ -10,4 +10,4 @@ A visual prototype cannot establish legal applicability or complete a statutory 
 
 ## Validation
 
-Run `npm run typecheck` and `npm test`. Run Playwright specs (`npm run test:e2e`) only when the owner asks for a QA review, not as routine validation. They use Playwright's own Chromium; if it is missing, run `npx playwright install chromium`. Start the app with `npm run dev`, not `./start.sh`, which opens the owner's browser.
+The application is used on desktop computers only. When validating UI work, check desktop widths (1280px and 1440px) with keyboard focus and real-length data. Do not test, screenshot or fix phone or tablet layouts (for example 390px or 768px). Run `npm run typecheck` and `npm test`. Run Playwright specs (`npm run test:e2e`) only when the owner asks for a QA review, not as routine validation. They use Playwright's own Chromium; if it is missing, run `npx playwright install chromium`. Start the app with `npm run dev`, not `./start.sh`, which opens the owner's browser.

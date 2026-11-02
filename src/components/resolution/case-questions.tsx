@@ -1,11 +1,12 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildForm, validateAnswers, type CaseInput } from '@/domain/resolution/form';
 import type { AnswerValue, Answers, SignerSelection } from '@/domain/resolution/model';
 import {
   ApiError,
   getJson,
   newRequestId,
+  plainIssue,
   postJson,
   type ClausesResponse,
   type FormField,
@@ -45,9 +46,9 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
     );
   if (!load.data.selection || !load.data.form || !load.data.formInput)
     return (
-      <section>
-        <h2>3. Answers</h2>
-        <p className="metadata">Choose the wording in step 2 first.</p>
+      <section aria-labelledby="case-questions">
+        <h2 id="case-questions">3. Answers</h2>
+        <p className="metadata">Choose the layout in step 2 first.</p>
       </section>
     );
   return (
@@ -63,12 +64,63 @@ export function CaseQuestions({ api }: { api: CaseApi }) {
   );
 }
 
-function initial(form: FormModel, signers: SignerSelection): Draft {
+/** The resolution date question takes the date from step 1 while it is unanswered. */
+const isResolutionDate = (field: FormField) =>
+  field.valueType === 'date' &&
+  (field.id === 'resolution_date' || field.label.trim().toLowerCase() === 'resolution date');
+
+/** Moves answers still holding the previous step 1 date to the new one. */
+export function refreshCopiedDate(
+  draft: Draft,
+  form: FormModel,
+  previous: string | null,
+  next: string | null,
+) {
+  let prefilled = false;
+  const refresh = (fields: FormField[], answers: Answers) => {
+    const updated = { ...answers };
+    for (const field of fields) {
+      if (field.readOnly || !isResolutionDate(field)) continue;
+      if (field.value !== null && field.value !== undefined && field.value !== '') continue;
+      const current = answers[field.id];
+      if (current !== null && current !== undefined && current !== '' && current !== previous)
+        continue;
+      updated[field.id] = next;
+      if (next) prefilled = true;
+    }
+    return updated;
+  };
+  return {
+    draft: {
+      ...draft,
+      shared: refresh(form.shared, draft.shared),
+      clauses: Object.fromEntries(
+        form.clauses.map((clause) => [
+          clause.key,
+          refresh(clause.fields, draft.clauses[clause.key] ?? {}),
+        ]),
+      ),
+    } as Draft,
+    prefilled,
+  };
+}
+
+function initial(form: FormModel, signers: SignerSelection, resolutionDate: string | null) {
+  let prefilled = false;
   const collect = (fields: FormField[]) =>
     Object.fromEntries(
-      fields.filter((f) => !f.readOnly).map((f) => [f.id, f.value ?? null]),
+      fields
+        .filter((f) => !f.readOnly)
+        .map((f) => {
+          const value = f.value ?? null;
+          if ((value === null || value === '') && resolutionDate && isResolutionDate(f)) {
+            prefilled = true;
+            return [f.id, resolutionDate];
+          }
+          return [f.id, value];
+        }),
     ) as Answers;
-  return {
+  const draft: Draft = {
     shared: collect(form.shared),
     clauses: Object.fromEntries(form.clauses.map((c) => [c.key, collect(c.fields)])),
     signers: {
@@ -77,6 +129,7 @@ function initial(form: FormModel, signers: SignerSelection): Draft {
       certifiers: [...(signers.certifiers ?? [])],
     },
   };
+  return { draft, prefilled };
 }
 
 /** `fresh` with the unsaved answers from `draft` for the fields `fresh` still has. */
@@ -111,10 +164,24 @@ function QuestionForm({
   reload: () => Promise<void>;
 }) {
   const item = api.detail.case;
-  const [draft, setDraft] = useState<Draft>(() => initial(initialForm, item.signers));
+  // A read-only case keeps its stored answers; only an editable one copies the date from step 1.
+  const copiedDate = api.canEdit ? item.resolutionDate : null;
+  const start = () => initial(initialForm, item.signers, copiedDate);
+  const [draft, setDraft] = useState<Draft>(() => start().draft);
   const [dirty, setDirty] = useState(false);
+  // A date copied from step 1 can be saved, but nobody has edited anything to lose by leaving.
+  const [copied, setCopied] = useState(() => start().prefilled);
+  // Field errors wait until the person has tried to save.
+  const [attempted, setAttempted] = useState(false);
   const action = useAction();
   const [saveIssues, setSaveIssues] = useState<Issue[]>([]);
+  const statusRef = useRef<HTMLSpanElement>(null);
+  const [focusStatus, setFocusStatus] = useState(false);
+  useEffect(() => {
+    if (!focusStatus) return;
+    setFocusStatus(false);
+    statusRef.current?.focus();
+  }, [focusStatus]);
   // Counts edits so a save only clears `dirty` when nothing changed while it was in flight.
   const edits = useRef(0);
   const markDirty = () => {
@@ -122,14 +189,23 @@ function QuestionForm({
     setDirty(true);
     setSaveIssues([]);
   };
-  // The questions follow the clause selection. When it changes, rebuild the draft for the new
-  // questions but keep unsaved answers to questions that are still asked.
+  // Rebuild the questions while retaining unsaved answers to fields that are still asked.
   const [seenRevision, setSeenRevision] = useState(selectionRevision);
   if (seenRevision !== selectionRevision) {
     setSeenRevision(selectionRevision);
-    const fresh = initial(initialForm, item.signers);
-    setDraft(dirty ? carryOver(fresh, draft) : fresh);
+    const next = start();
+    setDraft(dirty ? carryOver(next.draft, draft) : next.draft);
+    setCopied(copied || next.prefilled);
+    setAttempted(false);
     setSaveIssues([]);
+  }
+  // Step 1's date changed: untouched copies follow it, and answers someone typed stay.
+  const [seenDate, setSeenDate] = useState(copiedDate);
+  if (seenDate !== copiedDate) {
+    setSeenDate(copiedDate);
+    const next = refreshCopiedDate(draft, initialForm, seenDate, copiedDate);
+    setDraft(next.draft);
+    setCopied(copied || next.prefilled);
   }
   const formRef = useRef<HTMLFormElement>(null);
   const editable = api.canEdit;
@@ -153,14 +229,17 @@ function QuestionForm({
   }, [formInput, draft]);
   // Form issues carry the unit (clause entry key, or 'case') and the field id.
   const allIssues = [...issues, ...saveIssues];
+  const shownIssues = attempted ? allIssues : saveIssues;
+  const allFields = [...form.shared, ...form.clauses.flatMap((c) => c.fields)];
   const issuesFor = (field: FormField, unit: string) =>
-    allIssues.filter(
+    shownIssues.filter(
       (issue) =>
         issue.fieldId === field.id &&
         (!issue.unit || issue.unit === unit || (unit === '@shared' && issue.unit === 'case')),
     );
 
   async function save() {
+    setAttempted(true);
     setSaveIssues([]);
     const started = edits.current;
     const ok = await action.run(
@@ -180,9 +259,14 @@ function QuestionForm({
       'Answers saved',
     );
     if (ok) {
-      if (edits.current === started) setDirty(false);
+      if (edits.current === started) {
+        setDirty(false);
+        setCopied(false);
+      }
       await api.reload();
       await reload();
+      // The pressed button is disabled once saved; keep focus on the result instead of <body>.
+      setFocusStatus(true);
     }
   }
 
@@ -202,10 +286,10 @@ function QuestionForm({
         <h2 id="case-questions">3. Answers</h2>
         {editable ? (
           <div className="actions question-save">
-            <span className="metadata" aria-live="polite">
+            <span className="metadata" aria-live="polite" tabIndex={-1} ref={statusRef}>
               {dirty ? 'Unsaved changes' : action.status}
             </span>
-            <button className="primary" disabled={action.pending || !dirty}>
+            <button disabled={action.pending || !(dirty || copied)}>
               {action.pending ? 'Saving…' : 'Save answers'}
             </button>
           </div>
@@ -221,8 +305,8 @@ function QuestionForm({
         }}
       />
       {allIssues.length || form.conflicts.length ? (
-        <div className="warning" role="alert">
-          <strong>Needs attention before generating</strong>
+        <div className="warning question-issues">
+          <strong>Still to answer before generating</strong>
           <ul>
             {[...form.conflicts, ...allIssues].map((issue, i) => (
               <li key={i}>
@@ -237,9 +321,8 @@ function QuestionForm({
                     target?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
                   }}
                 >
-                  {issue.message}
+                  {plainIssue(issue, allFields)}
                 </button>
-                {issue.location ? <span className="metadata"> · {issue.location}</span> : null}
               </li>
             ))}
           </ul>
@@ -255,6 +338,7 @@ function QuestionForm({
               values={draft.shared}
               onChange={setAnswer}
               issuesFor={(field) => issuesFor(field, '@shared')}
+              fieldsForIssues={allFields}
             />
           </section>
         ) : null}
@@ -274,6 +358,7 @@ function QuestionForm({
                 values={draft.clauses[clause.key] || {}}
                 onChange={setAnswer}
                 issuesFor={(field) => issuesFor(field, clause.key)}
+                fieldsForIssues={allFields}
               />
             ) : (
               <p className="metadata">Nothing to answer for this paragraph.</p>
@@ -306,13 +391,19 @@ function QuestionForm({
       </fieldset>
       {editable ? (
         <div className="actions">
-          <button className="primary" disabled={action.pending || !dirty}>
+          <button disabled={action.pending || !(dirty || copied)}>
             {action.pending ? 'Saving…' : 'Save answers'}
           </button>
         </div>
       ) : null}
     </form>
   );
+}
+
+/** Under its own field the label is already visible: "Choose a person". */
+function besideField(text: string, label: string) {
+  const rest = text.startsWith(label + ': ') ? text.slice(label.length + 2) : text;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
 function fieldFromLocation(issue: Issue, form: FormModel) {
@@ -329,12 +420,14 @@ function FieldGroup({
   values,
   onChange,
   issuesFor,
+  fieldsForIssues,
 }: {
   unit: string;
   fields: FormField[];
   values: Answers;
   onChange: (unit: string, fieldId: string, value: AnswerValue | Answers) => void;
   issuesFor: (field: FormField) => Issue[];
+  fieldsForIssues: FormField[];
 }) {
   const visible = fields.filter((f) => f.active !== false);
   const perRow = visible.filter((f) => f.repeatScope);
@@ -363,7 +456,10 @@ function FieldGroup({
                   field.readOnly ? (field.value as AnswerValue) : (values[field.id] as AnswerValue)
                 }
                 onChange={(value) => onChange(unit, field.id, value)}
-                issues={issuesFor(field)}
+                issues={issuesFor(field).map((issue) => ({
+                  ...issue,
+                  message: besideField(plainIssue(issue, fieldsForIssues), field.label),
+                }))}
               />
               {rows.length ? (
                 <PerRowTable
