@@ -7,3 +7,7 @@ For workflow, permission, record-state or completion changes, also read the appl
 `prototype/index.html` is a disposable, dependency-free reference with fictional in-memory data. Normal use presents A. Retain B and C as archived explorations behind `?explore=1&variant=B|C`; they do not define new production themes. Follow the specification's full contracts rather than copying the prototype's reduced state model.
 
 A visual prototype cannot establish legal applicability or complete a statutory obligation. Preserve unrelated local changes and validate the user path affected by each change.
+
+## Validation
+
+Run `npm run typecheck` and `npm test`. Run Playwright specs (`npm run test:e2e`) only when the owner asks for a QA review, not as routine validation. They use Playwright's own Chromium; if it is missing, run `npx playwright install chromium`. Start the app with `npm run dev`, not `./start.sh`, which opens the owner's browser.
