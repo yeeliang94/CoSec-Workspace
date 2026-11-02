@@ -203,7 +203,26 @@ export type IssueField = {
   label: string;
   valueType?: string;
   source?: { kind: string; path?: string };
+  /** Clause entry key, or 'case' for shared questions. Clauses can reuse a field id. */
+  unit?: string;
 };
+
+/** Every field of a form, tagged with the unit it belongs to. */
+export function issueFields(form: Pick<FormModel, 'shared' | 'clauses'>): IssueField[] {
+  return [
+    ...form.shared.map((field) => ({ ...field, unit: 'case' })),
+    ...form.clauses.flatMap((clause) =>
+      clause.fields.map((field) => ({ ...field, unit: clause.key })),
+    ),
+  ];
+}
+
+const CASE_DETAILS_PATHS = [
+  'case.title',
+  'case.instructionDate',
+  'case.resolutionDate',
+  'case.effectiveDate',
+];
 
 const firstLower = (text: string) =>
   /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
@@ -239,8 +258,10 @@ export function plainIssue(issue: Issue, fields: IssueField[] = []): string {
   const location = issue.location || '';
   const quoted = (kind: string) =>
     [...location.matchAll(new RegExp(`${kind} "([^"]+)"`, 'g'))].map((m) => m[1]).at(-1);
+  const byId = (id: string) =>
+    fields.find((f) => f.id === id && f.unit === issue.unit) ?? fields.find((f) => f.id === id);
   const field =
-    (issue.fieldId ? fields.find((f) => f.id === issue.fieldId) : undefined) ??
+    (issue.fieldId ? byId(issue.fieldId) : undefined) ??
     fields.find((f) => f.label === quoted('field'));
   const row = quoted('row');
   const signers = /signers › (.+)$/.exec(location)?.[1];
@@ -253,16 +274,18 @@ export function plainIssue(issue: Issue, fields: IssueField[] = []): string {
   if (missing) {
     label = label || missing[1];
     const path = field?.source?.path || '';
-    const from = path.startsWith('selection.')
-      ? fields.find((f) => f.id === path.split('.')[1])
-      : undefined;
+    const from = path.startsWith('selection.') ? byId(path.split('.')[1]) : undefined;
     text = from
       ? from.valueType === 'recordReference' || from.valueType === 'recordList'
         ? `choose the ${firstLower(from.label)} first`
         : `answer ${firstLower(from.label)} first`
       : path.startsWith('selection.')
         ? 'answer the question this comes from first'
-        : 'not recorded on the company file yet';
+        : path.startsWith('company.')
+          ? 'not recorded on the company file yet'
+          : CASE_DETAILS_PATHS.includes(path)
+            ? 'add it in step 1, Details'
+            : 'no value recorded yet';
   }
   const derived = /^(.+) cannot be calculated yet$/.exec(message);
   if (derived) {

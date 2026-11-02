@@ -1,6 +1,13 @@
 'use client';
 import type { ResolvedDocument } from '@/domain/resolution/model';
-import { getJson, postJson, type ClausesResponse, type Issue, type IssueField } from './api';
+import {
+  getJson,
+  issueFields,
+  postJson,
+  type ClausesResponse,
+  type Issue,
+  type IssueField,
+} from './api';
 import type { CaseApi } from './case-workspace';
 import { DocumentPreview } from './document-preview';
 import { LoadState, useLoad } from './use-load';
@@ -22,15 +29,7 @@ export function CasePreview({ api }: { api: CaseApi }) {
       getJson<ClausesResponse>(`/api/resolution-cases/${item.id}/clauses`).catch(() => null),
     ]);
     const form = clauses?.form;
-    const fields: IssueField[] = form
-      ? [...form.shared, ...form.clauses.flatMap((c) => c.fields)].map((f) => ({
-          id: f.id,
-          label: f.label,
-          valueType: f.valueType,
-          source: f.source as IssueField['source'],
-        }))
-      : [];
-    return { ...preview, fields };
+    return { ...preview, fields: form ? issueFields(form) : [] };
   }, [item.id, item.revision, hasSelection]);
   return (
     <section aria-labelledby="case-preview">
@@ -43,7 +42,7 @@ export function CasePreview({ api }: { api: CaseApi }) {
         ) : null}
       </div>
       {!hasSelection ? (
-        <p className="metadata">The preview appears once a layout is chosen in step 2.</p>
+        <p className="metadata">No preview yet</p>
       ) : load.data ? (
         <DocumentPreview
           document={load.data.resolved}
