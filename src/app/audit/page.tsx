@@ -264,36 +264,10 @@ export default function AuditPage() {
                       </td>
                       <td>{entry.actorName}</td>
                       <td>{entry.companyName || '—'}</td>
-                      <td>
-                        {auditActionLabel(entry.action)}
-                        {entry.changes.length || entry.summary ? (
-                          <div>
-                            <button
-                              type="button"
-                              className="text-button"
-                              aria-expanded={expanded}
-                              onClick={() =>
-                                setOpen(
-                                  expanded
-                                    ? open.filter((id) => id !== entry.id)
-                                    : [...open, entry.id],
-                                )
-                              }
-                            >
-                              {expanded
-                                ? 'Hide changes'
-                                : entry.changes.length
-                                  ? `Show changes (${entry.changes.length})`
-                                  : 'Show details'}
-                            </button>
-                          </div>
-                        ) : null}
-                      </td>
-                      <td>
-                        {entityLabel(entry.entityType)}
-                        <div className="metadata">
-                          <code>{entry.entityId.slice(0, 12)}</code>
-                        </div>
+                      <td>{auditActionLabel(entry.action)}</td>
+                      <td>{entityLabel(entry.entityType)}</td>
+                      <td className="muted tabular nowrap" title={entry.entityId}>
+                        {entry.entityId.slice(0, 8)}
                       </td>
                       <td>{entry.reason || '—'}</td>
                       <td className="nowrap">

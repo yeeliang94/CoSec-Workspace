@@ -61,3 +61,25 @@
   padding-left: 0;
   list-style: none;
 }
+
+/* Multi-choice evidence lists: no "Select…" placeholder as a choosable option */
+.section-content select[multiple] > option[value=''] {
+  display: none;
+}
+
+/* Action buttons in table cells line up with the row text and column header */
+.record-split td > button,
+.record-split td > .action-form .actions > button {
+  min-height: 24px;
+  height: auto;
+  margin: -4px 0;
+  padding: 3px 0;
+  border-color: transparent;
+  background: transparent;
+  vertical-align: top;
+}
+.record-split td > button:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

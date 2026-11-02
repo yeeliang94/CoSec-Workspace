@@ -1568,13 +1568,16 @@ fieldset > label.inline {
   min-height: 32px;
 }
 .resolution-table th:nth-child(1) {
-  width: 32%;
+  width: 26%;
 }
 .resolution-table th:nth-child(2) {
-  width: 24%;
+  width: 14%;
 }
 .resolution-table th:nth-child(3) {
-  width: 24%;
+  width: 20%;
+}
+.resolution-table th:nth-child(4) {
+  width: 17%;
 }
 /* A category heading inside one table, instead of one table per category. */
 .group-row th {

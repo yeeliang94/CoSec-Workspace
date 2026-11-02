@@ -69,6 +69,42 @@ const isResolutionDate = (field: FormField) =>
   field.valueType === 'date' &&
   (field.id === 'resolution_date' || field.label.trim().toLowerCase() === 'resolution date');
 
+/** Moves answers still holding the previous step 1 date to the new one. */
+export function refreshCopiedDate(
+  draft: Draft,
+  form: FormModel,
+  previous: string | null,
+  next: string | null,
+) {
+  let prefilled = false;
+  const refresh = (fields: FormField[], answers: Answers) => {
+    const updated = { ...answers };
+    for (const field of fields) {
+      if (field.readOnly || !isResolutionDate(field)) continue;
+      if (field.value !== null && field.value !== undefined && field.value !== '') continue;
+      const current = answers[field.id];
+      if (current !== null && current !== undefined && current !== '' && current !== previous)
+        continue;
+      updated[field.id] = next;
+      if (next) prefilled = true;
+    }
+    return updated;
+  };
+  return {
+    draft: {
+      ...draft,
+      shared: refresh(form.shared, draft.shared),
+      clauses: Object.fromEntries(
+        form.clauses.map((clause) => [
+          clause.key,
+          refresh(clause.fields, draft.clauses[clause.key] ?? {}),
+        ]),
+      ),
+    } as Draft,
+    prefilled,
+  };
+}
+
 function initial(form: FormModel, signers: SignerSelection, resolutionDate: string | null) {
   let prefilled = false;
   const collect = (fields: FormField[]) =>
@@ -128,10 +164,13 @@ function QuestionForm({
   reload: () => Promise<void>;
 }) {
   const item = api.detail.case;
-  const start = () => initial(initialForm, item.signers, item.resolutionDate);
+  // A read-only case keeps its stored answers; only an editable one copies the date from step 1.
+  const copiedDate = api.canEdit ? item.resolutionDate : null;
+  const start = () => initial(initialForm, item.signers, copiedDate);
   const [draft, setDraft] = useState<Draft>(() => start().draft);
-  // A date carried over from step 1 is an unsaved change until the answers are saved.
-  const [dirty, setDirty] = useState(() => start().prefilled);
+  const [dirty, setDirty] = useState(false);
+  // A date copied from step 1 can be saved, but nobody has edited anything to lose by leaving.
+  const [copied, setCopied] = useState(() => start().prefilled);
   // Field errors wait until the person has tried to save.
   const [attempted, setAttempted] = useState(false);
   const action = useAction();
@@ -156,9 +195,17 @@ function QuestionForm({
     setSeenRevision(selectionRevision);
     const next = start();
     setDraft(dirty ? carryOver(next.draft, draft) : next.draft);
-    setDirty(dirty || next.prefilled);
+    setCopied(copied || next.prefilled);
     setAttempted(false);
     setSaveIssues([]);
+  }
+  // Step 1's date changed: untouched copies follow it, and answers someone typed stay.
+  const [seenDate, setSeenDate] = useState(copiedDate);
+  if (seenDate !== copiedDate) {
+    setSeenDate(copiedDate);
+    const next = refreshCopiedDate(draft, initialForm, seenDate, copiedDate);
+    setDraft(next.draft);
+    setCopied(copied || next.prefilled);
   }
   const formRef = useRef<HTMLFormElement>(null);
   const editable = api.canEdit;
@@ -212,7 +259,10 @@ function QuestionForm({
       'Answers saved',
     );
     if (ok) {
-      if (edits.current === started) setDirty(false);
+      if (edits.current === started) {
+        setDirty(false);
+        setCopied(false);
+      }
       await api.reload();
       await reload();
       // The pressed button is disabled once saved; keep focus on the result instead of <body>.
@@ -239,7 +289,7 @@ function QuestionForm({
             <span className="metadata" aria-live="polite" tabIndex={-1} ref={statusRef}>
               {dirty ? 'Unsaved changes' : action.status}
             </span>
-            <button disabled={action.pending || !dirty}>
+            <button disabled={action.pending || !(dirty || copied)}>
               {action.pending ? 'Saving…' : 'Save answers'}
             </button>
           </div>
@@ -341,7 +391,7 @@ function QuestionForm({
       </fieldset>
       {editable ? (
         <div className="actions">
-          <button disabled={action.pending || !dirty}>
+          <button disabled={action.pending || !(dirty || copied)}>
             {action.pending ? 'Saving…' : 'Save answers'}
           </button>
         </div>

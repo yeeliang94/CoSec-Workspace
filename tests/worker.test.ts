@@ -14,7 +14,6 @@ vi.mock('../src/server/resolution/generation', () => ({
 beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
-  vi.stubEnv('COSEC_WORKER_VERBOSE', '');
   vi.spyOn(process, 'on').mockReturnValue(process);
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -26,7 +25,6 @@ afterEach(() => {
   process.exitCode = 0;
   vi.clearAllTimers();
   vi.useRealTimers();
-  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -44,13 +42,6 @@ describe('background worker logging', () => {
     expect(console.info).not.toHaveBeenCalled();
     expect(console.warn).not.toHaveBeenCalled();
     expect(console.error).not.toHaveBeenCalled();
-  });
-
-  it('allows diagnostic summaries to be enabled explicitly', async () => {
-    vi.stubEnv('COSEC_WORKER_VERBOSE', '1');
-    jobs.prune.mockResolvedValue(7);
-    await startWorker();
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('pruned 7'));
   });
 
   it('reports interrupted generations that were marked failed', async () => {

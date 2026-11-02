@@ -88,7 +88,7 @@ test('author writes a clause with a bound value, reused question and two wording
   const form = page.getByRole('dialog', { name: 'New paragraph', exact: true });
   await form.getByLabel('Name').fill(clauseName);
   await form.getByLabel('Category').selectOption('Dividend');
-  await form.getByRole('button', { name: 'Create wording' }).click();
+  await form.getByRole('button', { name: 'Create paragraph' }).click();
   await page.waitForURL(/\/templates\/clauses\//);
   clauseUrl = new URL(page.url()).pathname;
   await expect(page.getByRole('heading', { name: clauseName })).toBeVisible();

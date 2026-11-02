@@ -442,7 +442,7 @@ function CreateClause({
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
-              Create wording
+              Create paragraph
             </button>
             <button
               type="button"

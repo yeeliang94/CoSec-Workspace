@@ -156,6 +156,7 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
                     <thead>
                       <tr>
                         <th>Resolution</th>
+                        <th>Kind</th>
                         <th>Status</th>
                         <th>Updated</th>
                       </tr>
@@ -165,8 +166,8 @@ export default function CompanyPage({ params }: { params: Promise<{ id: string }
                         <tr key={item.id}>
                           <td>
                             <Link href={'/resolutions/' + item.id}>{item.title}</Link>
-                            <div className="state">{kindLabel(item.kind)}</div>
                           </td>
+                          <td>{kindLabel(item.kind)}</td>
                           <td data-label="Status">
                             {caseStatus(
                               item,
