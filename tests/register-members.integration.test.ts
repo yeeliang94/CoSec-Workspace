@@ -202,4 +202,67 @@ describe('carrying the retired share register into members', () => {
     expect(after.find((row) => row.id === imported.id)!.data.endDate).toBe('2026-03-01');
     expect(after.find((row) => row.id === existingId)!.data.capacity).toBe('Recorded capacity');
   });
+  it('leaves a legacy id alone when it names someone else, and records why', async () => {
+    const id = randomUUID();
+    await writerDb.insert(s.companies).values({
+      id,
+      data: {
+        id,
+        name: 'Colliding member (fictional)',
+        registrationNumber: id,
+        incorporationDate: '2024-01-01',
+        financialYearEnd: '12-31',
+        legalStatus: 'Existing',
+        engagementStatus: 'Active',
+        address: 'Fictional',
+        activity: '',
+        verification: 'Unverified',
+        sourceEvidenceId: null,
+        revision: 1,
+      },
+    });
+    const other = { id: randomUUID(), name: 'Register name (fictional)' };
+    const person = {
+      id: other.id,
+      fullName: 'Someone else entirely (fictional)',
+      nameHistory: [],
+      email: null,
+      notes: 'Private to another company',
+      customValues: {},
+      createdBy: actor.id,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      revision: 1,
+    };
+    await writerDb
+      .insert(s.people)
+      .values({ id: other.id, fullName: person.fullName, revision: 1, data: person });
+    await writerDb.insert(s.companyRegisters).values({
+      companyId: id,
+      revision: 1,
+      data: {
+        revision: 1,
+        capitalEvents: [event('c1', 'opening', '2025-01-01', 1, [{ member: other, units: '10' }])],
+        boEvents: [],
+      },
+    });
+    const carry = () =>
+      transaction(async (tx) => {
+        await lockCompany(id, tx);
+        return carryRegisterMembers(id, tx);
+      });
+    expect(await carry()).toEqual([]);
+    expect(await carry()).toEqual([]);
+    expect(
+      await writerDb
+        .select()
+        .from(s.companyRelationships)
+        .where(eq(s.companyRelationships.companyId, id)),
+    ).toEqual([]);
+    const receipts = await writerDb
+      .select({ detail: s.auditEvents.detail })
+      .from(s.auditEvents)
+      .where(eq(s.auditEvents.companyId, id));
+    expect(JSON.stringify(receipts)).toContain('skippedReason');
+  });
 });

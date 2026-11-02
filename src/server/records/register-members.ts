@@ -144,6 +144,7 @@ export async function carryRegisterMembers(companyId: string, tx: Transaction) {
         return gaps;
       });
     }
+    let skipped = false;
     const person: Person = {
       id: term.memberId,
       fullName: term.name,
@@ -172,6 +173,28 @@ export async function carryRegisterMembers(companyId: string, tx: Transaction) {
         after: person,
         detail: { source: 'share_register', companyId },
       });
+    else {
+      // A legacy id may collide with someone else's record. Linking would grant this company access
+      // to that person, so an id with a different name and no tie here is left for reconciliation.
+      const [stored] = await tx
+        .select({ fullName: s.people.fullName })
+        .from(s.people)
+        .where(eq(s.people.id, person.id));
+      const [related] = await tx
+        .select({ id: s.companyRelationships.id })
+        .from(s.companyRelationships)
+        .where(
+          and(
+            eq(s.companyRelationships.companyId, companyId),
+            eq(s.companyRelationships.personId, person.id),
+          ),
+        )
+        .limit(1);
+      if (stored.fullName !== term.name && !related) {
+        skipped = true;
+        uncovered = [];
+      }
+    }
     const relationshipIds: string[] = [];
     for (const gap of uncovered) {
       const gapId = termId(companyId, gap);
@@ -221,6 +244,12 @@ export async function carryRegisterMembers(companyId: string, tx: Transaction) {
         startDate: term.startDate,
         endDate: term.endDate,
         relationshipIds,
+        ...(skipped
+          ? {
+              skippedReason:
+                'The share register names this person differently from the existing person record.',
+            }
+          : {}),
       },
     });
   }

@@ -554,8 +554,8 @@ export function SignerList({
         help={
           pool.length ? null : (
             <p className="metadata">
-              {EMPTY_POOL[role]} are recorded for this company on {formatDate(asAt)}. Add them under
-              People on the <Link href={'/companies/' + companyId}>company page</Link>.
+              {EMPTY_POOL[role]} on {formatDate(asAt)}.{' '}
+              <Link href={'/companies/' + companyId}>Add on company page</Link>
             </p>
           )
         }

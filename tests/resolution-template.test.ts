@@ -24,7 +24,11 @@ import {
 } from '../src/domain/resolution/schema';
 import { MAX_RUNS } from '../src/domain/resolution/compile';
 import { DomainError } from '../src/domain/access';
-import { bindingInfo, resolveBinding } from '../src/domain/resolution/bindings';
+import {
+  bindingInfo,
+  fieldForCurrentRecords,
+  resolveBinding,
+} from '../src/domain/resolution/bindings';
 import { isCalendarDate } from '../src/domain/resolution/records';
 import {
   sharedFieldConflicts,
@@ -1361,5 +1365,18 @@ describe('templates with retired record sources', () => {
         issue.message.includes('not an allowed record value'),
       ),
     ).toBe(true);
+  });
+});
+
+describe('retired job bindings', () => {
+  it('stay mandatory when they become questions', () => {
+    const field = fieldForCurrentRecords({
+      id: 'person',
+      label: 'Person',
+      valueType: 'text',
+      source: { kind: 'binding', path: 'job.personName' },
+    } as FieldDefinition);
+    expect(field.source).toEqual({ kind: 'question' });
+    expect(field.required).toBe(true);
   });
 });
