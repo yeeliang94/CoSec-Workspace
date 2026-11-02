@@ -398,7 +398,6 @@ export function FieldEditor({
           {!confirmDelete ? (
             <button
               type="button"
-              className="danger"
               disabled={usages.length > 0}
               onClick={() => setConfirmDelete(true)}
             >
@@ -430,7 +429,7 @@ function ValidationAndFormat({
       <summary>Validation and format</summary>
       <div className="form-stack">
         {type === 'number' || type === 'date' ? (
-          <div className="form-grid">
+          <div className={'form-grid' + (type === 'number' ? ' form-pair' : '')}>
             <label>
               Minimum
               <input

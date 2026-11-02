@@ -19,7 +19,18 @@ export default function Documents() {
   );
   return (
     <>
-      <PageHeader title="Documents" />
+      <PageHeader title="Documents">
+        <div className="header-actions header-links">
+          <Link className="section-link" href="/resolutions">
+            Resolutions
+          </Link>
+          {data.actor.capabilities.includes('manage_templates') ? (
+            <Link className="section-link" href="/templates">
+              Templates
+            </Link>
+          ) : null}
+        </div>
+      </PageHeader>
       <div className="toolbar">
         <label className="search">
           <span className="sr-only">Search documents</span>
@@ -64,6 +75,7 @@ export default function Documents() {
             <thead>
               <tr>
                 <th>Document</th>
+                <th>File name</th>
                 <th>Company</th>
                 <th>Uploaded</th>
                 <th>Size</th>
@@ -74,19 +86,14 @@ export default function Documents() {
                 <tr key={d.id}>
                   <td>
                     <a href={'/api/documents/' + d.id}>{d.title}</a>
-                    {d.originalName !== d.title ? (
-                      <details className="file-details">
-                        <summary>Filename</summary>
-                        <span>{d.originalName}</span>
-                      </details>
-                    ) : null}
                   </td>
+                  <td className="muted file-name">{d.originalName}</td>
                   <td>
                     <Link href={'/companies/' + d.companyId}>
                       {data.companies.find((c) => c.id === d.companyId)?.name}
                     </Link>
                   </td>
-                  <td>{formatDate(d.createdAt)}</td>
+                  <td className="nowrap tabular">{formatDate(d.createdAt)}</td>
                   <td className="nowrap">{Math.max(1, Math.round(d.size / 1024))} KB</td>
                 </tr>
               ))}

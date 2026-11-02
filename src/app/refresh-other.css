@@ -1,0 +1,122 @@
+/* Refresh QA fixes: other area. See DESIGN.md. */
+
+/* Sidebar focus: the default focus colour is under 3:1 on the navy rail. */
+.sidebar a:focus-visible,
+.sidebar button:focus-visible {
+  outline-color: #9cc3dd;
+}
+
+/* Quiet, left-aligned empty states on every page. */
+.empty {
+  text-align: left;
+  border-top: 0;
+  padding: 24px 0;
+}
+
+/* Header navigation uses section links (third action tier), not outlined buttons. */
+.header-actions.header-links {
+  align-items: center;
+  gap: var(--space-section, 24px);
+}
+
+/* One value per cell: file names and email addresses wrap rather than widen the table. */
+.file-name,
+.user-email {
+  overflow-wrap: anywhere;
+}
+
+/* Settings: tables run the full section width; forms keep a readable measure. */
+.settings-sections {
+  max-width: none;
+}
+.settings-sections .form-grid,
+.settings-sections .action-form,
+.settings-sections .form-stack {
+  max-width: var(--form-measure);
+}
+.settings-sections .table-wrap table {
+  width: 100%;
+}
+.placeholder-table {
+  --table-min-width: 0;
+}
+
+/* Audit: expanded change rows have no fill. */
+.audit-changes > td {
+  background: transparent;
+}
+
+/* Rich editor toolbars: no fill, one hairline underneath. */
+.editor-toolbar,
+.template-toolbar {
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--border);
+}
+.editor-toolbar button.active {
+  background: var(--selection, #e1e9ee);
+}
+
+/* People drawer loading skeleton. */
+.person-skeleton .skeleton {
+  height: 18px;
+}
+.person-skeleton .skeleton.heading {
+  height: 22px;
+  width: 220px;
+  margin: 28px 0 16px;
+}
+.person-skeleton .skeleton.short {
+  width: 40%;
+}
+
+/* Quiet row actions in library tables sit on the row's text line, flush with the column edge. */
+.library-table .row-actions {
+  gap: var(--space-lg);
+}
+.library-table .row-actions .quiet,
+.library-table .table-action,
+.users-table .text-button {
+  padding: 0;
+  min-height: 0;
+  line-height: inherit;
+}
+
+/* Wording and layout editors: whitespace instead of stacked rules, underline tabs, no grey panels. */
+.template-status {
+  border-top: 0;
+  border-bottom: 0;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.wording-tabs {
+  gap: var(--space-section);
+  border-bottom: 0;
+  margin-bottom: var(--space-lg);
+}
+.wording-tabs [role='tab'] {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 8px 0;
+  min-height: 36px;
+  margin-bottom: 0;
+}
+.wording-tabs [role='tab'][aria-selected='true'] {
+  background: transparent;
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+}
+.template-editor {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.template-canvas {
+  padding: var(--space-lg) 0 0;
+}
+.template-canvas .tiptap {
+  margin: 0;
+}
+.settings-sections details .table-wrap {
+  max-width: 850px;
+}

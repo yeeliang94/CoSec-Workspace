@@ -8,7 +8,6 @@ import {
   Empty,
   formatDate,
   formatDatesIn,
-  humanize,
   Icon,
   useWorkspace,
 } from '@/components/workspace';
@@ -37,14 +36,52 @@ type Section = (typeof SECTIONS)[number][0];
 /** Links to the old separate tabs land on the matching part of the single Prepare page. */
 const OLD_SECTIONS = ['overview', 'steps', 'clauses', 'questions', 'preview'];
 
+/** History entries in words; the stored action names are internal. */
+const HISTORY_LABELS: Record<string, string> = {
+  created: 'Created',
+  create: 'Created',
+  link_job: 'Linked director change',
+  update_details: 'Updated details',
+  add_step: 'Added step',
+  update_step: 'Updated step',
+  record_decision: 'Recorded outcome',
+  cancel: 'Cancelled',
+  complete: 'Marked complete',
+  send_for_review: 'Sent for review',
+  review: 'Reviewed',
+  reopen: 'Reopened for changes',
+  set_custom: 'Changed company value',
+  set_selection: 'Selected layout and wording',
+  save_answers: 'Saved answers',
+  accept_version: 'Updated paragraph wording',
+  family_created: 'Started a Word document',
+  document_generated: 'Created Word document',
+  resolution_attached: 'Attached to job',
+};
+export function historyLabel(action: string) {
+  if (HISTORY_LABELS[action]) return HISTORY_LABELS[action];
+  const words = action
+    .replace(/^resolution_case\./, '')
+    .replaceAll(/[_.]/g, ' ')
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+const isSection = (value: string | null): value is Section =>
+  SECTIONS.some(([key]) => key === value);
+
 export function CaseWorkspace({ id }: { id: string }) {
   const { data } = useWorkspace();
   const [section, setSection] = useState<Section>('prepare');
   const load = useLoad(() => getJson<CaseDetail>('/api/resolution-cases/' + id), [id]);
   useEffect(() => {
+    // The open section lives in the address (?section=documents) so reloads and shared links
+    // return to it. Older #hash links still work.
     const read = () => {
+      const param = new URLSearchParams(window.location.search).get('section');
       const hash = window.location.hash.slice(1);
-      if (SECTIONS.some(([key]) => key === hash)) setSection(hash as Section);
+      if (isSection(param)) setSection(param);
+      else if (isSection(hash)) setSection(hash);
       else if (OLD_SECTIONS.includes(hash)) {
         setSection('prepare');
         requestAnimationFrame(() => document.getElementById('prepare-' + hash)?.scrollIntoView());
@@ -52,7 +89,11 @@ export function CaseWorkspace({ id }: { id: string }) {
     };
     read();
     window.addEventListener('hashchange', read);
-    return () => window.removeEventListener('hashchange', read);
+    window.addEventListener('popstate', read);
+    return () => {
+      window.removeEventListener('hashchange', read);
+      window.removeEventListener('popstate', read);
+    };
   }, []);
   if (!data) return null;
   if (!load.data)
@@ -98,7 +139,14 @@ export function CaseWorkspace({ id }: { id: string }) {
   const choose = async (key: Section) => {
     if (key === section || !(await canLeaveEditing())) return;
     setSection(key);
-    window.history.replaceState(window.history.state, '', '#' + key);
+    const params = new URLSearchParams(window.location.search);
+    if (key === 'prepare') params.delete('section');
+    else params.set('section', key);
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + (params.size ? '?' + params.toString() : ''),
+    );
   };
   return (
     <>
@@ -106,31 +154,18 @@ export function CaseWorkspace({ id }: { id: string }) {
         <Icon kind="back" />
         Resolutions
       </Link>
-      <div className="page-header">
-        <h1>{item.title}</h1>
+      <header className="record-heading resolution-heading">
+        <div>
+          <h1>{item.title}</h1>
+          <p className="record-number">
+            <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>{' '}
+            {company?.registrationNumber}
+          </p>
+        </div>
         <div className="header-actions">
-          <Link href={'/resolutions/companies/' + item.companyId} className="button">
-            Company details
-          </Link>
           <CompleteResolution api={api} />
         </div>
-      </div>
-      <dl className="facts track-facts">
-        <div>
-          <dt>Company</dt>
-          <dd>
-            <Link href={'/companies/' + item.companyId}>{company?.name || 'Company'}</Link>
-          </dd>
-        </div>
-        <div>
-          <dt>Kind</dt>
-          <dd>{kindLabel(item.kind)}</dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd>{caseStatus(item, userName)}</dd>
-        </div>
-      </dl>
+      </header>
       <DirectorRecordReminder item={item} />
       <ReviewPanel api={api} />
       <nav className="section-nav" aria-label="Resolution sections">
@@ -146,37 +181,63 @@ export function CaseWorkspace({ id }: { id: string }) {
           </button>
         ))}
       </nav>
-      <div className="section-content">
-        {section === 'prepare' ? (
-          <Prepare api={api} />
-        ) : section === 'documents' ? (
-          <>
-            <CaseDocuments api={api} />
-            <DecisionRecord api={api} />
-          </>
-        ) : (
-          <section aria-labelledby="case-history">
-            <h2 id="case-history" className="sr-only">
-              History
-            </h2>
-            {item.history.length ? (
-              <ul className="list-plain">
-                {[...item.history].reverse().map((event) => (
-                  <li key={event.id}>
-                    <strong>{humanize(event.action)}</strong>
-                    <p className="metadata">
-                      {data.users.find((u) => u.id === event.actorId)?.name || event.actorId} ·{' '}
-                      {formatDate(event.at)}
-                    </p>
-                    {event.detail ? <p>{formatDatesIn(event.detail)}</p> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Empty>No history yet</Empty>
-            )}
-          </section>
-        )}
+      <div className="split record-split">
+        <div className="split-main section-content">
+          {section === 'prepare' ? (
+            <Prepare api={api} />
+          ) : section === 'documents' ? (
+            <>
+              <CaseDocuments api={api} />
+              <DecisionRecord api={api} />
+            </>
+          ) : (
+            <section aria-labelledby="case-history">
+              <h2 id="case-history">History</h2>
+              {item.history.length ? (
+                <ul className="list-plain case-history">
+                  {[...item.history].reverse().map((event) => (
+                    <li key={event.id}>
+                      <strong>{historyLabel(event.action)}</strong>
+                      <p className="metadata">
+                        {data.users.find((u) => u.id === event.actorId)?.name || event.actorId},{' '}
+                        {formatDate(event.at)}
+                      </p>
+                      {event.detail ? <p>{formatDatesIn(event.detail)}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty>No history yet</Empty>
+              )}
+            </section>
+          )}
+        </div>
+        <aside className="detail-aside" aria-labelledby="case-facts">
+          <h2 id="case-facts">Details</h2>
+          <dl className="facts stacked">
+            <div>
+              <dt>Kind</dt>
+              <dd>{kindLabel(item.kind)}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{caseStatus(item, userName)}</dd>
+            </div>
+            <div>
+              <dt>Owner</dt>
+              <dd>{userName(item.ownerId)}</dd>
+            </div>
+            <div>
+              <dt>Revision</dt>
+              <dd>{item.revision}</dd>
+            </div>
+          </dl>
+          <p className="aside-link">
+            <Link className="section-link" href={'/resolutions/companies/' + item.companyId}>
+              Company details used in resolutions
+            </Link>
+          </p>
+        </aside>
       </div>
     </>
   );
@@ -240,7 +301,7 @@ function SendForReview({ api }: { api: CaseApi }) {
           {send.pending ? 'Sending…' : 'Send for review'}
         </button>
       </form>
-      {!item.selection ? <p className="metadata">Choose the wording in step 2 first.</p> : null}
+      {!item.selection ? <p className="metadata">Choose the layout in step 2 first.</p> : null}
       <ActionFeedback
         error={send.error || closing.error}
         status={send.status || closing.status}
@@ -260,9 +321,7 @@ function SendForReview({ api }: { api: CaseApi }) {
             <textarea required value={reason} onChange={(event) => setReason(event.target.value)} />
           </label>
           <div className="actions">
-            <button className="danger" disabled={closing.pending || !reason.trim()}>
-              Cancel resolution
-            </button>
+            <button disabled={closing.pending || !reason.trim()}>Cancel resolution</button>
             <button type="button" onClick={() => setCancelling(false)}>
               Keep it
             </button>
@@ -545,22 +604,24 @@ function Details({ api }: { api: CaseApi }) {
                 onChange={(event) => setForm({ ...form, instructionDate: event.target.value })}
               />
             </label>
-            <label>
-              Resolution date
-              <input
-                type="date"
-                value={form.resolutionDate}
-                onChange={(event) => setForm({ ...form, resolutionDate: event.target.value })}
-              />
-            </label>
-            <label>
-              Effective date
-              <input
-                type="date"
-                value={form.effectiveDate}
-                onChange={(event) => setForm({ ...form, effectiveDate: event.target.value })}
-              />
-            </label>
+            <div className="form-grid form-pair compact-pair">
+              <label>
+                Resolution date
+                <input
+                  type="date"
+                  value={form.resolutionDate}
+                  onChange={(event) => setForm({ ...form, resolutionDate: event.target.value })}
+                />
+              </label>
+              <label>
+                Effective date
+                <input
+                  type="date"
+                  value={form.effectiveDate}
+                  onChange={(event) => setForm({ ...form, effectiveDate: event.target.value })}
+                />
+              </label>
+            </div>
           </fieldset>
           {api.canEdit ? (
             <div className="full form-footer">

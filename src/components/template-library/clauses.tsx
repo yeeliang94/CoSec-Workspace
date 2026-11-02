@@ -83,11 +83,11 @@ export function ClauseLibrary({
       ) : null}
       <div className="toolbar">
         <label className="search">
-          <span className="sr-only">Search clauses</span>
+          <span className="sr-only">Search wording</span>
           <Icon kind="search" />
           <input
             type="search"
-            placeholder="Search standard wording"
+            placeholder="Search wording"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -304,16 +304,7 @@ export function ClauseLibrary({
           </table>
         </div>
       ) : (
-        <Empty>
-          {filtered ? 'No matching paragraphs' : 'No paragraphs yet'}
-          {!filtered && canManage ? (
-            <div>
-              <button type="button" className="primary" onClick={() => onCreating(true)}>
-                New clause
-              </button>
-            </div>
-          ) : null}
-        </Empty>
+        <Empty>{filtered ? 'No matching wording' : 'No wording yet'}</Empty>
       )}
     </>
   );
@@ -388,7 +379,7 @@ function CreateClause({
                 description: form.description.trim(),
                 usageContexts: form.usageContexts,
               }),
-            'Clause created',
+            'Wording created',
           );
           if (created) {
             formElement.setAttribute('data-dirty', 'false');
@@ -451,7 +442,7 @@ function CreateClause({
           <ActionFeedback error={action.error} status={action.status} />
           <div className="actions">
             <button className="primary" disabled={action.pending || !form.usageContexts.length}>
-              Create clause
+              Create wording
             </button>
             <button
               type="button"

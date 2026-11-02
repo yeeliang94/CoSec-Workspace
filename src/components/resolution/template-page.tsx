@@ -238,7 +238,7 @@ export function IssueList({
         {converter.length + errors.length
           ? `${converter.length + errors.length} to fix`
           : 'No blocking issues'}
-        {warnings.length ? ` · ${warnings.length} to check` : ''}
+        {warnings.length ? `, ${warnings.length} to check` : ''}
       </strong>
       <ul>
         {converter.map((item, i) => (
@@ -257,8 +257,7 @@ export function IssueList({
               {item.issue.message}
             </button>
             <span className="metadata">
-              {' '}
-              · {item.name}, block {item.issue.blockIndex + 1} · not saved until removed
+              , {item.name}, block {item.issue.blockIndex + 1}, not saved until removed
             </span>
           </li>
         ))}
@@ -279,7 +278,7 @@ export function IssueList({
                 {issue.severity === 'warning' ? 'Check: ' : ''}
                 {issue.message}
               </button>
-              {issue.location ? <span className="metadata"> · {issue.location}</span> : null}
+              {issue.location ? <span className="metadata">, {issue.location}</span> : null}
             </li>
           );
         })}
@@ -362,7 +361,7 @@ export function SamplePreview({
       </div>
       <div className="toolbar">
         <label>
-          Output type
+          Document type
           <select value={outputTypeId} onChange={(event) => setOutputTypeId(event.target.value)}>
             {outputTypes.map((type) => (
               <option key={type.id} value={type.id}>

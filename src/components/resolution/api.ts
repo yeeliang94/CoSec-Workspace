@@ -196,3 +196,82 @@ export function statusOf<T extends { version: number; status: string }>(versions
   const published = latestPublished(versions);
   return { last, published };
 }
+
+/** Field facts used to phrase an issue for people rather than as a path. */
+export type IssueField = {
+  id: string;
+  label: string;
+  valueType?: string;
+  source?: { kind: string; path?: string };
+};
+
+const firstLower = (text: string) =>
+  /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+const stripStop = (text: string) => text.trim().replace(/\.$/, '');
+
+function askFor(field?: IssueField) {
+  switch (field?.valueType) {
+    case 'recordReference':
+      return 'choose a person';
+    case 'recordList':
+      return 'choose at least one person';
+    case 'date':
+      return 'enter a date';
+    case 'choice':
+    case 'boolean':
+      return 'choose an answer';
+    case 'multiChoice':
+      return 'choose at least one option';
+    case 'number':
+      return 'enter a number';
+    default:
+      return 'enter an answer';
+  }
+}
+
+/**
+ * Plain wording for a validation issue, e.g. "Proposed director: choose a person".
+ * Server issues carry a developer-style location (`clause "X" › field "Y"`); this keeps only
+ * the field (and person row) the reader needs to find. `fields` looks up the field the issue
+ * belongs to when the caller has the form.
+ */
+export function plainIssue(issue: Issue, fields: IssueField[] = []): string {
+  const location = issue.location || '';
+  const quoted = (kind: string) =>
+    [...location.matchAll(new RegExp(`${kind} "([^"]+)"`, 'g'))].map((m) => m[1]).at(-1);
+  const field =
+    (issue.fieldId ? fields.find((f) => f.id === issue.fieldId) : undefined) ??
+    fields.find((f) => f.label === quoted('field'));
+  const row = quoted('row');
+  const signers = /signers › (.+)$/.exec(location)?.[1];
+  let label = field?.label || quoted('field') || signers || '';
+  if (label && row) label += ` for ${row}`;
+  const message = stripStop(issue.message);
+  let text = firstLower(message);
+  if (message === 'Answer this question' || message === 'Enter a value') text = askFor(field);
+  const missing = /^No value is recorded for (.+)\. Complete the source record$/.exec(message);
+  if (missing) {
+    label = label || missing[1];
+    const path = field?.source?.path || '';
+    const from = path.startsWith('selection.')
+      ? fields.find((f) => f.id === path.split('.')[1])
+      : undefined;
+    text = from
+      ? from.valueType === 'recordReference' || from.valueType === 'recordList'
+        ? `choose the ${firstLower(from.label)} first`
+        : `answer ${firstLower(from.label)} first`
+      : path.startsWith('selection.')
+        ? 'answer the question this comes from first'
+        : 'not recorded on the company file yet';
+  }
+  const derived = /^(.+) cannot be calculated yet$/.exec(message);
+  if (derived) {
+    label = label || derived[1];
+    text = 'answer the questions it is calculated from first';
+  }
+  if (!label) {
+    // Fall back to the first named place, e.g. clause "Appointment of director".
+    label = /"([^"]+)"/.exec(location)?.[1] || '';
+  }
+  return label ? `${label}: ${text}` : message;
+}

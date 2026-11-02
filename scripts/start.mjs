@@ -12,6 +12,13 @@ const PORT = 4300;
 const windows = process.platform === 'win32';
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
 
+// Browser storage belongs in the browser. Some Node versions expose a server-side
+// localStorage getter that warns (or throws) when dependencies probe it without a file.
+// Apply to setup, build, web and worker children without suppressing other warnings.
+process.env.NODE_OPTIONS = [process.env.NODE_OPTIONS, '--no-experimental-webstorage']
+  .filter(Boolean)
+  .join(' ');
+
 function step(message) {
   console.log(`\n== ${message}`);
 }

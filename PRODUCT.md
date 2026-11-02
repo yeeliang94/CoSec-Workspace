@@ -18,4 +18,4 @@ Owner-authorised provisional defaults precede a team walkthrough. Manual practic
 DESIGN.md Option A is approved. The full DESIGN_SPEC.md and original revision 2 brief retain W01–W12 scope. Separate document and record states, immutable generated outputs, company scopes, attributed audit and version reviews are mandatory; job, filing and billing states return only with those features. No approved legal catalogue exists. Professional validation, actual templates, retention and shared hosting remain open decisions.
 
 ## Accessibility
-Target WCAG 2.2 AA; responsive work at 390px, 768px and desktop; keyboard, larger text and reduced motion. Concise visible labels and material feedback without routine helper prose.
+Target WCAG 2.2 AA; desktop only (no phone or tablet layouts); keyboard, larger text and reduced motion. Concise visible labels and material feedback without routine helper prose.

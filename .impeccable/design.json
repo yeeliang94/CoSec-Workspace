@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-22T10:23:58.774260+00:00",
+  "generatedAt": "2026-10-30T06:34:41.508669+00:00",
   "title": "CoSec Workspace design system",
   "extensions": {
     "shadows": [
@@ -15,30 +15,23 @@
         "purpose": "A focused decision above the workspace."
       }
     ],
-    "breakpoints": [
+    "breakpoints": [],
+    "motion": [
       {
-        "name": "compact-rail",
-        "value": "1100px"
-      },
-      {
-        "name": "compact-navigation",
-        "value": "900px"
-      },
-      {
-        "name": "stacked-records",
-        "value": "650px"
+        "name": "disclosure-chevron",
+        "value": "transform 150ms ease-out",
+        "purpose": "Rotate the disclosure chevron; disable for reduced-motion preferences."
       }
-    ],
-    "motion": []
+    ]
   },
   "components": [
     {
       "name": "Primary action",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "One named primary action in a working region.",
+      "description": "At most one primary action per page header.",
       "html": "<button class=\"ds-primary\">New job</button>",
-      "css": ".ds-primary{font:14px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;background:var(--accent,#284b5c);color:#fff;border:1px solid transparent;border-radius:4px;padding:8px 12px;min-height:36px;cursor:pointer}.ds-primary:hover{background:#1e3b4b}.ds-primary:active{background:#172f3d}.ds-primary:focus-visible{outline:2px solid #346f99;outline-offset:3px}.ds-primary:disabled{opacity:.5;cursor:default}"
+      "css": ".ds-primary{font:14px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;background:#284b5c;color:#fff;border:1px solid transparent;border-radius:4px;padding:8px 12px;min-height:36px;cursor:pointer}.ds-primary:hover{background:#1e3b4b}.ds-primary:active{background:#1e3b4b}.ds-primary:focus-visible{outline:2px solid #346f99;outline-offset:3px}.ds-primary:disabled{opacity:.5;cursor:default}"
     },
     {
       "name": "Secondary action",
@@ -54,7 +47,7 @@
       "refersTo": "input",
       "description": "A labelled search control for companies or jobs.",
       "html": "<label class=\"ds-search\">Search companies or jobs<input type=\"search\" placeholder=\"Search company or job\"></label>",
-      "css": ".ds-search{display:grid;gap:7px;font:12px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#252b32}.ds-search input{font:12px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;background:#fff;color:#252b32;min-height:35px;border:1px solid #b9c2c9;border-radius:4px;padding:8px 10px;caret-color:#284b5c}.ds-search input::placeholder{color:#666f77;opacity:1}.ds-search input:focus-visible{outline:2px solid #346f99;outline-offset:3px}"
+      "css": ".ds-search{display:grid;gap:7px;font:13px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#252b32}.ds-search input{font:14px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;background:#fff;color:#252b32;min-height:40px;border:1px solid #b9c2c9;border-radius:4px;padding:8px 10px;caret-color:#284b5c}.ds-search input::placeholder{color:#666f77;opacity:1}.ds-search input:focus{outline:none;border-color:#346f99}"
     },
     {
       "name": "Selected navigation",
@@ -62,21 +55,21 @@
       "refersTo": "navigation-selected",
       "description": "The stable navy shell and a readable current destination.",
       "html": "<nav class=\"ds-nav\" aria-label=\"Main navigation\"><button aria-current=\"page\">My work</button><button>Companies</button><button>Reviews</button></nav>",
-      "css": ".ds-nav{display:grid;gap:3px;padding:14px;background:#1c2d39;width:180px}.ds-nav button{font:13px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;min-height:42px;text-align:left;padding:11px 13px;border:0;border-radius:3px;background:transparent;color:#c3ced7;cursor:pointer}.ds-nav button[aria-current]{background:#314656;color:#fff}.ds-nav button:hover{background:#283c4b;color:#fff}.ds-nav button:focus-visible{outline:2px solid #b7d8ec;outline-offset:2px}"
+      "css": ".ds-nav{display:grid;gap:3px;padding:14px;background:#1c2d39;width:180px}.ds-nav button{font:13px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;min-height:42px;text-align:left;padding:11px 13px;border:0;border-radius:3px;background:transparent;color:#c3ced7;cursor:pointer}.ds-nav button[aria-current]{background:#314656;color:#fff}.ds-nav button:hover{background:#283c4b;color:#fff}.ds-nav button:focus-visible{outline:2px solid #9cc3dd;outline-offset:2px}"
     },
     {
       "name": "Plain state labels",
       "kind": "custom",
       "description": "Independent text labels without decorative capsules.",
       "html": "<dl class=\"ds-states\"><div><dt>Job</dt><dd class=\"ds-blocked\">Blocked</dd></div><div><dt>Document</dt><dd>Partly signed</dd></div><div><dt>Corporate record</dt><dd>Proposed</dd></div><div><dt>Filing task</dt><dd>Not ready</dd></div></dl>",
-      "css": ".ds-states{font:12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;display:grid;grid-template-columns:1fr 1fr;gap:18px 30px;padding:22px 0;border-top:1px solid #e0e3e6;border-bottom:1px solid #e0e3e6;color:#606972}.ds-states dt{margin-bottom:5px}.ds-states dd{margin:0}.ds-states .ds-blocked{color:#a83230;font-weight:500}"
+      "css": ".ds-states{font:12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;display:grid;grid-template-columns:1fr;gap:14px;padding:0;color:#606972}.ds-states dt{margin-bottom:5px}.ds-states dd{margin:3px 0 0;font-size:14px;color:#252b32}.ds-states .ds-blocked{color:#a83230;font-weight:500}"
     },
     {
       "name": "Dependency warning",
       "kind": "custom",
       "description": "A specific unresolved requirement near the action it constrains.",
-      "html": "<div class=\"ds-warning\">The appointment filing is outstanding. Review the filing sequence before approving this return.</div>",
-      "css": ".ds-warning{font:12px/1.65 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;background:#f8f5ed;color:#5f4c24;border:1px solid #e3d9c2;border-radius:3px;padding:14px 16px;max-width:70ch}"
+      "html": "<div class=\"ds-warning\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M12 3l9.5 17h-19zM12 10v4M12 17.5v.01\"/></svg>The appointment filing is outstanding. <a href=\"#filing\">View filing requirements</a></div>",
+      "css": ".ds-warning{font:14px/1.45 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#252b32;background:none;border:0;padding:0}.ds-warning svg{width:17px;height:17px;color:#5f4c24;vertical-align:-3px;margin-right:6px}.ds-warning a{font-size:13px;font-weight:500;color:#284b5c;text-decoration:none}.ds-warning a:focus-visible{outline:2px solid #346f99;outline-offset:3px}"
     }
   ],
   "narrative": {
@@ -87,16 +80,36 @@
       "Do keep dates, evidence, versions and independent states explicit where they affect a decision.",
       "Do use the existing spacing and type roles before introducing a new value.",
       "Do use narrow disclosures for secondary detail and keep material warnings visible.",
-      "Do verify a changed path at 390px, 768px and desktop widths, with keyboard focus and real-length sample content.",
+      "Do verify a changed path at desktop widths (1280px and 1440px), with keyboard focus and real-length sample content. Do not check phone or tablet widths; the application is desktop only.",
       "Do update this file when an approved visual rule changes, and keep product rules in DESIGN_SPEC.md."
     ],
     "donts": [
       "Don't reintroduce headline metric cards, decorative avatar discs, heading kickers or redundant panels into daily work.",
+      "Don't use middle dots, status dots, counts on tabs, yellow warning boxes, header fills or stacked section rules.",
       "Don't use colour alone, blanket completion labels or progress rings to imply compliance.",
       "Don't replace visible labels with placeholders or hide essential dates to make a narrow screenshot fit.",
       "Don't add a competing typeface, palette or navigation shell from archived B or C.",
       "Don't let editing convenience bypass review, signed-version history or event-based record changes.",
       "Don't ship the exploration switcher, role simulator or fictional data as production functionality."
+    ],
+    "keyCharacteristics": [
+      "Desktop only, validated at 1280px and 1440px",
+      "No top bar; account and sign out at the bottom of the navigation rail",
+      "Plain-text states and one value per table cell",
+      "One quiet warning line with an outlined icon",
+      "No navigation counts, middle-dot separators or filled table headers"
+    ],
+    "rules": [
+      {
+        "name": "Form placement",
+        "section": "layout",
+        "body": "Use a single-column default within640px,24px field gaps and48px between groups. Explicit pairs serve related dates, Role/From, document type/Layout and numeric limits. Use content-sized dates/numbers/references and wide names/addresses. Keep DOM and visual order aligned. Utility filters, margin controls and editing tables retain compact layouts."
+      },
+      {
+        "name": "Guided creation",
+        "section": "layout",
+        "body": "Owner selected guided sequence on 30 October 2026. Company, Job and Resolution creation use a numbered left step list, one mounted working section at a time, Back/Continue, and a final input Review with Change links. Validate before advancing, preserve entered values, and submit only from the final named action. Keep short in-place edits direct."
+      }
     ]
   }
 }

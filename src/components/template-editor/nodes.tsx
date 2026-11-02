@@ -123,7 +123,7 @@ function FieldChipView({ node, selected, getPos }: NodeViewProps) {
   const field = fields.find((item) => item.id === node.attrs.fieldId);
   const property = node.attrs.property ? PROPERTY_LABELS[node.attrs.property] : '';
   const text = field
-    ? field.label + (property ? ` · ${property}` : '')
+    ? field.label + (property ? `, ${property}` : '')
     : `Unknown field ${node.attrs.fieldId}`;
   return (
     <NodeViewWrapper
@@ -317,7 +317,7 @@ function ClauseSlotView({ node, getPos, selected }: NodeViewProps) {
     <NodeViewWrapper className={`template-atom clause-slot${selected ? ' selected' : ''}`}>
       <div contentEditable={false}>
         <BlockHeader
-          title={`Selected clauses · ${numbered ? 'numbered 1, 2, 3' : 'not numbered'}`}
+          title={`Selected clauses, ${numbered ? 'numbered 1, 2, 3' : 'not numbered'}`}
           getPos={getPos}
           editLabel="Edit numbering"
         />
@@ -365,7 +365,7 @@ function SignatureBlockView({ node, getPos, selected }: NodeViewProps) {
     <NodeViewWrapper className={`template-atom signature-slot${selected ? ' selected' : ''}`}>
       <div contentEditable={false}>
         <BlockHeader
-          title={`Signatures · ${ROLE_LABELS[node.attrs.role] || node.attrs.role}${node.attrs.heading ? ` · “${node.attrs.heading}”` : ''}`}
+          title={`Signatures, ${ROLE_LABELS[node.attrs.role] || node.attrs.role}${node.attrs.heading ? `, “${node.attrs.heading}”` : ''}`}
           getPos={getPos}
           editLabel="Edit signatures"
         />

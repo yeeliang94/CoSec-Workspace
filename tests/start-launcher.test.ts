@@ -41,6 +41,11 @@ const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const command = process.argv.slice(2).join(' ');
 fs.appendFileSync('commands', command + '\\n');
+if (process.env.CHECK_WEB_STORAGE) {
+  let storage;
+  try { storage = typeof globalThis.localStorage; } catch { storage = 'unavailable'; }
+  fs.appendFileSync('storage-checks', JSON.stringify({ command, storage, options: process.env.NODE_OPTIONS }) + '\\n');
+}
 if (command === 'run build') {
   fs.mkdirSync('.next', { recursive: true });
   fs.writeFileSync('.next/BUILD_ID', 'fixture');
@@ -90,6 +95,33 @@ afterEach(async () => {
 
 // The fixture uses POSIX executables and process groups. Windows needs a native smoke test.
 describe.skipIf(process.platform === 'win32')('one-step launcher', () => {
+  it('disables server Web Storage for setup, app and worker while preserving other Node options', async () => {
+    const { root } = fixture();
+    const child = launch(root, {
+      CHECK_WEB_STORAGE: '1',
+      NODE_OPTIONS: '--experimental-webstorage --trace-warnings',
+    });
+    await waitFor(listening);
+    await stop(child);
+    const checks = readFileSync(join(root, 'storage-checks'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(checks.map((check) => check.command)).toEqual(
+      expect.arrayContaining([
+        'run db:migrate',
+        'run db:seed',
+        'run build',
+        'run start',
+        'run worker',
+      ]),
+    );
+    for (const check of checks) {
+      expect(check.storage).toBe('undefined');
+      expect(check.options).toContain('--trace-warnings');
+    }
+  });
+
   it('rejects MySQL settings before rewriting the old auth URL or migrating', async () => {
     const { root } = fixture();
     const settings =

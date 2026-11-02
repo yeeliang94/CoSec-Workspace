@@ -244,7 +244,7 @@ function personLine(person: PersonSnapshot) {
     person.appointedOn ? `appointed ${formatDate(person.appointedOn)}` : '',
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
 }
 
 function PersonPicker({
@@ -367,7 +367,7 @@ function OrderedPeople({
                 </button>
                 <button
                   type="button"
-                  className="quiet danger"
+                  className="quiet"
                   aria-label={`Remove ${name(id)} from ${labelText}`}
                   onClick={() => onChange(value.filter((v) => v !== id))}
                 >

@@ -1,48 +1,55 @@
 'use client';
 import type { ResolvedDocument } from '@/domain/resolution/model';
-import { postJson, type Issue } from './api';
+import { getJson, postJson, type ClausesResponse, type Issue, type IssueField } from './api';
 import type { CaseApi } from './case-workspace';
 import { DocumentPreview } from './document-preview';
 import { LoadState, useLoad } from './use-load';
 
+type Preview = { resolved: ResolvedDocument | null; issues: Issue[]; fields: IssueField[] };
+
 export function CasePreview({ api }: { api: CaseApi }) {
-  const id = api.detail.case.id;
-  const load = useLoad(
-    () =>
+  const item = api.detail.case;
+  const hasSelection = Boolean(item.selection);
+  // Nothing to preview until a layout is chosen; asking the server would only return an error.
+  const load = useLoad<Preview | null>(async () => {
+    if (!hasSelection) return null;
+    const [preview, clauses] = await Promise.all([
       postJson<{ resolved: ResolvedDocument | null; issues: Issue[] }>(
-        `/api/resolution-cases/${id}/preview`,
+        `/api/resolution-cases/${item.id}/preview`,
         {},
       ),
-    [id, api.detail.case.revision],
-  );
-  // Before any wording is chosen there is nothing to preview: that is the next step, not an error.
-  if (!api.detail.case.selection)
-    return (
-      <section aria-labelledby="case-preview">
-        <h2 id="case-preview">4. Preview</h2>
-        <p className="muted">No preview yet</p>
-      </section>
-    );
+      // The form names each field, so issues can be phrased against what the reader sees.
+      getJson<ClausesResponse>(`/api/resolution-cases/${item.id}/clauses`).catch(() => null),
+    ]);
+    const form = clauses?.form;
+    const fields: IssueField[] = form
+      ? [...form.shared, ...form.clauses.flatMap((c) => c.fields)].map((f) => ({
+          id: f.id,
+          label: f.label,
+          valueType: f.valueType,
+          source: f.source as IssueField['source'],
+        }))
+      : [];
+    return { ...preview, fields };
+  }, [item.id, item.revision, hasSelection]);
   return (
     <section aria-labelledby="case-preview">
       <div className="page-header section-header">
         <h2 id="case-preview">4. Preview</h2>
-        <button type="button" onClick={() => void load.reload()} disabled={load.loading}>
-          {load.loading ? 'Refreshing…' : 'Refresh preview'}
-        </button>
+        {hasSelection ? (
+          <button type="button" onClick={() => void load.reload()} disabled={load.loading}>
+            {load.loading ? 'Refreshing…' : 'Refresh preview'}
+          </button>
+        ) : null}
       </div>
-      <dl className="record-meta">
-        <div>
-          <dt>Answers</dt>
-          <dd>Last saved</dd>
-        </div>
-        <div>
-          <dt>Records</dt>
-          <dd>Current</dd>
-        </div>
-      </dl>
-      {load.data ? (
-        <DocumentPreview document={load.data.resolved} issues={load.data.issues} />
+      {!hasSelection ? (
+        <p className="metadata">The preview appears once a layout is chosen in step 2.</p>
+      ) : load.data ? (
+        <DocumentPreview
+          document={load.data.resolved}
+          issues={load.data.issues}
+          fields={load.data.fields}
+        />
       ) : (
         <LoadState
           loading={load.loading}

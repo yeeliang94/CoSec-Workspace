@@ -22,12 +22,12 @@ export function OutputTypes({
   return (
     <section aria-labelledby="output-types">
       <h2 id="output-types" className="sr-only">
-        Output types
+        Document types
       </h2>
       {!creating ? <ActionFeedback error={action.error} status={action.status} /> : null}
       <div className="table-wrap">
-        <table>
-          <caption className="sr-only">Output types</caption>
+        <table className="library-table">
+          <caption className="sr-only">Document types</caption>
           <thead>
             <tr>
               <th>Document type</th>
@@ -45,7 +45,7 @@ export function OutputTypes({
                 <td>
                   <button
                     type="button"
-                    className="quiet"
+                    className="quiet table-action"
                     aria-label={`${type.active ? 'Deactivate' : 'Activate'} ${type.name}`}
                     onClick={async () => {
                       const ok = await action.run(

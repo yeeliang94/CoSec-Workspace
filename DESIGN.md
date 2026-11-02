@@ -139,13 +139,35 @@ components:
 
 ## Overview
 
-**Approved direction: Option A Workbench, selected by the product owner on 22 October 2026.** This is the visual authority for new screens and refinements. The token frontmatter defines normative values; the prose explains their application. Read [DESIGN_SPEC.md](DESIGN_SPEC.md) for product boundaries, workflow states, permissions and acceptance scenarios.
+**Approved direction: Option A Workbench, selected by the product owner on 22 October 2026, with the refinements of 30 October 2026 (see [Refresh rules](#refresh-rules-30-october-2026)).** This is the visual authority for new screens and refinements. Where an older paragraph below conflicts with the refresh rules, the refresh rules win. The token frontmatter defines normative values; the prose explains their application. Read [DESIGN_SPEC.md](DESIGN_SPEC.md) for product boundaries, workflow states, permissions and acceptance scenarios.
 
 The interface serves an internal professional services team working through company records, documents and statutory obligations. Its character is restrained, precise and familiar. Companies, next actions, deadlines and responsible staff carry the hierarchy. Consistent alignment and readable detail matter more than visual novelty.
 
 Use one visual system throughout resolutions, company files, people, documents, templates and settings. Options B and C remain archived explorations; they do not authorise alternative palettes or navigation shells. A useful interaction from an archive can be adapted within A's system when the task warrants it.
 
 The current reference is [prototype/index.html](prototype/index.html). Aster and the sample records are fictional fixtures. Archived B/C and comparison-tool colours remain outside this approved palette; do not promote them into A to silence an advisory scan. The role selector, demo label and design-reference link support evaluation and do not define production authentication or navigation.
+
+## Refresh rules (30 October 2026)
+
+These rules came out of the owner's review of the redesigned My work, Company record, Job detail and Resolution builder screens. They apply to every screen.
+
+- **Desktop only.** The application is used on desktop computers only. Design and validate at desktop widths (1280px and wider). Do not design, build or check phone or tablet layouts.
+- **No top bar.** Pages start directly with the page title. The firm name, breadcrumbs and date are not shown. The signed-in person and Sign out sit at the bottom of the navigation rail.
+- **Quiet page headers.** A page or record header holds the title and, for a company, its registration number only. Do not add subtitles, helper text, metadata rows or micro tags under titles. Secondary facts (legal status, engagement, owner, dates) go in a labelled details panel.
+- **No counts on navigation.** Filter tabs, section tabs, sidebar items and group headings never show counts. A single results line such as "9 jobs" may sit beside the toolbar.
+- **No middle dots.** Never use "·" as a separator. Write the relationship in words, or use a comma, colon or parentheses: "Annual return 2026", "20 Oct (2 days overdue)", "Director (proposed)".
+- **Plain-text status.** States are plain text in their own column or labelled field. No dots, pills, badges or coloured boxes. Red is only for blocked or overdue, green only for evidenced readiness; everything else uses the normal text colour.
+- **One line per cell.** Table cells hold one value. Do not stack a second line of metadata under a value; give it its own column instead. The work table columns are Company, Registration no., Job, Status, Next action, Due, Owner.
+- **Grouped work list.** When sorted by due date, My work is grouped under plain headings: Overdue, Due this week, Later. Headings are 15px semibold with whitespace above and no rule.
+- **Subtle separation.** Sections are separated by whitespace, not rules (about 48–56px between sections in a column). Section headings are 17px semibold with no underline; a section link may sit on the right of the heading line. Tables have no header fill: muted 12px column names with one hairline under them, and hairlines between rows. Avoid stacking rules.
+- **One left edge.** The first table column and the last table column are flush with the section edges, so headings, column names, row text, tabs and toolbars share one left edge.
+- **Record layout.** Company and Job pages share one layout: title, optional one-line note, horizontal tabs, then a main column and a details panel separated by a single hairline (48px gap, 40px panel padding). Tables in the same column share the same column widths.
+- **Warnings as one quiet line.** A material issue is one line of normal text with the outlined warning icon in front and a section link at the end. No yellow box, fill, border or heavy rule. Use the red icon only for a true blocker.
+- **Three action tiers.** (1) Primary button, filled, at most one per page header. (2) Secondary button, white with a grey outline, for other actions that change something. (3) Section link, 13px medium in the primary colour with a small chevron, for going somewhere or opening related detail. Record names in tables and lists stay plain semibold links.
+- **Disclosures.** A collapsible section's label uses the section-link style (13px medium, primary colour) followed by a small down chevron that turns upward when open. Never show the browser's default triangle marker.
+- **Forms without boxes.** Checkbox and radio options are hairline-separated rows, not bordered cards. A field that depends on an option (for example a signing limit) appears under that option, indented to its text, only while it is selected. Avoid helper text; show outstanding questions with icons in the step or clause list.
+- **Dates and titles.** Dates read "5 Nov 2026" (no leading zero, three-letter month, "Sep" not "Sept"); timestamps read "5 Nov 2026, 14:30" in Kuala Lumpur time with no zone suffix. Every page title names the page first: "Companies – CoSec Workspace" (en dash).
+- **One name per destination.** The template library is "Templates", with the tabs Wording, Layouts and Document types; an item is "wording" ("New wording"). Links to another page from a page header are section links, not outlined buttons. In-section form saves are secondary buttons.
 
 ## Colors
 
@@ -157,7 +179,7 @@ The palette combines white working surfaces, a slate-navy navigation rail and on
 - **Navigation:** a dark, stable anchor with tinted text and a restrained selected fill. Use the same rail across all approved screens.
 - **Danger:** overdue dates, blockers and actionable errors. Keep the condition written out.
 - **Success:** evidenced readiness or positive states. Approval, effective records and filing outcomes still retain their independent meanings.
-- **Warning:** a low-contrast amber surface with dark readable text for a material dependency or unresolved requirement. Show the specific issue rather than a generic warning heading.
+- **Warning:** the warning colour is used for the outlined warning icon in front of a one-line note. Show the specific issue rather than a generic warning heading; do not use a filled warning box.
 
 Routine preparing, waiting and review labels stay neutral. Colour supplements language. Maintain at least 4.5:1 text contrast for normal text and 3:1 for applicable large text; evaluate actual adjacent colours and states before shipping a change.
 
@@ -177,7 +199,7 @@ Preserve full legal names where practical. Allow wrapping in record links and lo
 
 ### Application shell
 
-The desktop reference has a fixed 208px left rail, a 58px top bar and a content width capped at 1540px. The main content inset is 30px above and 32px at the sides. At widths up to 1100px the rail reduces to 184px and the side inset to 24px. At widths up to 900px, replace the rail with labelled compact navigation. At widths up to 650px, use 16px side insets and stacked working regions.
+The desktop reference has a fixed 208px left rail, no top bar and a content width capped at 1540px. The main content inset is 30px above and 32px at the sides. The application is desktop only; there is no phone or tablet layout to maintain.
 
 Use one page heading and one primary action in a working region. Align headings, filters, search and record content to the same left edge. The navigation order is Resolutions, Companies, People and Documents, with Settings at the foot. (Since 1 November 2026; the work queue, Reviews, Calendar and Billing were removed when the app narrowed to resolutions.) Administration and future screens must retain the shell rather than introduce a new visual world.
 
@@ -185,15 +207,23 @@ Use one page heading and one primary action in a working region. Align headings,
 
 The daily work table and job cases were removed on 1 November 2026; the rules in this section and the next apply if a work list returns. The daily work table uses Company, Job, Next action, Due and Owner. The company link opens its file; the job link opens the case. State appears beneath the job title. Responsible staff are identified by name. A registration number is supporting identity, not a decorative code.
 
-Use small counts inside filters rather than a separate metric-card row. The reference column proportions are 27%, 24%, 25%, 11% and 13%; allow content-driven adjustment. Desktop cells have 16px vertical and 15px horizontal padding. Rows grow to fit names and actions; do not force a clipped fixed height.
+Filters carry no counts and there is no metric-card row. Allow content-driven column widths. Desktop cells have 16px vertical and 15px horizontal padding, with the first and last cells flush to the section edge. Rows grow to fit names and actions; do not force a clipped fixed height.
 
-Below 650px, the work table becomes a single stacked list. Keep company, due date, job, next action, state and owner visible together. Other genuinely dense tables can scroll within their own region. The page itself must not overflow horizontally.
+Genuinely dense tables can scroll within their own region. The page itself must not overflow horizontally at desktop widths.
 
 ### Detail and forms
 
 A case drawer is 650px wide at desktop sizes and fills the available width on phones. Keep its header, section navigation and actions fixed within the drawer while the body scrolls. Use a full working page for complex editing rather than putting an entire case into a small modal.
 
 Group form fields by the decision they support. Two-column groups can collapse to a single column on phones. Retain visible labels and entered values after validation. Show optional detail on demand while keeping the next action, blocker and operative due date immediately visible.
+
+The owner selected the guided sequence from [the form layout prototype](prototype/form-layout-review.html?variant=steps) on 30 October 2026. Company, Job and Resolution creation use a numbered left step list and one working section at a time, followed by Review. Continue validates required fields before advancing; Back and earlier steps retain entered values. The review lists the actual entered values and provides Change links. Creation happens only through the final named action. This input review does not establish professional approval or statutory completion. Short in-place edits and search/filter controls remain direct.
+
+Standard desktop forms follow a single vertical reading path within a 640px maximum measure, with 24px between fields and 48px between meaningful groups. Use an explicit pair only when the controls describe one closely related choice, such as Role/From, resolution/effective dates, document type/Layout or numeric Minimum/Maximum. Search and filter toolbars, page margins and editing tables retain their deliberate compact layouts. Do not rearrange controls visually with CSS; keyboard order follows the displayed order.
+
+Keep names, addresses and narrative answers wide. Dates, numbers, registration references and compound year-end controls use widths suited to their expected content. Align labels above their controls and let the parent grid own spacing; do not add margins between labels inside a grid. Use 13px medium labels, including legends that label a compound field, and 14px regular control text with a 40px minimum height scaled by the text-size preference. Textareas have their own height. Dependent identity choices appear immediately below the name, before relationship details. Repeat visible labels on added person rows.
+
+These placement principles draw on [Carbon Forms](https://www.carbondesignsystem.com/building-blocks/core/patterns/forms), [GOV.UK Text inputs](https://design-system.service.gov.uk/components/text-input/) and [USWDS Form templates](https://designsystem.digital.gov/templates/form-templates/), reviewed 30 October 2026. The measurements above are CoSec's application of the guidance; retain Option A's palette and typography.
 
 ## Elevation & Depth
 
@@ -211,7 +241,7 @@ Allow a personal text-size preference using a shared scale over these typography
 
 Controls and ordinary panels use the control radius. Navigation items use a slightly tighter radius, while focused dialogs use the dialog radius. Avoid capsule-shaped containers around every state or count.
 
-Use a light single border on a field or panel where containment is needed. Warnings have a full subtle outline, without a thick coloured side rail. Related facts often need no outer box at all. Use the existing outlined SVG icon vocabulary with a consistent 17px size and 1.6 stroke; label actions unless the icon has a clear accessible name.
+Use a light single border on a field or panel where containment is needed. Warnings are a single line with an outlined icon, without a box, fill or coloured side rail. Related facts often need no outer box at all. Use the existing outlined SVG icon vocabulary with a consistent 17px size and 1.6 stroke; label actions unless the icon has a clear accessible name.
 
 ## Components
 
@@ -223,7 +253,7 @@ Use specific action names such as New job, Review v3, Return pack and Record sub
 
 ### Filters and tables
 
-Filters use plain labels, small counts and a selected underline. Search and sorting live in a compact toolbar. Provide an accessible name with the count, a clear selected state and a reset path. Keep filter controls in a horizontally scrollable strip when needed; never make the whole page scroll sideways.
+Filters use plain labels and a selected underline, without counts. Search and sorting live in a compact toolbar. Provide an accessible name with the count, a clear selected state and a reset path. Keep filter controls in a horizontally scrollable strip when needed; never make the whole page scroll sideways.
 
 Tables use semantic column headers and captions, quiet row rules and a subtle hover surface. The row contains separate actionable company and job links. Avoid making the entire row a competing click target. Preserve list context when a case drawer closes. Use skeletons for real loading, a first-use action for a new workspace, and No matching jobs with Clear filters for a filtered empty result.
 
@@ -262,12 +292,13 @@ Use a status live region for brief action results. Keep missing evidence and unr
 - Do run `npm run check:design` after stylesheet changes; it rejects raw colours and text sizes outside these roles.
 - Do open create and edit forms in the side drawer, and keep the page header to one back link, the title and its actions.
 - Do use narrow disclosures for secondary detail and keep material warnings visible.
-- Do verify a changed path at 390px, 768px and desktop widths, with keyboard focus and real-length sample content.
+- Do verify a changed path at desktop widths (1280px and 1440px), with keyboard focus and real-length sample content. Do not check phone or tablet widths; the application is desktop only.
 - Do update this file when an approved visual rule changes, and keep product rules in DESIGN_SPEC.md.
 
 ### Don't
 
 - Don't reintroduce headline metric cards, decorative avatar discs, heading kickers or redundant panels into daily work.
+- Don't use middle dots, status dots, counts on tabs, yellow warning boxes, header fills or stacked section rules.
 - Don't use colour alone, blanket completion labels or progress rings to imply compliance.
 - Don't replace visible labels with placeholders or hide essential dates to make a narrow screenshot fit.
 - Don't add a competing typeface, palette or navigation shell from archived B or C.

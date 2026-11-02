@@ -7,8 +7,8 @@ import type { AuditEntryView } from '@/domain/resolution/records';
 import {
   currentDate,
   Empty,
+  auditActionLabel,
   formatDate,
-  humanize,
   Icon,
   PageHeader,
   useWorkspace,
@@ -56,6 +56,7 @@ function PeopleDirectory() {
   }, [search, companyId]);
   if (!data) return null;
   const canManage = data.actor.capabilities.includes('manage_people');
+  const reviewColumn = Boolean(people.data?.people.some((person) => person.migrationNote));
   const companyName = (id: string) => data.companies.find((c) => c.id === id)?.name || 'Company';
   return (
     <>
@@ -122,6 +123,7 @@ function PeopleDirectory() {
                     <th>Name</th>
                     <th>Relationships</th>
                     <th>Email</th>
+                    {reviewColumn ? <th>Identity</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -135,17 +137,14 @@ function PeopleDirectory() {
                         >
                           {person.fullName}
                         </button>
-                        {person.migrationNote ? (
-                          <div className="metadata">Needs identity review</div>
-                        ) : null}
                       </td>
                       <td data-label="Relationships">
                         {person.relationships.length ? (
                           <ul className="compact-list">
                             {person.relationships.map((r) => (
                               <li key={r.id}>
-                                {companyName(r.companyId)} · {roleName(r.role)}
-                                {r.endDate ? ` · ended ${formatDate(r.endDate)}` : ''}
+                                {companyName(r.companyId)}, {roleName(r.role)}
+                                {r.endDate ? `, ended ${formatDate(r.endDate)}` : ''}
                               </li>
                             ))}
                           </ul>
@@ -154,6 +153,9 @@ function PeopleDirectory() {
                         )}
                       </td>
                       <td data-label="Email">{person.email || '—'}</td>
+                      {reviewColumn ? (
+                        <td data-label="Identity">{person.migrationNote ? 'Needs review' : ''}</td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -270,11 +272,21 @@ function PersonDrawer({
   return (
     <Drawer title={person?.fullName || 'Person'} onClose={onClose}>
       <LoadState
-        loading={load.loading && !load.data}
+        loading={false}
         error={load.error}
         reload={() => void load.reload()}
         label="person"
       />
+      {load.loading && !load.data && !load.error ? (
+        <div className="loading person-skeleton" role="status" aria-busy="true">
+          <div className="skeleton short" />
+          <div className="skeleton heading" />
+          <div className="skeleton" />
+          <div className="skeleton" />
+          <div className="skeleton short" />
+          <span className="sr-only">Loading person</span>
+        </div>
+      ) : null}
       {person && data ? (
         <>
           <dl className="record-meta">
@@ -299,7 +311,7 @@ function PersonDrawer({
                         <dt>Role</dt>
                         <dd>
                           {roleName(r.role)}
-                          {r.capacity ? ` · ${r.capacity}` : ''}
+                          {r.capacity ? `, ${r.capacity}` : ''}
                         </dd>
                       </div>
                       <div>
@@ -329,7 +341,7 @@ function PersonDrawer({
                   <li key={i}>
                     {entry.name}
                     <p className="metadata">
-                      Until {formatDate(entry.until)} · {entry.reason}
+                      Until {formatDate(entry.until)}, {entry.reason}
                     </p>
                   </li>
                 ))}
@@ -350,8 +362,7 @@ function PersonDrawer({
                       <dd>
                         {String(current?.value ?? '—')}
                         <span className="metadata">
-                          {' '}
-                          · from {formatDate(current?.effectiveDate)}
+                          , from {formatDate(current?.effectiveDate)}
                         </span>
                       </dd>
                     </div>
@@ -385,10 +396,10 @@ function PersonDrawer({
             <ul className="list-plain">
               {load.data!.audit.map((entry) => (
                 <li key={entry.id}>
-                  {humanize(entry.action)}
+                  {auditActionLabel(entry.action)}
                   <p className="metadata">
-                    {entry.actorName} · {formatDate(entry.at)}
-                    {entry.reason ? ` · ${entry.reason}` : ''}
+                    {entry.actorName}, {formatDate(entry.at)}
+                    {entry.reason ? `, ${entry.reason}` : ''}
                   </p>
                 </li>
               ))}
@@ -465,10 +476,6 @@ function PersonEdit({
               onChange={(event) => setForm({ ...form, fullName: event.target.value })}
             />
           </label>
-          <details className="advanced-filters">
-            <summary>Name changes</summary>
-            <p>Earlier documents keep the name they were generated with.</p>
-          </details>
           <label>
             Email
             <input

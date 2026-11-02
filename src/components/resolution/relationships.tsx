@@ -1,6 +1,6 @@
 'use client';
 import { canLeaveEditing } from '@/components/edit-guard';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import type {
   CompanyRelationship,
@@ -105,6 +105,7 @@ export function CompanyRelationships({
       {load.data ? (
         <>
           <RelationshipTable
+            key={asAt}
             rows={sorted.filter(active)}
             companyId={companyId}
             canManage={canManage && asAt === currentDate()}
@@ -306,6 +307,7 @@ function AddRelationship({
 }) {
   const { data } = useWorkspace();
   const people = useLoad(() => getJson<{ people: Person[] }>('/api/people'), []);
+  const creationRequest = useRef<{ name: string; requestId: string } | null>(null);
   const action = useAction();
   const [form, setForm] = useState({
     person: emptyPick(),
@@ -327,21 +329,34 @@ function AddRelationship({
     <Drawer title="Add a person" onClose={onClose}>
       <form
         className="form-grid"
+        inert={action.pending}
+        aria-busy={action.pending}
         data-dirty={dirty ? 'true' : 'false'}
         onSubmit={async (event) => {
           event.preventDefault();
           const ok = await action.run(async () => {
             const pick = resolvePick(people.data?.people ?? [], form.person);
-            const personId =
-              'personId' in pick
-                ? pick.personId
-                : (
-                    await postJson<Person>('/api/people', {
-                      action: 'create',
-                      requestId: newRequestId(),
-                      fullName: pick.fullName,
-                    })
-                  ).id;
+            let personId: string;
+            if ('personId' in pick) personId = pick.personId;
+            else {
+              // A retry after a failed link must reuse the person this attempt already created.
+              if (creationRequest.current?.name !== pick.fullName)
+                creationRequest.current = { name: pick.fullName, requestId: newRequestId() };
+              const person = await postJson<Person>('/api/people', {
+                action: 'create',
+                requestId: creationRequest.current.requestId,
+                fullName: pick.fullName,
+              });
+              personId = person.id;
+              people.setData((current) => ({
+                people: [...(current?.people ?? []).filter((p) => p.id !== person.id), person],
+              }));
+              setForm((current) => ({
+                ...current,
+                person: { name: person.fullName, choice: person.id },
+              }));
+              creationRequest.current = null;
+            }
             return postJson(`/api/companies/${companyId}/relationships`, {
               action: 'add',
               requestId: newRequestId(),
@@ -426,7 +441,7 @@ function AddRelationship({
           </fieldset>
         ) : null}
         <div className="full form-footer">
-          <ActionFeedback error={action.error} status={action.status} />
+          <ActionFeedback error={action.error || people.error} status={action.status} />
           <div className="actions">
             <button className="primary" disabled={action.pending}>
               Add person

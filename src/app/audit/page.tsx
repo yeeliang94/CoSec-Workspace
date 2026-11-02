@@ -2,7 +2,15 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { AuditEntryView } from '@/domain/resolution/records';
-import { Empty, humanize, Icon, PageHeader, useWorkspace } from '@/components/workspace';
+import {
+  Empty,
+  Icon,
+  PageHeader,
+  auditActionLabel,
+  formatDate,
+  sentenceCase,
+  useWorkspace,
+} from '@/components/workspace';
 import { download, errorText, getJson } from '@/components/resolution/api';
 
 const ENTITY_TYPES = [
@@ -11,26 +19,27 @@ const ENTITY_TYPES = [
   ['company_profile', 'Company profile'],
   ['record_field', 'Custom field definition'],
   ['resolution_case', 'Resolution'],
-  ['clause_template', 'Clause'],
-  ['clause_version', 'Clause version'],
-  ['assembly', 'Assembly'],
-  ['assembly_version', 'Assembly version'],
-  ['output_type', 'Output type'],
+  ['clause_template', 'Wording'],
+  ['clause_version', 'Wording version'],
+  ['assembly', 'Layout'],
+  ['assembly_version', 'Layout version'],
+  ['output_type', 'Document type'],
   ['document_generation', 'Generated document'],
   ['audit', 'Audit export'],
   ['user', 'User'],
 ] as const;
 
-const klTime = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Kuala_Lumpur',
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
+function entityLabel(type: string | null | undefined) {
+  if (!type) return '—';
+  return ENTITY_TYPES.find(([value]) => value === type)?.[1] || sentenceCase(type);
+}
+
+function fieldLabel(path: string) {
+  return path
+    .split('.')
+    .map((part, index) => (index ? sentenceCase(part).toLowerCase() : sentenceCase(part)))
+    .join(', ');
+}
 
 type Filters = {
   companyId: string;
@@ -98,7 +107,7 @@ export default function AuditPage() {
     return (
       <>
         <PageHeader title="Audit log" />
-        <Empty>You do not have access to the audit log.</Empty>
+        <Empty>Not available</Empty>
       </>
     );
   const set = (key: keyof Filters, value: string) => setFilters({ ...filters, [key]: value });
@@ -143,7 +152,7 @@ export default function AuditPage() {
         ) : null}
       </PageHeader>
       <form
-        className="toolbar audit-filters"
+        className="form-grid audit-filters"
         onSubmit={(event) => {
           event.preventDefault();
           void search(filters);
@@ -194,21 +203,23 @@ export default function AuditPage() {
           To
           <input type="date" value={filters.to} onChange={(e) => set('to', e.target.value)} />
         </label>
-        <button className="primary" disabled={loading}>
-          Apply filters
-        </button>
-        {JSON.stringify(filters) !== JSON.stringify(empty) ? (
-          <button
-            type="button"
-            className="quiet"
-            onClick={() => {
-              setFilters(empty);
-              void search(empty);
-            }}
-          >
-            Clear filters
+        <div className="actions full">
+          <button className="primary" disabled={loading}>
+            Apply filters
           </button>
-        ) : null}
+          {JSON.stringify(filters) !== JSON.stringify(empty) ? (
+            <button
+              type="button"
+              className="quiet"
+              onClick={() => {
+                setFilters(empty);
+                void search(empty);
+              }}
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </form>
       {error ? (
         <div className="feedback error" role="alert">
@@ -230,12 +241,16 @@ export default function AuditPage() {
             <caption className="sr-only">Audit entries, newest first</caption>
             <thead>
               <tr>
-                <th>Time (Malaysia, UTC+8)</th>
+                <th>Time</th>
                 <th>Actor</th>
                 <th>Company</th>
                 <th>Action</th>
                 <th>Record</th>
+                <th>Reference</th>
                 <th>Reason</th>
+                <th>
+                  <span className="sr-only">Details</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -244,13 +259,13 @@ export default function AuditPage() {
                 return (
                   <Fragment key={entry.id}>
                     <tr>
-                      <td className="nowrap">
-                        <time dateTime={entry.at}>{klTime.format(new Date(entry.at))}</time>
+                      <td className="nowrap tabular">
+                        <time dateTime={entry.at}>{formatDate(entry.at, { seconds: true })}</time>
                       </td>
                       <td>{entry.actorName}</td>
                       <td>{entry.companyName || '—'}</td>
                       <td>
-                        {humanize(entry.action)}
+                        {auditActionLabel(entry.action)}
                         {entry.changes.length || entry.summary ? (
                           <div>
                             <button
@@ -275,16 +290,35 @@ export default function AuditPage() {
                         ) : null}
                       </td>
                       <td>
-                        {entry.entityType ? humanize(entry.entityType) : '—'}
+                        {entityLabel(entry.entityType)}
                         <div className="metadata">
                           <code>{entry.entityId.slice(0, 12)}</code>
                         </div>
                       </td>
                       <td>{entry.reason || '—'}</td>
+                      <td className="nowrap">
+                        {entry.changes.length || entry.summary ? (
+                          <button
+                            type="button"
+                            className="text-button"
+                            aria-expanded={expanded}
+                            aria-label={`${expanded ? 'Hide' : 'Show'} details, ${auditActionLabel(entry.action)}`}
+                            onClick={() =>
+                              setOpen(
+                                expanded
+                                  ? open.filter((id) => id !== entry.id)
+                                  : [...open, entry.id],
+                              )
+                            }
+                          >
+                            {expanded ? 'Hide details' : 'Show details'}
+                          </button>
+                        ) : null}
+                      </td>
                     </tr>
                     {expanded ? (
                       <tr className="audit-changes">
-                        <td colSpan={6}>
+                        <td colSpan={8}>
                           {entry.summary ? <p>{entry.summary}</p> : null}
                           {entry.changes.length ? (
                             <table>
@@ -299,9 +333,7 @@ export default function AuditPage() {
                               <tbody>
                                 {entry.changes.map((change, i) => (
                                   <tr key={i}>
-                                    <td>
-                                      <code>{change.path}</code>
-                                    </td>
+                                    <td title={change.path}>{fieldLabel(change.path)}</td>
                                     <td className="change-value">{show(change.before)}</td>
                                     <td className="change-value">{show(change.after)}</td>
                                   </tr>

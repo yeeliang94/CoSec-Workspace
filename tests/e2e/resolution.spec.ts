@@ -88,7 +88,7 @@ test('author writes a clause with a bound value, reused question and two wording
   const form = page.getByRole('dialog', { name: 'New paragraph', exact: true });
   await form.getByLabel('Name').fill(clauseName);
   await form.getByLabel('Category').selectOption('Dividend');
-  await form.getByRole('button', { name: 'Create clause' }).click();
+  await form.getByRole('button', { name: 'Create wording' }).click();
   await page.waitForURL(/\/templates\/clauses\//);
   clauseUrl = new URL(page.url()).pathname;
   await expect(page.getByRole('heading', { name: clauseName })).toBeVisible();
@@ -121,7 +121,7 @@ test('author writes a clause with a bound value, reused question and two wording
   await page.locator('.template-canvas .tiptap').click();
   await page.keyboard.type('The members note a fee of ');
   await insertExisting(page, 'Fee amount');
-  await expect(page.locator('.template-inspector').getByText('Fields (4)')).toBeVisible();
+  await expect(page.locator('.template-inspector .field-list > li')).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByLabel('Source or basis of wording').fill('Fictional E2E wording, not approved');
@@ -149,7 +149,7 @@ test('author writes a clause with a bound value, reused question and two wording
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await page.getByRole('button', { name: 'Submit v1 for review' }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v1 · In review');
+  await expect(page.locator('.lifecycle-state')).toContainText('v1, In review');
   await expect(page.getByText('Waiting for review by a different person.')).toBeVisible();
 });
 
@@ -162,7 +162,7 @@ test('a different admin publishes the clause', async ({ page }) => {
   await expect(page.locator('.diff-summary')).toContainText('First version');
   await page.getByLabel('I have reviewed these changes and the sample preview').check();
   await page.getByRole('button', { name: 'Publish v1' }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v1 · Published');
+  await expect(page.locator('.lifecycle-state')).toContainText('v1, Published');
 });
 
 test('preparer assembles, answers, previews and generates a Word document', async ({ page }) => {
@@ -175,6 +175,8 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   const form = page.getByRole('dialog', { name: 'New resolution', exact: true });
   await form.getByLabel('Company').selectOption(companyId);
   await form.getByLabel('Title').fill(caseTitle);
+  await form.getByRole('button', { name: 'Continue', exact: true }).click();
+  await form.getByRole('button', { name: 'Review details', exact: true }).click();
   await form.getByRole('button', { name: 'Create resolution' }).click();
   await page.waitForURL(/\/resolutions\/[^/]+$/);
   await expect(page.getByRole('heading', { name: caseTitle })).toBeVisible();
@@ -183,7 +185,7 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByLabel('Document type').selectOption({ label: "Directors' written resolution" });
   const assembly = page.getByLabel('Layout');
   const option = await assembly
-    .locator('option', { hasText: /^Directors' written resolution · v/ })
+    .locator('option', { hasText: /^Directors' written resolution v/ })
     .first()
     .getAttribute('value');
   await assembly.selectOption(option!);
@@ -193,11 +195,11 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   const selected = page.locator('.selected-clause-list > li');
   for (const name of [clauseName, 'Appointment of auditors', 'General business']) {
     const before = await selected.count();
-    await page.getByLabel('Search standard wording').fill(name);
+    await page.getByLabel('Search wording').fill(name);
     await page.getByRole('button', { name: `Add ${name}`, exact: true }).click();
     await expect(selected).toHaveCount(before + 1);
   }
-  await page.getByLabel('Search standard wording').fill('');
+  await page.getByLabel('Search wording').fill('');
   const names = () => selected.locator('.clause-meta strong').allTextContents();
   const order = await names();
   expect(order.slice(-3)).toEqual([clauseName, 'Appointment of auditors', 'General business']);
@@ -276,8 +278,8 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByRole('button', { name: 'Send for review', exact: true }).click();
   await expect(page.locator('.track-facts')).toContainText('With Daniel Tan for review');
   await expect(page.getByRole('button', { name: 'Send for review', exact: true })).toHaveCount(0);
-  // Without the #section part, so the reviewer's visit is a full page load.
-  const url = page.url().split('#')[0];
+  // Without the ?section= part, so the reviewer's visit is a full page load.
+  const url = page.url().split(/[?#]/)[0];
   await as(page, 'reviewer');
   await page.goto(url);
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
@@ -289,7 +291,7 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await as(page, 'owner');
   await page.goto(clauseUrl);
   await page.getByRole('button', { name: 'Create new version', exact: true }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v2 · Draft');
+  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
   await page.getByRole('tab', { name: /Directors' written resolution/ }).click();
   const canvas = page.locator('.template-canvas .tiptap');
   await canvas.click();
@@ -298,15 +300,15 @@ test('version-history links preserve a dirty draft when discard is cancelled', a
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v1', exact: true }).click();
   await answerPrompt(page, false);
-  await expect(page.locator('.lifecycle-state')).toContainText('v2 · Draft');
+  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
   await page.getByRole('button', { name: 'Wording', exact: true }).click();
   await expect(canvas).toContainText('Unsaved version-history regression.');
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v1', exact: true }).click();
   await answerPrompt(page, true);
-  await expect(page.locator('.lifecycle-state')).toContainText('v1 · Published');
+  await expect(page.locator('.lifecycle-state')).toContainText('v1, Published');
   await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('link', { name: 'v2', exact: true }).click();
-  await expect(page.locator('.lifecycle-state')).toContainText('v2 · Draft');
+  await expect(page.locator('.lifecycle-state')).toContainText('v2, Draft');
   await expect(canvas).not.toContainText('Unsaved version-history regression.');
 });

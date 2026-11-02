@@ -317,11 +317,24 @@ test('conditional fee questions and per-person inputs update before saving and r
   await expect(people).toHaveCount(0);
   await payable.selectOption('true');
   await expect(fee).toHaveValue('123.45');
+  // Saving a changed wording selection must not reset the answers being typed below it.
+  await page.getByRole('button', { name: 'Add General business', exact: true }).click();
+  await expect(page.locator('.selected-clause-list > li')).toHaveCount(2);
+  await expect(
+    page.getByRole('button', { name: 'Move General business up', exact: true }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Move General business up', exact: true }).click();
+  await expect(page.locator('.selected-clause-list > li').first()).toContainText(
+    'General business',
+  );
+  await expect(fee).toHaveValue('123.45');
+  await expect(payable).toHaveValue('true');
+  await expect(page.locator('.question-form')).toHaveAttribute('data-dirty', 'true');
   // UI derivation must not save the answers or advance the case revision.
   const stored: { case: ResolutionCase } = await (
     await page.request.get(`/api/resolution-cases/${item.id}`)
   ).json();
-  expect(stored.case.revision).toBe(item.revision);
+  expect(stored.case.revision).toBe(item.revision + 2);
   expect(stored.case.answers.clauses).toEqual({});
 });
 
