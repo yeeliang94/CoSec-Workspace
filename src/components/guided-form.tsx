@@ -174,7 +174,16 @@ export function GuidedForm({
               Back
             </button>
           ) : null}
-          <button type="submit" className="primary" disabled={pending}>
+          <button
+            type="submit"
+            className="primary"
+            disabled={pending}
+            onClick={(event) => {
+              // "Review details" becomes the final button in place, so the second click of a
+              // double-click must not count as confirming the Review step.
+              if (active === review && event.detail > 1) event.preventDefault();
+            }}
+          >
             {pending
               ? 'Saving…'
               : active === review
