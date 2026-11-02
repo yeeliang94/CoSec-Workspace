@@ -102,6 +102,12 @@ describe('carrying the retired share register into members', () => {
       .from(s.companyRelationships)
       .where(eq(s.companyRelationships.companyId, companyId));
     expect(rows.map((r) => r.role)).toEqual(['member', 'member', 'member']);
+    const personAudits = await writerDb
+      .select({ subjectId: s.auditEvents.subjectId })
+      .from(s.auditEvents)
+      .where(eq(s.auditEvents.action, 'person.carried_from_share_register'));
+    for (const person of [ann, ben, cat])
+      expect(personAudits.filter((row) => row.subjectId === person.id)).toHaveLength(1);
 
     const rc = await createCase(actor, {
       requestId: randomUUID(),
@@ -188,14 +194,12 @@ describe('carrying the retired share register into members', () => {
       .set({ data: { ...imported.data, endDate: '2026-03-01' }, revision: 2 })
       .where(eq(s.companyRelationships.id, imported.id));
     expect(await carry()).toEqual([]);
-    expect(
-      (
-        await writerDb
-          .select()
-          .from(s.companyRelationships)
-          .where(eq(s.companyRelationships.companyId, id))
-      ).length,
-    ).toBe(2);
-    expect(rows.find((row) => row.id === existingId)!.data.capacity).toBe('Recorded capacity');
+    const after = await writerDb
+      .select()
+      .from(s.companyRelationships)
+      .where(eq(s.companyRelationships.companyId, id));
+    expect(after).toHaveLength(2);
+    expect(after.find((row) => row.id === imported.id)!.data.endDate).toBe('2026-03-01');
+    expect(after.find((row) => row.id === existingId)!.data.capacity).toBe('Recorded capacity');
   });
 });

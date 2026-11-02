@@ -156,10 +156,22 @@ export async function carryRegisterMembers(companyId: string, tx: Transaction) {
       updatedAt: now,
       revision: 1,
     };
-    await tx
+    const inserted = await tx
       .insert(s.people)
       .values({ id: person.id, fullName: person.fullName, revision: 1, data: person })
-      .onConflictDoNothing({ target: s.people.id });
+      .onConflictDoNothing({ target: s.people.id })
+      .returning({ id: s.people.id });
+    if (inserted.length)
+      await auditChange(tx, systemActor, {
+        companyId: null,
+        scopeCompanyIds: [companyId],
+        entityType: 'person',
+        entityId: person.id,
+        action: 'person.carried_from_share_register',
+        before: null,
+        after: person,
+        detail: { source: 'share_register', companyId },
+      });
     const relationshipIds: string[] = [];
     for (const gap of uncovered) {
       const gapId = termId(companyId, gap);

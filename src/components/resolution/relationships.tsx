@@ -149,7 +149,7 @@ function RelationshipTable({
   const endingRow = rows.find((row) => row.id === ending?.id);
   const [endDate, setEndDate] = useState(currentDate());
   const [reason, setReason] = useState('');
-  const [cessation, setCessation] = useState<Cessation>('resignation');
+  const [cessation, setCessation] = useState<Cessation | ''>('');
   const action = useAction();
   if (!rows.length) return <p className="metadata">No one on record at this date.</p>;
   return (
@@ -195,7 +195,7 @@ function RelationshipTable({
                           setEnding({ id: row.id, initialEndDate: today });
                           setEndDate(today);
                           setReason('');
-                          setCessation('resignation');
+                          setCessation('');
                         }}
                       >
                         End
@@ -217,7 +217,7 @@ function RelationshipTable({
         >
           <form
             className="form-stack"
-            data-dirty={reason || endDate !== ending.initialEndDate ? 'true' : 'false'}
+            data-dirty={reason || cessation || endDate !== ending.initialEndDate ? 'true' : 'false'}
             onSubmit={async (event) => {
               event.preventDefault();
               const ok = await action.run(
@@ -252,9 +252,11 @@ function RelationshipTable({
               <label>
                 How the appointment ended
                 <select
+                  required
                   value={cessation}
                   onChange={(event) => setCessation(event.target.value as Cessation)}
                 >
+                  <option value="">Choose…</option>
                   {CESSATIONS.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
