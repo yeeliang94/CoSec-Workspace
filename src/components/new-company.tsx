@@ -1,6 +1,7 @@
 'use client';
 import { canLeaveEditing } from '@/components/edit-guard';
 import { useState } from 'react';
+import { Drawer } from './resolution/drawer';
 import { GuidedForm } from './guided-form';
 import type { Person, RelationshipRole } from '@/domain/resolution/model';
 import { INDUSTRIES, MONTHS } from '@/domain/company';
@@ -41,8 +42,7 @@ export function NewCompany({
   const update = (key: string, patch: Partial<Row>) =>
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   return (
-    <section className="form-section" style={{ marginTop: 0, marginBottom: 24 }}>
-      <h2>New company</h2>
+    <Drawer title="New company" onClose={onClose}>
       <GuidedForm
         submitLabel="Create company"
         pending={pending}
@@ -235,6 +235,6 @@ export function NewCompany({
           </div>
         ) : null}
       </GuidedForm>
-    </section>
+    </Drawer>
   );
 }

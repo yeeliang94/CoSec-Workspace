@@ -276,14 +276,14 @@ test('preparer assembles, answers, previews and generates a Word document', asyn
   await page.getByRole('button', { name: 'Prepare', exact: true }).click();
   await page.getByLabel('Reviewer').selectOption({ label: 'Daniel Tan' });
   await page.getByRole('button', { name: 'Send for review', exact: true }).click();
-  await expect(page.locator('.track-facts')).toContainText('With Daniel Tan for review');
+  await expect(page.locator('.facts.stacked')).toContainText('With Daniel Tan for review');
   await expect(page.getByRole('button', { name: 'Send for review', exact: true })).toHaveCount(0);
   // Without the ?section= part, so the reviewer's visit is a full page load.
   const url = page.url().split(/[?#]/)[0];
   await as(page, 'reviewer');
   await page.goto(url);
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
-  await expect(page.locator('.track-facts')).toContainText('Approved by Daniel Tan');
+  await expect(page.locator('.facts.stacked')).toContainText('Approved by Daniel Tan');
 });
 
 test('version-history links preserve a dirty draft when discard is cancelled', async ({ page }) => {

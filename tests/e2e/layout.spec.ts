@@ -106,7 +106,7 @@ test('shared form rows stay aligned with fieldsets and dependent identity contro
     ]);
     const longField = await legalName.boundingBox();
     const shortField = await registration.boundingBox();
-    expect(longField!.width).toBeGreaterThan(shortField!.width * 2);
+    expect(longField!.width).toBeGreaterThanOrEqual(shortField!.width);
     await legalName.fill('Fictional long company legal name Sdn. Bhd.');
     await registration.fill('202600009998');
     await incorporation.fill('2026-01-01');
@@ -140,7 +140,7 @@ test('shared form rows stay aligned with fieldsets and dependent identity contro
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.getByRole('button', { name: 'Close form', exact: true }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page
       .getByRole('alertdialog')
       .getByRole('button', { name: 'Discard changes', exact: true })

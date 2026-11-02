@@ -68,13 +68,13 @@ test('creation forms preserve meaningful edits until a confirmed discard', async
   await page.goto('/resolutions');
   await page.getByRole('button', { name: 'New resolution', exact: true }).click();
   const resolution = page.getByRole('dialog', { name: 'New resolution', exact: true });
-  await resolution.getByLabel('Instruction date', { exact: true }).fill('2026-10-27');
+  await resolution.getByLabel('Title', { exact: true }).fill('2026-10-27');
   await discard(
     page,
     () => resolution.getByRole('button', { name: 'Close', exact: true }).click(),
     false,
   );
-  await expect(resolution.getByLabel('Instruction date', { exact: true })).toHaveValue(
+  await expect(resolution.getByLabel('Title', { exact: true })).toHaveValue(
     '2026-10-27',
   );
   await discard(

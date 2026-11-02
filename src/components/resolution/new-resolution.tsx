@@ -5,6 +5,7 @@ import type { CaseKind, ResolutionCase } from '@/domain/resolution/model';
 import { useWorkspace } from '@/components/workspace';
 import { canLeaveEditing } from '@/components/edit-guard';
 import { GuidedForm } from '@/components/guided-form';
+import { Drawer } from './drawer';
 import { CASE_KINDS, errorText, newRequestId, postJson } from './api';
 
 /** The guided new-resolution form; `companyId` preselects a company (for example from its page). */
@@ -28,8 +29,7 @@ export function NewResolution({
   const [requestId, setRequestId] = useState(newRequestId);
   if (!data) return null;
   return (
-    <section className="new-resolution" aria-labelledby="new-resolution-title">
-      <h2 id="new-resolution-title">New resolution</h2>
+    <Drawer title="New resolution" onClose={onCancel}>
       <GuidedForm
         submitLabel="Create resolution"
         pending={pending}
@@ -162,6 +162,6 @@ export function NewResolution({
           </div>
         ) : null}
       </GuidedForm>
-    </section>
+    </Drawer>
   );
 }

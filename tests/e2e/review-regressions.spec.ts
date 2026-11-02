@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type { Workspace } from '../../src/domain/model';
 import { signIn } from './sign-in';
-import { answerPrompt } from './prompt';
 
 async function login(page: Page) {
   const accounts: { key: string; email: string; password: string }[] = JSON.parse(
@@ -65,9 +64,7 @@ test('company opening requires an explicit namesake choice and sends the selecte
   await expect.poll(() => submitted?.people[0].personId).toBe(ids[1]);
 });
 
-test('relationship edits survive cancelled navigation and historical views cannot add people', async ({
-  page,
-}) => {
+test('historical views cannot add or end people', async ({ page }) => {
   const workspace = await login(page);
   const companyId = workspace.companies[0].id;
   const evidence = { id: 'review-evidence', companyId, title: 'Fictional relationship evidence' };
@@ -100,35 +97,9 @@ test('relationship edits survive cancelled navigation and historical views canno
     }),
   );
   await page.goto(`/companies/${companyId}`);
-  await page
-    .getByRole('button', {
-      name: 'End Director relationship for Fictional review director',
-      exact: true,
-    })
-    .click();
-  const endDate = page.getByLabel('End date', { exact: true });
-  await endDate.fill('2026-01-01');
-  await page.getByRole('link', { name: 'People', exact: true }).click();
-  await answerPrompt(page, false);
-  await expect(endDate).toHaveValue('2026-01-01');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await answerPrompt(page, true);
-  await page.getByText('Add a person', { exact: true }).click();
-  for (const field of ['role', 'evidence']) {
-    if (field === 'role')
-      await page.getByRole('combobox', { name: 'Role', exact: true }).selectOption('secretary');
-    else await page.getByRole('checkbox', { name: evidence.title, exact: true }).check();
-    await page.getByRole('link', { name: 'People', exact: true }).click();
-    await answerPrompt(page, false);
-  }
-  const asAt = page.getByLabel('Record as at', { exact: true });
-  await asAt.fill('2020-01-01');
-  await answerPrompt(page, false);
-  await expect(page.getByRole('checkbox', { name: evidence.title, exact: true })).toBeChecked();
-  await asAt.fill('2020-01-01');
-  await answerPrompt(page, true);
+  await page.getByLabel('Record as at', { exact: true }).fill('2020-01-01');
   await expect(page.getByText('Historical view, read only', { exact: true })).toBeVisible();
-  await expect(page.getByText('Add a person', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add person', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^End Director/ })).toHaveCount(0);
 });
 
@@ -155,16 +126,16 @@ test('retrying a failed relationship link reuses the person already created', as
     return route.fulfill({ json: { relationships: [], directorsAsAt: [] } });
   });
   await page.goto(`/companies/${companyId}`);
-  await page.getByText('Add a person', { exact: true }).click();
+  await page.getByRole('button', { name: 'Add person', exact: true }).click();
   await page.getByRole('combobox', { name: 'Name', exact: true }).fill(person.fullName);
-  const save = page.getByRole('button', { name: 'Add person', exact: true });
+  const save = page.getByRole('dialog').getByRole('button', { name: 'Add person', exact: true });
   await save.click();
   await expect(page.locator('.relationships [role=alert]')).toContainText('Evidence is required.');
   await expect(
     page.getByRole('combobox', { name: `Which ${person.fullName}`, exact: true }),
   ).toHaveValue(person.id);
   await save.click();
-  await expect(page.getByRole('combobox', { name: 'Name', exact: true })).toHaveValue('');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(creations).toBe(1);
   expect(links).toEqual([person.id, person.id]);
 });

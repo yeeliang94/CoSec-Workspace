@@ -7,7 +7,6 @@ import { Empty, formatDate, Icon, PageHeader, useWorkspace } from '@/components/
 import { CASE_KINDS, getJson, kindLabel } from '@/components/resolution/api';
 import { LoadState, useLoad } from '@/components/resolution/use-load';
 import { NewResolution } from '@/components/resolution/new-resolution';
-import { canLeaveEditing } from '@/components/edit-guard';
 
 export default function ResolutionsPage() {
   const { data } = useWorkspace();
@@ -71,16 +70,8 @@ export default function ResolutionsPage() {
             Templates
           </Link>
           {canCreate ? (
-            <button
-              type="button"
-              // While the form is open its Create button is the one filled action.
-              className={creating ? undefined : 'primary'}
-              aria-expanded={creating}
-              onClick={async () => {
-                if (creating && !(await canLeaveEditing())) return;
-                setCreating(!creating);
-              }}
-            >
+            <button type="button" className="primary" onClick={() => setCreating(true)}>
+              <Icon kind="plus" />
               New resolution
             </button>
           ) : null}

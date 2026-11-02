@@ -319,8 +319,7 @@ function Users() {
 }
 const tabParams: Record<string, string> = {
   Personal: 'personal',
-  'Work defaults': 'work-defaults',
-  Catalogues: 'catalogues',
+  Firm: 'firm',
   Users: 'users',
 };
 export default function Settings() {
