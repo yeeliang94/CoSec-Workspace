@@ -31,7 +31,7 @@ The owner account can create companies, then explicitly grant preparers/reviewer
 
 ## Verification
 
-`npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`. Integration tests create and migrate their own throwaway database at `.local/test/cosec-test.db` on every run; they never touch `.local/cosec.db`. Playwright uses the installed Google Chrome (`channel: chrome`) and the generated local account file, with app running at 127.0.0.1:4300. Test output/traces stay ignored and may contain fictional entered values.
+`npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`. Integration tests create and migrate their own throwaway database at `.local/test/cosec-test.db` on every run; they never touch `.local/cosec.db`. Playwright uses its own Chromium (run `npx playwright install chromium` if it is missing) and the generated local account file, with app running at 127.0.0.1:4300. Test output/traces stay ignored and may contain fictional entered values.
 
 ## Runtime and recovery
 
