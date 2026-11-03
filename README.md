@@ -8,6 +8,8 @@ The database is a single SQLite file, `.local/cosec.db`; no database server is n
 
 To run it, double-click `start.bat` on Windows, or run `./start.sh` on macOS or Linux. Node 24 LTS must be installed. The script installs dependencies, creates the private settings and database with fictional data, builds the app when the code has changed, then starts the app and the background worker (it tidies interrupted document generations) and opens the browser. Ctrl+C or closing the window stops both.
 
+To prepare a Veracode static scan on Windows, double-click `package-veracode.bat`. It creates `cosec-veracode.zip` in this folder from the last commit, ready to upload. Pull first; uncommitted edits are not included.
+
 Background maintenance runs quietly every minute; actual errors and interrupted document generations remain visible in the terminal.
 
 The one-step launcher disables Node's unused server-side Web Storage feature to prevent `localStorage` availability warnings. Browser storage is unaffected; other Node warnings remain enabled.

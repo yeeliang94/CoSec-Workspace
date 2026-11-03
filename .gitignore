@@ -16,6 +16,9 @@ __pycache__/
 # Retained download bundle; editable sources are tracked instead
 /CoSec_Design_Exploration.zip
 
+# Generated Veracode upload
+/cosec-veracode.zip
+
 # Application dependencies, local data and generated verification artifacts
 node_modules/
 .next/
